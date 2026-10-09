@@ -26,6 +26,18 @@ class GameActions:
         # the existing orange gear template identifies the selected state.
         return bool(self.auto.click_element("battle/gear_start.png", offset=False))
 
+    def select_defense(self, x: float, y: float) -> bool:
+        if self.capabilities.native_keys:
+            return bool(self.auto.mouse_click(x, y))
+        from module.config import cfg
+        from utils.image_utils import ImageUtils
+
+        # Touch opens the portrait's defense option; select that option before
+        # the original link revisits the portrait. Use the existing click pacing.
+        self.auto.mouse_action_with_pos((x, y), offset=False)
+        choice = ImageUtils.layout_point("battle.defense_choice", (x, y), cfg.set_win_size / 1440)
+        return bool(self.auto.mouse_action_with_pos(choice, offset=False))
+
     def back(self) -> bool:
         if self.capabilities.native_keys:
             self.auto.key_press("esc")

@@ -8,5 +8,6 @@
   "battle.upper_row_offset": 250,
   "battle.row_spacing": 80,
   "battle.row_fan": 20,
-  "battle.chain_end_x": 10
+  "battle.chain_end_x": 10,
+  "battle.defense_choice": [40, -180]
 }

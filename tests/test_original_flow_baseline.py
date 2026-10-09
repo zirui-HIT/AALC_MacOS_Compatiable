@@ -30,6 +30,9 @@ class PlatformCalls(ast.NodeTransformer):
             return node.args[1]  # Only image-anchor coordinates may differ.
         if (isinstance(node.func, ast.Attribute) and isinstance(node.func.value, ast.Call)
                 and isinstance(node.func.value.func, ast.Name) and node.func.value.func.id == "get_game_actions"):
+            if node.func.attr == "select_defense":
+                return ast.Call(func=ast.Attribute(value=ast.Name(id="auto", ctx=ast.Load()),
+                    attr="mouse_click", ctx=ast.Load()), args=node.args, keywords=node.keywords)
             key = {"select_win_rate": "p", "start_turn": "enter", "back": "esc"}.get(node.func.attr)
             if key:
                 return ast.Call(func=ast.Attribute(value=ast.Name(id="auto", ctx=ast.Load()),

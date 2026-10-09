@@ -158,3 +158,65 @@ def test_ios_login_page_requests_manual_login_without_input(monkeypatch):
     with pytest.raises(RuntimeError, match="manual Google / Apple login"):
         recovery.click_title_screen_safely()
     automation.click_element.assert_not_called()
+
+
+def test_native_defense_keeps_original_single_click():
+    automation = Mock()
+    automation.mouse_click.return_value = True
+    assert GameActions(automation, BackendCapabilities(native_keys=True)).select_defense(480, 998)
+    automation.mouse_click.assert_called_once_with(480, 998)
+    automation.mouse_action_with_pos.assert_not_called()
+
+
+@pytest.mark.parametrize('height', [720, 1080, 1440])
+def test_ios_defense_selects_option_after_opening_portrait_with_existing_pacing(monkeypatch, height):
+    from module.config import cfg
+
+    monkeypatch.setattr(cfg, 'config', cfg.config.model_copy(update={
+        'game_profile': 'ios_en', 'set_win_size': height,
+    }))
+    automation = Mock()
+    automation.mouse_action_with_pos.return_value = True
+    x, y = 480 * height / 1080, 998 * height / 1080
+    assert GameActions(automation, BackendCapabilities(touch=True)).select_defense(x, y)
+    calls = automation.mouse_action_with_pos.call_args_list
+    assert calls[0].args == ((x, y),)
+    assert calls[1].args == ([x + 40 * height / 1440, y - 180 * height / 1440],)
+    assert all(call.kwargs == {'offset': False} for call in calls)
+    automation.mouse_click.assert_not_called()
+
+
+def test_original_defense_loop_uses_ios_options_for_every_real_skill_slot(monkeypatch):
+    from importlib import import_module
+
+    from PIL import Image
+
+    from module.automation import auto
+    from module.config import cfg
+    from utils.path_manager import path_manager
+    from utils.runtime_paths import SOURCE_ROOT
+
+    task = import_module('tasks.battle.battle')
+    monkeypatch.setattr(cfg, 'config', cfg.config.model_copy(update={
+        'backend': 'playcover', 'game_profile': 'ios_en', 'set_win_size': 1080,
+    }))
+    path_manager.initialize_paths()
+    auto.clear_img_cache()
+    monkeypatch.setattr(auto, 'screenshot', Image.open(
+        SOURCE_ROOT / 'tests/fixtures/playcover/defense_ready_eight_slots.png').convert('L'))
+    clicks = Mock(return_value=True)
+    link = Mock()
+    monkeypatch.setattr(auto, 'mouse_action_with_pos', clicks)
+    monkeypatch.setattr(auto, 'mouse_drag_link', link)
+    monkeypatch.setattr(auto, 'mouse_to_blank', Mock())
+    monkeypatch.setattr(task, 'sleep', lambda _: None)
+    assert task.Battle._defense_this_round()
+    points = link.call_args.args[0]
+    assert len(points) - 2 == 8
+    assert clicks.call_count == 16
+    for index, (x, y) in enumerate(points[1:-1]):
+        assert clicks.call_args_list[2*index].args == ((x, y),)
+        assert clicks.call_args_list[2*index+1].args == ([x+30, y-135],)
+    # The original portrait-row link and terminal gear are preserved.
+    assert all(point[1] == 998.5 for point in points[1:-1])
+    assert points[-1][1] > 930

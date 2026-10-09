@@ -698,7 +698,7 @@ class Battle:
             Battle._calculate_skills_position(skill_list, gear_left, skill_nums)
 
             for skill in skill_list:
-                auto.mouse_click(skill[0], skill[1])
+                get_game_actions().select_defense(skill[0], skill[1])
                 if cfg.simulator:
                     sleep(cfg.mouse_action_interval)
                 else:
