@@ -28,7 +28,7 @@ def test_original_exp_loop_sets_count_and_selects_highest_unlocked_stage(monkeyp
     monkeypatch.setattr(task, "_prepare_continuous_combat_count", configure)
     task.EXP_luxcavation(count)
     if count > 1:
-        assert configure.call_args.args == (count, "EXP", (1825, 362.5))
+        assert configure.call_args.args == (count, "EXP", (1615, 362.5))
     else:
         configure.assert_not_called()
     automation.mouse_click.assert_called_once_with(1600, 700)

@@ -4,6 +4,7 @@ from module.automation import auto
 from module.config import cfg
 from module.logger import log
 from tasks.common.game_actions import get_game_actions
+from utils.image_utils import ImageUtils
 
 
 def _prepare_continuous_combat_count(
@@ -69,7 +70,7 @@ def EXP_luxcavation(combat_count: int = 1):
                 log.debug(f"经验本检测到 {len(level)} 个关卡入口: {level}")
                 for lv_idx, lv in enumerate(level):
                     if combat_count > 1:
-                        box_position = (lv[0] + 300 * scale, lv[1] - 450 * scale)
+                        box_position = (lv[0] + ImageUtils.layout("luxcavation.exp_count_x", 300) * scale, lv[1] - 450 * scale)
                         if not _prepare_continuous_combat_count(combat_count, "EXP", box_position):
                             log.debug(f"经验本第 {lv_idx + 1} 关连续战斗设置失败，降级尝试下一关")
                             continue
@@ -165,7 +166,7 @@ def thread_luxcavation(combat_count: int = 1):
                     log.debug("纽本连续战斗设置失败，重新检测")
                     continue
                 continuous_combat_set = True
-            auto.mouse_click(thread_enter[0], thread_enter[1] + 80 * scale)
+            auto.mouse_click(thread_enter[0], thread_enter[1] + ImageUtils.layout("luxcavation.thread_enter_y", 80) * scale)
             sleep(0.5)
             if pos := auto.find_element("luxcavation/thread_consume.png", take_screenshot=True):
                 if scroll_bar := auto.find_element("luxcavation/thread_scroll_bar.png"):

@@ -32,7 +32,9 @@ class PlayCoverInput(AbstractInput):
         self._gesture_lock = threading.RLock()
         self._local = threading.local()
         self.active_contacts: dict[int, tuple[int, int]] = {}
-        self.safe_blank_point: tuple[float, float] | None = None
+        # The original input interface uses the empty top-left pixel. The iOS
+        # content frame has the same empty corner; map it like every other tap.
+        self.safe_blank_point: tuple[float, float] = (1, 1)
 
     @contextmanager
     def geometry_context(self, geometry: Geometry) -> Iterator[None]:
@@ -101,8 +103,6 @@ class PlayCoverInput(AbstractInput):
 
     def mouse_click_blank(self, coordinate=(1, 1), times=1, move_back=False) -> bool:
         if coordinate == (1, 1):
-            if self.safe_blank_point is None:
-                raise NotImplementedError("This iOS page has no calibrated safe blank-click position")
             coordinate = self.safe_blank_point
         return self.mouse_click(*coordinate, times=times)
 

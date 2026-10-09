@@ -53,6 +53,14 @@ def test_ios_start_turn_leaves_retry_to_original_battle_loop():
     assert automation.take_screenshot.call_count == 1
 
 
+def test_ios_back_without_a_button_returns_control_to_original_retry_loop():
+    automation = Mock()
+    automation.find_element.return_value = False
+    automation.click_element.return_value = False
+    assert not GameActions(automation, BackendCapabilities(touch=True)).back()
+    automation.mouse_click.assert_not_called()
+
+
 def test_map_zoom_requires_verified_capability_and_page():
     automation = Mock()
     automation.find_element.return_value = False

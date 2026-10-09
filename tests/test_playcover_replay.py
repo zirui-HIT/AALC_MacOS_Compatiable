@@ -30,6 +30,10 @@ def test_real_ios_experience_menu_recognizes_three_enters_without_input(monkeypa
     ("formation", ["teams/identify_assets.png", "battle/chaim_to_battle_assets.png"]),
     ("formation_selected", ["teams/clear_selection.png", "battle/chaim_to_battle_assets.png"]),
     ("battle_selected", ["battle/gear_start.png", "battle/win_rate_card.png"]),
+    ("reaccept_win_rate_selected", ["battle/start_label.png", "battle/gear_start.png", "battle/win_rate_card.png"]),
+    ("luxcavation", ["home/back_assets.png"]),
+    ("reaccept_thread_ready", ["battle/turn_assets.png", "battle/start_label.png"]),
+    ("reaccept_defeat", ["battle/battle_finish_confirm_assets.png", "base/only_option_assets.png"]),
     ("victory", ["battle/victory.png", "battle/battle_finish_confirm_assets.png"]),
     ("reset_deployment", ["teams/reset_deployment.png", "teams/clear_selection_confirm_assets.png"]),
     ("mirror_map", ["mirror/road_in_mir/legend_assets.png", "mirror/mybus_default_distance.png"]),
@@ -78,3 +82,16 @@ def test_feature_matching_blank_roi_is_a_normal_miss():
 
     blank = np.zeros((100, 100), dtype=np.uint8)
     assert ImageUtils.feature_matching(blank, blank) == (False, 0)
+
+
+@pytest.mark.parametrize("page", ["mirror_reward_confirm", "mirror_grace_enter", "energy_max_disabled"])
+def test_single_option_battle_exit_does_not_match_resource_confirmation(monkeypatch, page):
+    from module.automation import auto
+    from module.config import cfg
+    from utils.path_manager import path_manager
+
+    monkeypatch.setattr(cfg, "config", cfg.config.model_copy(update={"game_profile": "ios_en", "set_win_size": 1080}))
+    path_manager.initialize_paths()
+    auto.clear_img_cache()
+    monkeypatch.setattr(auto, "screenshot", Image.open(SOURCE_ROOT / f"tests/fixtures/playcover/{page}.png").convert("L"))
+    assert not auto.find_element("base/only_option_assets.png", model="clam")

@@ -408,6 +408,15 @@ class Automation(metaclass=SingletonMeta):
             Image: 截取当前屏幕的图像对象
         """
         if cfg.backend == "playcover":
+            from module.backends.factory import get_playcover_session
+
+            # Preserve the original capture cadence after touch input. MaaTools
+            # has no acknowledgement that the UI has handled a touch yet.
+            interval = cfg.screenshot_interval or 0.85
+            wait_time = max(interval - (time.time() - self.last_screenshot_time), 0)
+            session = get_playcover_session()
+            if session.cancel.wait(wait_time):
+                session.input.check_cancel()
             with self._screenshot_lock:
                 result = self._capture(gray)
                 self._remember_screenshot(result, self._business_frame)

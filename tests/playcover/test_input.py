@@ -83,9 +83,16 @@ def test_pause_during_gesture_takes_effect_after_release():
 
 def test_unsupported_inputs_fail_explicitly():
     handler, _ = make_input()
-    for action in (lambda: handler.key_press("enter"), lambda: handler.input_text("abc"), handler.mouse_scroll, handler.mouse_click_blank):
+    for action in (lambda: handler.key_press("enter"), lambda: handler.input_text("abc"), handler.mouse_scroll):
         with pytest.raises(NotImplementedError):
             action()
+
+
+def test_blank_click_uses_original_empty_corner_and_maps_explicit_positions():
+    handler, recorder = make_input()
+    handler.mouse_click_blank()
+    handler.mouse_click_blank(coordinate=(10, 20))
+    assert recorder.events == [(0, 2, 2, 0), (3, 2, 2, 0), (0, 20, 40, 0), (3, 20, 40, 0)]
 
 
 def test_pinch_uses_two_stable_contacts_and_releases_both():

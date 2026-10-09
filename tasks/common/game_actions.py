@@ -36,7 +36,7 @@ class GameActions:
         target = next((path for path in ("home/back_assets.png", "home/back_ios.png", "mirror/entry/grace_back_assets.png")
                        if self.auto.find_element(path)), "home/back_ios.png")
         if not self.auto.click_element(target, offset=False):
-            raise RuntimeError("Cannot recognize an iOS Back button on this page")
+            return False  # Like Esc, an unavailable Back leaves this page unchanged.
         self.auto.take_screenshot()
         return True
 

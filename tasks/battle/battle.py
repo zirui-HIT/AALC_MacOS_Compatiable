@@ -634,7 +634,7 @@ class Battle:
                 prioritize_skill_3,
             )
 
-            skill_list = [gear_left]
+            skill_list = [ImageUtils.layout_point("battle.chain_start", gear_left, scale)]
 
             def custom_tune(
                 pos: list,
@@ -648,22 +648,23 @@ class Battle:
                 center = skill_nums // 2
 
                 if index <= center:
-                    pos[0] += (center - index) * 8 * scale * reverse
+                    pos[0] += (center - index) * ImageUtils.layout("battle.row_fan", 8) * scale * reverse
                 else:
-                    pos[0] -= (index - center) * 8 * scale * reverse
+                    pos[0] -= (index - center) * ImageUtils.layout("battle.row_fan", 8) * scale * reverse
                 return pos
 
             Battle._calculate_skills_position(
                 skill_list,
-                (gear_left[0], gear_left[1] - 125 * scale),
+                (gear_left[0], gear_left[1] - ImageUtils.layout("battle.upper_row_offset", 125) * scale),
                 skill_nums,
                 custom_tune=custom_tune,
             )
             for index in sorted(lower_row_indexes):
-                skill_list[index][1] += 125 * scale
+                skill_list[index][1] += ImageUtils.layout("battle.row_spacing", 125) * scale
                 skill_list[index] = custom_tune(skill_list[index], index, skill_nums, scale, reverse=-1)
 
-            skill_list.append([gear_right[0] + 5 * skill_nums * scale, gear_right[1] + 150 * scale])
+            skill_list.append([gear_right[0] + ImageUtils.layout("battle.chain_end_x", 5 * skill_nums) * scale,
+                               gear_right[1] + ImageUtils.layout("battle.chain_end_y", 150) * scale])
 
             auto.mouse_drag_link(skill_list)
 
@@ -703,8 +704,9 @@ class Battle:
                 else:
                     sleep(cfg.mouse_action_interval // 1.5)
 
-            skill_list.insert(0, gear_left)
-            skill_list.append([gear_right[0] + 5 * skill_nums * scale, gear_right[1] + 150 * scale])
+            skill_list.insert(0, ImageUtils.layout_point("battle.chain_start", gear_left, scale))
+            skill_list.append([gear_right[0] + ImageUtils.layout("battle.chain_end_x", 5 * skill_nums) * scale,
+                               gear_right[1] + ImageUtils.layout("battle.chain_end_y", 150) * scale])
 
             auto.mouse_drag_link(skill_list)
 

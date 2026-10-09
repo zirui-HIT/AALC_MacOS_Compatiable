@@ -1,0 +1,22 @@
+{
+  "game_version": "1.116.2",
+  "language": "en",
+  "bundle_id": "com.ProjectMoon.LimbusCompany",
+  "protocol_version": 4,
+  "raw_size": [
+    3942,
+    2216
+  ],
+  "touch_size": [
+    5120,
+    2880
+  ],
+  "logical_size": [
+    1920,
+    1080
+  ],
+  "page": "reaccept_thread_ready",
+  "captured_at": "2026-10-10",
+  "redactions": [],
+  "source": "Actual MaaTools BGR; uniformly normalized; no synthesized game pixels"
+}

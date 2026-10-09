@@ -41,7 +41,7 @@ def get_pass_prize():
         update_model_for_retry(loop_count, normal_at=10, aggressive_at=5)
         if loop_count < 0:
             if last_try is False:
-                from config import cfg
+                from module.config import cfg
                 scale = cfg.set_win_size / 1440
                 mail_pos = auto.find_element("home/mail_assets.png")
                 auto.mouse_click(mail_pos[0], mail_pos[1]+200*scale)

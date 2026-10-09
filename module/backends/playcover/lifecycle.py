@@ -43,7 +43,17 @@ class PlayCoverLifecycle:
 
     def start(self) -> None:
         if self.identity is None:
-            raise ValueError("Choose the installed game .app for automatic startup")
+            if not self.bundle_id:
+                raise ValueError("Choose the installed game .app for automatic startup")
+            from AppKit import NSWorkspace
+
+            url = NSWorkspace.sharedWorkspace().URLForApplicationWithBundleIdentifier_(self.bundle_id)
+            if url is None:
+                raise ValueError("Cannot resolve the configured game Bundle ID; choose its installed .app")
+            identity = read_app_identity(str(url.path()))
+            if identity.bundle_id != self.bundle_id:
+                raise ValueError("Resolved game .app does not match the configured Bundle ID")
+            self.identity = identity
         subprocess.run(["/usr/bin/open", "-a", str(self.identity.path)], check=True, capture_output=True)
 
     def process(self):

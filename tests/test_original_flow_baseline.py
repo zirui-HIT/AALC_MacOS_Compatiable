@@ -17,6 +17,9 @@ class PlatformCalls(ast.NodeTransformer):
 
     def visit_Call(self, node):
         node = self.generic_visit(node)
+        if (isinstance(node.func, ast.Attribute) and isinstance(node.func.value, ast.Name)
+                and node.func.value.id == "ImageUtils" and node.func.attr in {"layout", "layout_point"}):
+            return node.args[1]  # Only image-anchor coordinates may differ.
         if (isinstance(node.func, ast.Attribute) and isinstance(node.func.value, ast.Call)
                 and isinstance(node.func.value.func, ast.Name) and node.func.value.func.id == "get_game_actions"):
             key = {"select_win_rate": "p", "start_turn": "enter", "back": "esc"}.get(node.func.attr)

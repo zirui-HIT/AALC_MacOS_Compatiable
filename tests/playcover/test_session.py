@@ -79,3 +79,15 @@ def test_complete_empty_transition_frame_waits_without_replaying_input():
         assert sum(b"BGR" in p for p in server.requests) == 2
         assert not any(b"TUCH" in p for p in server.requests)
         session.disconnect()
+
+
+def test_unavailable_service_launches_registered_app_once_then_waits():
+    session = PlayCoverSession(settings(1717))
+    session.cancel.wait = Mock()
+    with patch.object(session, "connect", side_effect=[ConnectionRefusedError(), None]) as connect, \
+            patch.object(session, "capture") as capture, patch.object(session.lifecycle, "start") as start:
+        session.start_game()
+    assert connect.call_count == 2
+    capture.assert_called_once()
+    start.assert_called_once()
+    session.cancel.wait.assert_called_once_with(0.5)

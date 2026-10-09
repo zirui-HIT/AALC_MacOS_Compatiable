@@ -82,6 +82,7 @@ class PlayCoverSession:
 
     def start_game(self) -> None:
         self.input.check_cancel()
+        launch_attempted = self.lifecycle.identity is not None
         if self.lifecycle.identity is not None and self.lifecycle.process() is None:
             self.lifecycle.start()
         deadline = time.monotonic() + 30
@@ -97,6 +98,9 @@ class PlayCoverSession:
             except (OSError, CaptureUnavailable) as exc:
                 last_error = exc
                 self.disconnect()
+                if not launch_attempted:
+                    self.lifecycle.start()
+                    launch_attempted = True
                 self.cancel.wait(0.5)
         raise ConnectionError(f"Game MaaTools service/capture not ready after 30s: {last_error}")
 

@@ -1,5 +1,7 @@
+import json
 import os
 from pathlib import Path
+from typing import TypeVar
 
 import cv2
 import numpy as np
@@ -11,8 +13,23 @@ from module.logger import log
 from utils.path_manager import path_manager
 from utils.runtime_paths import data_path, resource_path
 
+LayoutValue = TypeVar("LayoutValue", int, float, tuple, list)
+
 
 class ImageUtils:
+    @staticmethod
+    def layout(name: str, original: LayoutValue) -> LayoutValue:
+        """Read iOS image-anchor geometry; other profiles keep original values."""
+        if cfg.game_profile != "ios_en":
+            return original
+        coordinates = json.loads(resource_path("assets/ios_en/layout.json").read_text())
+        return coordinates.get(name, original)
+
+    @staticmethod
+    def layout_point(name: str, original: tuple | list, scale: float) -> list[float]:
+        dx, dy = ImageUtils.layout(name, (0, 0))
+        return [original[0] + dx * scale, original[1] + dy * scale]
+
     @staticmethod
     def resolve_path(profile, image_path):
         if ".." in Path(image_path).parts or Path(image_path).is_absolute():

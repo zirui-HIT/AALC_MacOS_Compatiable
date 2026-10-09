@@ -1,4 +1,6 @@
 import plistlib
+import sys
+from types import SimpleNamespace
 from unittest.mock import Mock, patch
 
 import pytest
@@ -43,3 +45,28 @@ def test_invalid_plist_executable_cannot_escape_app(tmp_path):
     (app / "Info.plist").write_bytes(plistlib.dumps({"CFBundleIdentifier": "company.test", "CFBundleExecutable": "../elsewhere"}))
     with pytest.raises(ValueError):
         read_app_identity(app)
+
+
+def test_registered_bundle_can_launch_without_saved_app_path(tmp_path, monkeypatch):
+    app = make_app(tmp_path)
+    workspace = Mock()
+    workspace.URLForApplicationWithBundleIdentifier_.return_value.path.return_value = str(app)
+    monkeypatch.setitem(sys.modules, "AppKit", SimpleNamespace(NSWorkspace=Mock(sharedWorkspace=Mock(return_value=workspace))))
+    lifecycle = PlayCoverLifecycle(bundle_id="company.test")
+    with patch("subprocess.run") as run:
+        lifecycle.start()
+    workspace.URLForApplicationWithBundleIdentifier_.assert_called_once_with("company.test")
+    assert lifecycle.identity == read_app_identity(app)
+    run.assert_called_once_with(["/usr/bin/open", "-a", str(app)], check=True, capture_output=True)
+
+
+@pytest.mark.parametrize("registered", [False, True])
+def test_unresolved_or_wrong_registered_identity_never_launches(tmp_path, monkeypatch, registered):
+    app = make_app(tmp_path)
+    workspace = Mock()
+    workspace.URLForApplicationWithBundleIdentifier_.return_value = Mock(path=Mock(return_value=str(app))) if registered else None
+    monkeypatch.setitem(sys.modules, "AppKit", SimpleNamespace(NSWorkspace=Mock(sharedWorkspace=Mock(return_value=workspace))))
+    lifecycle = PlayCoverLifecycle(bundle_id="other.game")
+    with patch("subprocess.run") as run, pytest.raises(ValueError):
+        lifecycle.start()
+    run.assert_not_called()
