@@ -9,6 +9,7 @@ from PySide6.QtCore import QT_TRANSLATE_NOOP, QMutex, QThread
 from app import mediator
 from app.windows_toast import TemplateToast, send_toast
 from module.automation import auto
+from module.backends.base import BackendCancelled
 from module.config import TeamSetting, cfg
 from module.decorator.decorator import begin_and_finish_time_log
 from module.game_and_screen import screen
@@ -479,6 +480,8 @@ class my_script_task(QThread):
 
         try:
             self._run()
+        except BackendCancelled as e:
+            self.exception = userStopError(str(e))
         except (
             ConnectionError,
             userStopError,

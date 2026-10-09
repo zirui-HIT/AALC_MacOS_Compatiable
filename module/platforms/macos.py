@@ -1,6 +1,7 @@
 """Small macOS host services. No writes to global preferences or PlayCover."""
 
 import atexit
+import os
 import subprocess
 import threading
 
@@ -14,7 +15,7 @@ def keep_awake(enable: bool) -> None:
     with _lock:
         if enable:
             if _depth == 0:
-                _awake = subprocess.Popen(["/usr/bin/caffeinate", "-di"])
+                _awake = subprocess.Popen(["/usr/bin/caffeinate", "-di", "-w", str(os.getpid())])
             _depth += 1
         else:
             _depth = max(0, _depth - 1)

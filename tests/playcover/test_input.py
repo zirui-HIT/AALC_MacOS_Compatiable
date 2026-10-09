@@ -3,9 +3,9 @@ from dataclasses import replace
 
 import pytest
 
+from module.backends.base import BackendCancelled
 from module.backends.playcover.geometry import Geometry
 from module.backends.playcover.input import GestureTiming, PlayCoverInput
-from module.my_error.my_error import userStopError
 
 
 class TouchRecorder:
@@ -48,7 +48,7 @@ def test_linked_path_has_one_down_and_one_up_and_fixed_geometry():
 def test_cancel_mid_drag_releases_contact():
     handler, recorder = make_input()
     recorder.on_touch = lambda phase: handler.cancel.set() if phase == 1 else None
-    with pytest.raises(userStopError):
+    with pytest.raises(BackendCancelled):
         handler.mouse_drag(10, 10, dx=100, drag_time=0.2)
     assert [event[0] for event in recorder.events] == [0, 1, 3]
     assert not handler.active_contacts
@@ -107,7 +107,7 @@ def test_pinch_uses_two_stable_contacts_and_releases_both():
 def test_cancelled_pinch_releases_both_contacts():
     handler, recorder = make_input()
     recorder.on_touch = lambda phase: handler.cancel.set() if phase == 1 else None
-    with pytest.raises(userStopError):
+    with pytest.raises(BackendCancelled):
         handler.pinch((960, 540), 400, 200, duration=0.2)
     assert {(e[0], e[3]) for e in recorder.events[-2:]} == {(3, 0), (3, 1)}
     assert not handler.active_contacts

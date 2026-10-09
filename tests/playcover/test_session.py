@@ -2,9 +2,9 @@ from unittest.mock import Mock, patch
 
 import pytest
 
+from module.backends.base import BackendCancelled
 from module.backends.playcover.session import PlayCoverSession
 from module.backends.playcover.transport import ProtocolError
-from module.my_error.my_error import userStopError
 from tests.playcover.fake_server import FakeServer
 
 
@@ -39,7 +39,7 @@ def test_cancelled_start_never_relaunches_or_connects():
     session = PlayCoverSession(settings(1717))
     session.cancel.set()
     with patch.object(session.lifecycle, "start") as start, patch.object(session, "connect") as connect:
-        with pytest.raises(userStopError):
+        with pytest.raises(BackendCancelled):
             session.start_game()
     start.assert_not_called()
     connect.assert_not_called()

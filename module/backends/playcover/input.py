@@ -9,8 +9,8 @@ from contextlib import contextmanager
 from dataclasses import dataclass
 
 from module.automation.input_handlers import AbstractInput
+from module.backends.base import BackendCancelled
 from module.logger import log
-from module.my_error.my_error import userStopError
 
 from .geometry import Geometry
 from .transport import PlayCoverTransport
@@ -50,7 +50,7 @@ class PlayCoverInput(AbstractInput):
 
     def check_cancel(self) -> None:
         if self.cancel.is_set():
-            raise userStopError("PlayCover task stopped")
+            raise BackendCancelled("PlayCover task stopped")
 
     def wait_pause(self) -> None:
         while self.is_pause:

@@ -5,6 +5,7 @@ import cv2
 import numpy as np
 
 from module.automation import auto
+from module.backends.base import BackendCancelled
 from module.config import cfg
 from module.logger import log
 from utils.image_utils import ImageUtils
@@ -144,6 +145,8 @@ class RetryMonitor:
         while not self._stop_event.wait(self.poll_interval):
             try:
                 self.check_once()
+            except BackendCancelled:
+                return
             except Exception:
                 log.exception("通用服务器重试监控线程处理异常")
 

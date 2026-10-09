@@ -12,6 +12,10 @@ if TYPE_CHECKING:
     from module.backends.playcover.geometry import Geometry
 
 
+class BackendCancelled(BaseException):
+    """Leave original task failure/retry handlers; translate at the worker boundary."""
+
+
 @dataclass(frozen=True)
 class BackendCapabilities:
     touch: bool = False
