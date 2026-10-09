@@ -28,6 +28,7 @@ Logger()
 from PySide6.QtCore import QObject, Qt, QTimer, Signal
 from PySide6.QtWidgets import QApplication
 
+from app.common.display import readable_ui_scale  # noqa: E402 - initialize portable paths before app imports
 from app.language_manager import LanguageManager
 from app.my_app import MainWindow
 from module.config import cfg
@@ -82,8 +83,11 @@ if __name__ == "__main__":
         sys.exit(0)
 
     # 2. 如果发送失败，说明是第一个实例，开始初始化
-    if cfg.zoom_scale != 0:
-        os.environ["QT_SCALE_FACTOR"] = str(cfg.zoom_scale / 100)
+    ui_scale = readable_ui_scale(cfg.zoom_scale)
+    if ui_scale != cfg.zoom_scale:
+        cfg.set_value("zoom_scale", ui_scale)
+    if ui_scale != 0:
+        os.environ["QT_SCALE_FACTOR"] = str(ui_scale / 100)
 
     lang_manager = LanguageManager()
     lang = lang_manager.init_language()

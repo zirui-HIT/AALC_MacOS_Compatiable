@@ -2,7 +2,7 @@ import sys
 from typing import Callable
 
 from PySide6.QtCore import QT_TRANSLATE_NOOP, Qt
-from PySide6.QtGui import QTextCursor
+from PySide6.QtGui import QTextBlockFormat, QTextCursor
 from PySide6.QtWidgets import QApplication, QDialog, QTextEdit
 from qfluentwidgets import (
     BodyLabel,
@@ -519,11 +519,25 @@ class FarmingInterfaceLeft(QWidget):
         self.pause_resume_button.clicked.connect(self.pause_or_resume_tasks)
         self.pause_resume_button.button.setMinimumSize(90, 70)
         self.pause_resume_button.setVisible(False)
-        scale_factor = QApplication.primaryScreen().logicalDotsPerInch() / 96  # Windows 标准 DPI 是 96
-        font_size = min(14, int(14 / scale_factor))
+        if sys.platform == "darwin":
+            self.setting_options.setSpacing(8)
+            for row in (self.daily_task, self.get_reward, self.buy_enkephalin, self.mirror, self.resonate_with_Ahab):
+                row.hBoxLayout.setContentsMargins(8, 4, 8, 4)
+            self.select_all.setFixedHeight(48)
+            self.clear_all.setFixedHeight(48)
+            self.link_start_button.setFixedHeight(80)
+            self.pause_resume_button.setFixedHeight(80)
+            self.after_completion_selector.setMaximumHeight(96)
+            font_size = 16
+        else:
+            scale_factor = QApplication.primaryScreen().logicalDotsPerInch() / 96  # Windows 标准 DPI 是 96
+            font_size = min(14, int(14 / scale_factor))
         # 创建字体对象并设置大小
         font = self.link_start_button.button.font()  # 获取当前字体
-        font.setPointSize(font_size)  # 设置字体大小（单位：点）
+        if sys.platform == "darwin":
+            font.setPixelSize(font_size)
+        else:
+            font.setPointSize(font_size)  # 设置字体大小（单位：点）
         self.link_start_button.button.setFont(font)  # 应用新字体
         self.pause_resume_button.button.setFont(font)
 
@@ -545,6 +559,8 @@ class FarmingInterfaceLeft(QWidget):
         self.hbox_layout.addWidget(self.setting_box)
         self.hbox_layout.addWidget(self.then)
         self.hbox_layout.addWidget(self.after_completion_selector)
+        if sys.platform == "darwin":
+            self.hbox_layout.addStretch(1)
         self.action_button_layout = QHBoxLayout()
         self.action_button_layout.addWidget(self.link_start_button)
         self.action_button_layout.addWidget(self.pause_resume_button)
@@ -924,6 +940,13 @@ class FarmingInterfaceRight(QWidget):
         self.scroll_log_edit = TextEdit()
         self.scroll_log_edit.setAutoFormatting(QTextEdit.AutoFormattingFlag.AutoAll)
         self.scroll_log_edit.setReadOnly(True)
+        if sys.platform == "darwin":
+            cursor = self.scroll_log_edit.textCursor()
+            block_format = cursor.blockFormat()
+            block_format.setLineHeight(135, QTextBlockFormat.LineHeightTypes.ProportionalHeight.value)
+            block_format.setBottomMargin(4)
+            cursor.setBlockFormat(block_format)
+            self.scroll_log_edit.setTextCursor(cursor)
 
     def _apply_theme_style(self):
         light, dark = get_log_text_edit_qss()

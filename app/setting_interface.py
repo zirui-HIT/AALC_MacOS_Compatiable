@@ -334,22 +334,25 @@ class SettingInterface(QWidget):
             },
             parent=self.personal_group,
         )
+        zoom_options = {
+            QT_TRANSLATE_NOOP("ComboBoxSettingCard", "跟随系统"): 0,
+            "50%": 50,
+            "75%": 75,
+            "90%": 90,
+            "100%": 100,
+            "125%": 125,
+            "150%": 150,
+            "175%": 175,
+            "200%": 200,
+        }
+        if sys.platform == "darwin":
+            zoom_options = {text: value for text, value in zoom_options.items() if value >= 100}
         self.zoom_card = ComboBoxSettingCard(
             "zoom_scale",
             FIF.ZOOM,
             QT_TRANSLATE_NOOP("ComboBoxSettingCard", "缩放"),
             QT_TRANSLATE_NOOP("ComboBoxSettingCard", "设置程序 UI 使用的缩放"),
-            texts={
-                QT_TRANSLATE_NOOP("ComboBoxSettingCard", "跟随系统"): 0,
-                "50%": 50,
-                "75%": 75,
-                "90%": 90,
-                "100%": 100,
-                "125%": 125,
-                "150%": 150,
-                "175%": 175,
-                "200%": 200,
-            },
+            texts=zoom_options,
             parent=self.personal_group,
         )
         self.hotkey_card = HotkeySettingCard(

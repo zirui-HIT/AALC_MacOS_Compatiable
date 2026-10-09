@@ -2,8 +2,8 @@
 import sys
 
 from PySide6.QtCore import QT_TRANSLATE_NOOP, Qt
-from PySide6.QtGui import QColor
-from PySide6.QtWidgets import QFrame
+from PySide6.QtGui import QColor, QFont
+from PySide6.QtWidgets import QApplication, QFrame
 from qfluentwidgets import isDarkTheme, qconfig
 
 BORDER_STYLE = {
@@ -40,6 +40,11 @@ TITLE_BAR_STYLES = {
 def apply_font_config():
     """应用全局字体配置"""
     qconfig.fontFamilies.value = FONT_FAMILIES
+    if sys.platform == "darwin":
+        font = QFont()
+        font.setFamilies(FONT_FAMILIES)
+        font.setPixelSize(16)
+        QApplication.instance().setFont(font)
 
 
 def get_main_window_style(is_dark: bool) -> dict:
@@ -110,7 +115,12 @@ LOG_TEXT_EDIT_STYLES = {
 
 def get_log_text_edit_qss() -> tuple[str, str]:
     """Return (light_qss, dark_qss) for the log TextEdit."""
-    return LOG_TEXT_EDIT_STYLES["light"], LOG_TEXT_EDIT_STYLES["dark"]
+    light, dark = LOG_TEXT_EDIT_STYLES["light"], LOG_TEXT_EDIT_STYLES["dark"]
+    if sys.platform == "darwin":
+        typography = "TextEdit { font-size: 16px; }"
+        light = light.replace("rgba(0, 0, 0, 0.75)", "rgba(0, 0, 0, 0.85)") + typography
+        dark = dark.replace("rgba(255, 255, 255, 0.75)", "rgba(255, 255, 255, 0.9)") + typography
+    return light, dark
 
 
 THEME_AWARE_TEXT_BROWSER_STYLES = {
@@ -188,6 +198,9 @@ PIVOT_ITEM_STYLES = {
 def get_pivot_item_qss(theme_color: str) -> tuple[str, str]:
     light_qss = PIVOT_ITEM_STYLES["light"].format(theme_color=theme_color)
     dark_qss = PIVOT_ITEM_STYLES["dark"].format(theme_color=theme_color)
+    if sys.platform == "darwin":
+        light_qss = light_qss.replace("font-size: 14px", "font-size: 16px")
+        dark_qss = dark_qss.replace("font-size: 14px", "font-size: 16px")
     return light_qss, dark_qss
 
 

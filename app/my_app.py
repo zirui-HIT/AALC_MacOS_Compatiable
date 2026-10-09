@@ -108,11 +108,12 @@ class MainWindow(ApplicationWindow):
         qconfig.themeChanged.connect(self._apply_theme_styles)
         self._apply_theme_styles()
 
-        # 禁用最大化
-        self.titleBar.maxBtn.setHidden(True)
-        self.titleBar.maxBtn.setDisabled(True)
-        self.titleBar.setDoubleClickEnabled(False)
-        self.setResizeEnabled(False)
+        # Mac 窗口可以按阅读习惯调整大小；Qt 自行处理 Retina 密度。
+        resizable = sys.platform == "darwin"
+        self.titleBar.maxBtn.setHidden(not resizable)
+        self.titleBar.maxBtn.setDisabled(not resizable)
+        self.titleBar.setDoubleClickEnabled(resizable)
+        self.setResizeEnabled(resizable)
 
         # 进度环（用于显示下载/更新进度）
         self.progress_ring = ProgressRing(self)
@@ -124,7 +125,10 @@ class MainWindow(ApplicationWindow):
         self.resource_sync_status_label.hide()
         self.titleBar.hBoxLayout.insertWidget(3, self.resource_sync_status_label, 0, Qt.AlignLeft)
 
-        self.resize(1080, 600)
+        if sys.platform == "darwin":
+            self.resize(1120, 760)
+        else:
+            self.resize(1080, 600)
         # 恢复窗口位置
         saved_x = cfg.get_value("window_position_x", None)
         saved_y = cfg.get_value("window_position_y", None)
@@ -203,6 +207,13 @@ class MainWindow(ApplicationWindow):
 
         self.connect_mediator()
 
+        if sys.platform == "darwin":
+            available = self.screen().availableGeometry()
+            self.resize(min(self.width(), available.width()), min(self.height(), available.height()))
+            self.move(
+                max(available.left(), min(self.x(), available.right() - self.width() + 1)),
+                max(available.top(), min(self.y(), available.bottom() - self.height() + 1)),
+            )
         self.show()
 
         # 初始化进度环
@@ -214,7 +225,7 @@ class MainWindow(ApplicationWindow):
         # 判断是否需要降低缩放以适配小屏幕
         screen_rect = self.screen().availableGeometry()  # 获取到的rect会经过缩放因子的缩放
         self_rect = self.geometry()
-        if screen_rect.width() < self_rect.width() or screen_rect.height() < self_rect.height():
+        if sys.platform == "win32" and (screen_rect.width() < self_rect.width() or screen_rect.height() < self_rect.height()):
             log.info("屏幕分辨率较小，自动降低缩放以适配界面，将在重启后生效")
             screen_width = screen_rect.width() * cfg.zoom_scale / 100
             screen_height = screen_rect.height() * cfg.zoom_scale / 100
@@ -477,8 +488,9 @@ class MainWindow(ApplicationWindow):
         titleBar_style = get_title_bar_style(is_dark)
 
         self.setStyleSheet(f"MainWindow {{ background-color: {mainWindow_style['bg_color']}; }}")
+        title_size = 14 if sys.platform == "darwin" else 13
         self.titleBar.titleLabel.setStyleSheet(
-            f"QLabel {{ background: transparent; font-size: 13px; padding: 0 4px; color: {titleBar_style['text_color']}; }}"
+            f"QLabel {{ background: transparent; font-size: {title_size}px; padding: 0 4px; color: {titleBar_style['text_color']}; }}"
         )
         for btn in [self.titleBar.minBtn, self.titleBar.maxBtn, self.titleBar.closeBtn]:
             btn.setNormalColor(titleBar_style["btn_color"])
