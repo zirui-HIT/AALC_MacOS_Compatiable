@@ -18,15 +18,41 @@ class RefillState:
     cost: int
 
 
-def read_refill_state(automation) -> RefillState:
+@dataclass(frozen=True)
+class ModuleState:
+    owned: int
+    energy: int
+    amount: int
+
+
+def read_module_state(automation) -> ModuleState | None:
+    # Exclude the quantity field's border; its wide empty margins make a lone 1 unreadable.
+    amount = (ocr.run_line(automation.screenshot.crop((995, 470, 1065, 525))) or "").strip()
+    owned = ocr.run_line(automation.screenshot.crop((1090, 402, 1255, 448))) or ""
+    energy = ocr.run_line(automation.screenshot.crop((870, 610, 1005, 678))) or ""
+    match = re.fullmatch(r"\s*(\d+)\s*/\s*(\d+)\s*", energy)
+    inventory = re.search(r"(\d+)\s*$", owned)
+    if not amount.isdecimal() or inventory is None or match is None:
+        return None
+    return ModuleState(int(inventory[1]), int(match[1]), int(amount))
+
+
+def _read_refill_state(automation) -> RefillState | None:
     count = ocr.run_line(automation.screenshot.crop((1030, 450, 1220, 520))) or ""
     cost = ocr.run_line(automation.screenshot.crop((875, 405, 970, 478))) or ""
     match = re.fullmatch(r"\s*(\d+)\s*/\s*(\d+)\s*", count)
     if match is None or not cost.strip().isdigit():
-        raise RuntimeError("Cannot read iOS Lunacy daily count and price")
+        return None
     state = RefillState(int(match[1]), int(match[2]), int(cost.strip()))
     if not 0 <= state.used <= state.limit <= 10 or state.cost <= 0:
-        raise RuntimeError(f"Invalid iOS Lunacy refill state: {state}")
+        return None
+    return state
+
+
+def read_refill_state(automation) -> RefillState:
+    state = _read_refill_state(automation)
+    if state is None:
+        raise RuntimeError("Cannot read iOS Lunacy daily count and price")
     return state
 
 
@@ -40,9 +66,17 @@ def open_panel(automation) -> None:
 
 
 def select_tab(automation, name: str) -> None:
+    if name not in {"Modules", "Use Lunacy"}:
+        raise ValueError(f"Unsupported Enkephalin tab: {name}")
+    def tab_ready() -> bool:
+        point = label_point(automation, name, (640, 308, 1275, 375))
+        return bool(point and abs(point[1] - 339) <= 4)
+
+    wait_until(automation, tab_ready, f"{name} tab after opening animation")
     if not click_label(automation, name, (640, 308, 1275, 375)):
         raise RuntimeError(f"Cannot recognize iOS Enkephalin {name} tab")
-    wait_until(automation, lambda: bool(automation.find_element(PANEL)), name)
+    wait_until(automation, lambda: read_module_state(automation) is not None if name == "Modules"
+               else _read_refill_state(automation) is not None, name)
 
 
 def close_panel(automation) -> None:
@@ -54,21 +88,36 @@ def close_panel(automation) -> None:
 def assemble_modules(automation, *, close: bool = True) -> bool:
     open_panel(automation)
     select_tab(automation, "Modules")
-    if not automation.click_element("enkephalin/all_in_assets.png", offset=False):
-        raise RuntimeError("Cannot recognize iOS maximum module amount")
-    automation.take_screenshot()
-    amount = ocr.run_line(automation.screenshot.crop((960, 465, 1105, 530))) or ""
-    if not amount.strip().isdigit():
-        raise RuntimeError("Cannot read the selected module amount")
-    if int(amount.strip()) == 0:
+    state = read_module_state(automation)
+    if state is None:
+        raise RuntimeError("Cannot read iOS module inventory and energy")
+    if state.energy < 20:
         if close:
             close_panel(automation)
         return False
+    if not automation.click_element("enkephalin/all_in_assets.png", offset=False):
+        raise RuntimeError("Cannot recognize iOS maximum module amount")
+    def maximum_selected() -> bool:
+        current = read_module_state(automation)
+        return current is not None and current.amount == current.energy // 20
+
+    wait_until(automation, maximum_selected, "maximum module amount")
+    state = read_module_state(automation)
+    if state is None or state.amount == 0:
+        raise RuntimeError("Cannot confirm the maximum module amount")
     if not automation.click_element("enkephalin/enkephalin_confirm_assets.png", offset=False):
         raise RuntimeError("Cannot recognize iOS module conversion Confirm")
-    wait_until(automation, lambda: not automation.find_element(PANEL), "module conversion")
-    if not close:
-        open_panel(automation)
+    def conversion_completed() -> bool:
+        if not automation.find_element(PANEL):
+            open_panel(automation)
+            select_tab(automation, "Modules")
+        current = read_module_state(automation)
+        return current is not None and current.owned == state.owned + state.amount
+
+    # The game can keep this panel open after Confirm; verify the inventory update.
+    wait_until(automation, conversion_completed, "module inventory increase")
+    if close:
+        close_panel(automation)
     return True
 
 
@@ -103,7 +152,8 @@ def refill_lunacy(automation, target_count: int, *, grandet: bool = False) -> in
             if not automation.find_element(PANEL):
                 open_panel(automation)
                 select_tab(automation, "Use Lunacy")
-            return bool(label_point(automation, "Daily Count", (990, 400, 1250, 450))) and read_refill_state(automation).used == state.used + 1
+            current = _read_refill_state(automation)
+            return current is not None and current.used == state.used + 1
 
         wait_until(automation, refill_completed, "Lunacy daily count increase", timeout=15)
         spent += state.cost

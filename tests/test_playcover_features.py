@@ -8,10 +8,93 @@ from PIL import Image
 from utils.runtime_paths import SOURCE_ROOT
 
 
-def test_real_lunacy_preview_reads_actual_price_without_input():
+@pytest.mark.parametrize('page,used,cost', [('features_lunacy_panel', 0, 26), ('energy_lunacy_after_refill', 1, 52)])
+def test_real_lunacy_preview_reads_actual_price_without_input(page, used, cost):
     from tasks.base.playcover_enkephalin import RefillState, read_refill_state
-    image = Image.open(SOURCE_ROOT / 'tests/fixtures/playcover/features_lunacy_panel.png')
-    assert read_refill_state(SimpleNamespace(screenshot=image)) == RefillState(0, 10, 26)
+    image = Image.open(SOURCE_ROOT / f'tests/fixtures/playcover/{page}.png')
+    assert read_refill_state(SimpleNamespace(screenshot=image)) == RefillState(used, 10, cost)
+
+
+@pytest.mark.parametrize('page,owned,energy,amount', [
+    ('features_enkephalin_panel', 202, 61, 1), ('energy_module_max', 194, 76, 3),
+    ('energy_modules_after_first', 197, 19, 1), ('energy_modules_after_refill', 204, 18, 1),
+])
+def test_real_module_quantity_inventory_and_energy(page, owned, energy, amount):
+    from tasks.base.playcover_enkephalin import ModuleState, read_module_state
+    image = Image.open(SOURCE_ROOT / f'tests/fixtures/playcover/{page}.png')
+    assert read_module_state(SimpleNamespace(screenshot=image)) == ModuleState(owned, energy, amount)
+
+
+@pytest.mark.parametrize('close', [False, True])
+@pytest.mark.parametrize('panel_stays_open', [False, True])
+def test_conversion_waits_for_maximum_and_inventory_update(monkeypatch, close, panel_stays_open):
+    from tasks.base import playcover_enkephalin as energy
+    automation = Mock()
+    automation.find_element.return_value = panel_stays_open
+    state = {'owned': 194, 'energy': 76, 'amount': 1, 'pending_max': False}
+    reads_after_max = []
+    def click(path, **kwargs):
+        if path.endswith('all_in_assets.png'):
+            state['pending_max'] = True
+        else:
+            assert state['amount'] == 3
+            state.update(owned=197, energy=16, amount=1)
+        return True
+    def read(auto):
+        result = energy.ModuleState(state['owned'], state['energy'], state['amount'])
+        if state['pending_max']:
+            reads_after_max.append(result.amount)
+            state.update(amount=3, pending_max=False)
+        return result
+    def wait(auto, condition, *args):
+        for _ in range(3):
+            if condition():
+                return
+        pytest.fail('Conversion transition not confirmed')
+    automation.click_element.side_effect = click
+    monkeypatch.setattr(energy, 'read_module_state', read)
+    monkeypatch.setattr(energy, 'wait_until', wait)
+    for name in ('open_panel', 'select_tab', 'close_panel'):
+        monkeypatch.setattr(energy, name, Mock())
+    assert energy.assemble_modules(automation, close=close)
+    assert reads_after_max == [1]
+    assert [c.args[0] for c in automation.click_element.call_args_list] == [
+        'enkephalin/all_in_assets.png', 'enkephalin/enkephalin_confirm_assets.png']
+    assert energy.close_panel.call_count == int(close)
+
+
+@pytest.mark.parametrize('available', [0, 1, 19])
+def test_insufficient_energy_skips_conversion_confirm(monkeypatch, available):
+    from tasks.base import playcover_enkephalin as energy
+    automation = Mock()
+    for name in ('open_panel', 'select_tab', 'close_panel'):
+        monkeypatch.setattr(energy, name, Mock())
+    monkeypatch.setattr(energy, 'read_module_state', lambda _: energy.ModuleState(194, available, 1))
+    assert not energy.assemble_modules(automation)
+    automation.click_element.assert_not_called()
+    energy.close_panel.assert_called_once()
+
+
+@pytest.mark.parametrize('name', ['Modules', 'Use Lunacy'])
+def test_tab_selection_waits_for_animation_and_target_content(monkeypatch, name):
+    from tasks.base import playcover_enkephalin as energy
+    automation = Mock()
+    labels = iter([(760, 359), (760, 339), (1100, 425)])
+    monkeypatch.setattr(energy, 'label_point', lambda *args: next(labels))
+    click = Mock(return_value=True)
+    monkeypatch.setattr(energy, 'click_label', click)
+    monkeypatch.setattr(energy, 'read_module_state', lambda _: energy.ModuleState(194, 76, 1))
+    monkeypatch.setattr(energy, '_read_refill_state', lambda _: energy.RefillState(0, 10, 26))
+    checks = []
+    def wait(auto, condition, *args):
+        checks.append(condition())
+        if not checks[-1]:
+            click.assert_not_called()
+            assert condition()
+    monkeypatch.setattr(energy, 'wait_until', wait)
+    energy.select_tab(automation, name)
+    assert checks == [False, True]
+    click.assert_called_once()
 
 
 @pytest.mark.parametrize('used,target,spent,purchases', [(0, 0, 0, 0), (0, 1, 26, 1), (0, 2, 78, 2),
@@ -26,6 +109,7 @@ def test_refill_reaches_daily_target_instead_of_buying_extra(monkeypatch, used, 
         return True
     auto.click_element.side_effect = click
     monkeypatch.setattr(energy, 'read_refill_state', lambda _: energy.RefillState(state['used'], 10, 26 * (state['used'] + 1)))
+    monkeypatch.setattr(energy, '_read_refill_state', energy.read_refill_state)
     for name in ('open_panel', 'select_tab', 'close_panel', 'assemble_modules'):
         monkeypatch.setattr(energy, name, Mock())
     monkeypatch.setattr(energy, 'label_point', lambda *args: (1, 1))
