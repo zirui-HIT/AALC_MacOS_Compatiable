@@ -47,10 +47,44 @@ def test_real_static_start_label_distinguishes_selected_from_unselected_gears(pa
 
 def test_ios_start_turn_leaves_retry_to_original_battle_loop():
     automation = Mock()
-    automation.find_element.return_value = False
+    automation.click_element.return_value = False
     assert not GameActions(automation, BackendCapabilities(touch=True)).start_turn()
-    automation.click_element.assert_not_called()
+    automation.mouse_click.assert_not_called()
     assert automation.take_screenshot.call_count == 1
+
+
+@pytest.mark.parametrize("page,ready", [
+    ("battle_selected", True), ("flow_chain_start", True),
+    ("thread_selected_small_capture", True),
+    ("mirror_battle_ready", False), ("reaccept_chain_ready", False),
+])
+def test_ios_start_turn_recognizes_selected_gear_across_capture_sizes(monkeypatch, page, ready):
+    from PIL import Image
+
+    from module.automation import auto
+    from module.config import cfg
+    from utils.path_manager import path_manager
+    from utils.runtime_paths import SOURCE_ROOT
+
+    monkeypatch.setattr(cfg, "config", cfg.config.model_copy(update={
+        "backend": "playcover", "game_profile": "ios_en", "set_win_size": 1080,
+    }))
+    path_manager.initialize_paths()
+    auto.clear_img_cache()
+    monkeypatch.setattr(auto, "screenshot", Image.open(SOURCE_ROOT / f"tests/fixtures/playcover/{page}.png").convert("L"))
+    monkeypatch.setattr(auto, "take_screenshot", Mock())
+    gesture = Mock(return_value=True)
+    monkeypatch.setattr(auto, "mouse_action_with_pos", gesture)
+    assert GameActions(auto, BackendCapabilities(touch=True)).start_turn() == ready
+    assert gesture.call_count == int(ready)
+
+
+def test_ios_win_rate_leaves_transient_missing_button_to_original_battle_loop():
+    automation = Mock()
+    automation.click_element.return_value = False
+    assert not GameActions(automation, BackendCapabilities(touch=True)).select_win_rate()
+    automation.take_screenshot.assert_called_once_with(max_age=0.85)
+    automation.mouse_click.assert_not_called()
 
 
 def test_ios_back_without_a_button_returns_control_to_original_retry_loop():

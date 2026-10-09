@@ -33,7 +33,7 @@ def test_real_ios_experience_menu_recognizes_three_enters_without_input(monkeypa
     ("reaccept_win_rate_selected", ["battle/start_label.png", "battle/gear_start.png", "battle/win_rate_card.png"]),
     ("luxcavation", ["home/back_assets.png"]),
     ("reaccept_thread_ready", ["battle/turn_assets.png", "battle/start_label.png"]),
-    ("reaccept_defeat", ["battle/battle_finish_confirm_assets.png", "base/only_option_assets.png"]),
+    ("reaccept_defeat", ["battle/battle_finish_confirm_assets.png"]),
     ("victory", ["battle/victory.png", "battle/battle_finish_confirm_assets.png"]),
     ("reset_deployment", ["teams/reset_deployment.png", "teams/clear_selection_confirm_assets.png"]),
     ("mirror_map", ["mirror/road_in_mir/legend_assets.png", "mirror/mybus_default_distance.png"]),
@@ -84,8 +84,8 @@ def test_feature_matching_blank_roi_is_a_normal_miss():
     assert ImageUtils.feature_matching(blank, blank) == (False, 0)
 
 
-@pytest.mark.parametrize("page", ["mirror_reward_confirm", "mirror_grace_enter", "energy_max_disabled"])
-def test_single_option_battle_exit_does_not_match_resource_confirmation(monkeypatch, page):
+@pytest.mark.parametrize("page", ["mirror_reward_confirm", "mirror_grace_enter", "energy_max_disabled", "victory", "reaccept_defeat"])
+def test_retry_single_option_does_not_consume_battle_or_resource_confirmation(monkeypatch, page):
     from module.automation import auto
     from module.config import cfg
     from utils.path_manager import path_manager
@@ -95,3 +95,34 @@ def test_single_option_battle_exit_does_not_match_resource_confirmation(monkeypa
     auto.clear_img_cache()
     monkeypatch.setattr(auto, "screenshot", Image.open(SOURCE_ROOT / f"tests/fixtures/playcover/{page}.png").convert("L"))
     assert not auto.find_element("base/only_option_assets.png", model="clam")
+
+
+@pytest.mark.parametrize("page", ["victory", "reaccept_defeat"])
+def test_original_battle_exits_at_result_without_entering_popup_retry(monkeypatch, page):
+    from importlib import import_module
+    from unittest.mock import Mock
+
+    from module.automation import auto
+    from module.config import cfg
+    from utils.path_manager import path_manager
+
+    task = import_module("tasks.battle.battle")
+    recovery = import_module("tasks.base.retry")
+    monkeypatch.setattr(cfg, "config", cfg.config.model_copy(update={
+        "backend": "playcover", "game_profile": "ios_en", "set_win_size": 1080,
+    }))
+    path_manager.initialize_paths()
+    auto.clear_img_cache()
+    image = Image.open(SOURCE_ROOT / f"tests/fixtures/playcover/{page}.png").convert("L")
+    monkeypatch.setattr(auto, "screenshot", image)
+    capture = Mock(return_value=image)
+    monkeypatch.setattr(auto, "take_screenshot", capture)
+    monkeypatch.setattr(auto, "get_restore_time", lambda: None)
+    monkeypatch.setattr(auto, "mouse_click", Mock())
+    monkeypatch.setattr(auto, "mouse_action_with_pos", Mock(return_value=True))
+    monkeypatch.setattr(task, "sleep", lambda _: None)
+    retry = Mock(side_effect=AssertionError("Battle result was passed to network retry"))
+    monkeypatch.setattr(recovery, "retry", retry)
+    task.Battle().fight()
+    assert capture.call_count == 1
+    retry.assert_not_called()

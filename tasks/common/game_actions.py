@@ -15,18 +15,16 @@ class GameActions:
             self.auto.key_press("p")
             return True
         self.auto.take_screenshot(max_age=0.85)
-        if not self.auto.click_element("battle/win_rate_card.png", offset=False):
-            raise RuntimeError("Cannot recognize iOS Win Rate button; record this page for calibration")
-        return True
+        return bool(self.auto.click_element("battle/win_rate_card.png", offset=False))
 
     def start_turn(self) -> bool:
         if self.capabilities.native_keys:
             self.auto.key_press("enter")
             return True
         self.auto.take_screenshot()
-        if self.auto.find_element("battle/start_label.png", threshold=0.9):
-            return bool(self.auto.click_element("battle/gear_start.png", offset=False))
-        return False
+        # The START lettering rotates and loses detail in smaller captures;
+        # the existing orange gear template identifies the selected state.
+        return bool(self.auto.click_element("battle/gear_start.png", offset=False))
 
     def back(self) -> bool:
         if self.capabilities.native_keys:

@@ -1,0 +1,29 @@
+{
+  "raw_size": [
+    1816,
+    1022
+  ],
+  "touch_size": [
+    5120,
+    2880
+  ],
+  "logical_size": [
+    1920,
+    1080
+  ],
+  "content_rect": [
+    0,
+    0,
+    1816,
+    1022
+  ],
+  "geometry_version": 1,
+  "game_version": "1.116.2",
+  "language": "en",
+  "bundle_id": "com.ProjectMoon.LimbusCompany",
+  "protocol_version": 4,
+  "page": "thread_selected_small_capture",
+  "captured_at": "2026-10-10",
+  "redactions": [],
+  "source": "Actual MaaTools BGR; selected Win Rate; small macOS window capture; START label rotates during idle animation"
+}
