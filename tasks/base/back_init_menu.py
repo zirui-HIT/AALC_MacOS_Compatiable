@@ -1,7 +1,6 @@
 from time import monotonic, sleep
 
 from module.automation import auto
-from module.config import cfg
 from module.decorator.decorator import begin_and_finish_time_log
 from module.logger import log
 from tasks.base import update_model_for_retry
@@ -14,8 +13,6 @@ LOADING_TIMEOUT = 90
 
 @begin_and_finish_time_log(task_name="返回主界面")
 def back_init_menu(*, allow_restart: bool = True):
-    if cfg.backend == "playcover":
-        return get_game_actions().return_home()
     loop_count = LOOP_COUNT
     loading_started_at = None
     auto.model = "clam"

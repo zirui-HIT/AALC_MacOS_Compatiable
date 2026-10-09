@@ -83,8 +83,6 @@ def onetime_thread_process(combat_count: int = 1):
 def onetime_mir_process(team_setting: TeamSetting, team_num: int):
     # 实时检查是否需要切换到困难镜牢
     if cfg.auto_hard_mirror and check_hard_mirror_time():
-        if cfg.backend == "playcover":
-            raise NotImplementedError("New weekly cycle requires hard Mirror, which awaits iOS adaptation")
         log.info("检测到新的困牢周期，实时切换困难镜牢，设置困牢次数为3")
         cfg.set_value("last_auto_change", datetime.now().timestamp())
         cfg.set_value("hard_mirror", True)
@@ -103,8 +101,6 @@ def onetime_mir_process(team_setting: TeamSetting, team_num: int):
             return False
     except Exception as e:
         log.exception(f"镜牢行动出错: {e}")
-        if cfg.backend == "playcover":
-            raise
         return False
 
 
@@ -355,8 +351,6 @@ def Mirror_task():
                 continue
         # 执行一次镜牢任务，根据执行结果进行处理
         mirror_result = onetime_mir_process(team_setting, team_num)
-        if cfg.backend == "playcover" and not mirror_result:
-            raise RuntimeError("iOS Mirror did not complete; inspect the current page before continuing")
         if mirror_result:
             cfg.rotate_team_queue()
             mir_times -= 1

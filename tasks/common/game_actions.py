@@ -2,8 +2,6 @@
 
 from __future__ import annotations
 
-import time
-
 from module.backends.base import BackendCapabilities
 
 
@@ -21,34 +19,14 @@ class GameActions:
             raise RuntimeError("Cannot recognize iOS Win Rate button; record this page for calibration")
         return True
 
-    def enter_battle(self) -> bool:
-        """Send the resource-consuming entry once, then only observe the page."""
-        self.auto.take_screenshot()
-        target = next((path for path in ("battle/chaim_to_battle_assets.png", "battle/normal_to_battle_assets.png")
-                       if self.auto.find_element(path)), None)
-        if target is None or not self.auto.click_element(target, offset=False):
-            raise RuntimeError("Cannot recognize an enabled To Battle button")
-        for _ in range(100):
-            self.auto.take_screenshot()
-            if any(self.auto.find_element(path) for path in ("battle/gear_right.png", "battle/pause_assets.png")):
-                return True
-            time.sleep(0.3)
-        raise RuntimeError("Battle entry was sent once; transition unconfirmed. Inspect the game before another run")
-
     def start_turn(self) -> bool:
         if self.capabilities.native_keys:
             self.auto.key_press("enter")
             return True
         self.auto.take_screenshot()
-        target = "battle/gear_start.png" if self.auto.find_element("battle/gear_start.png") else "battle/gear_right.png"
-        if not self.auto.click_element(target, offset=False):
-            raise RuntimeError("Cannot recognize iOS Start Turn button")
-        for _ in range(10):
-            self.auto.take_screenshot()
-            if self.auto.find_element("battle/pause_assets.png"):
-                return True
-            time.sleep(0.2)
-        raise RuntimeError("Start Turn touch was sent, but battle transition was not confirmed")
+        if self.auto.find_element("battle/start_label.png", threshold=0.9):
+            return bool(self.auto.click_element("battle/gear_start.png", offset=False))
+        return False
 
     def back(self) -> bool:
         if self.capabilities.native_keys:
@@ -72,79 +50,6 @@ class GameActions:
         self.auto.mouse_pinch((960, 540), *distances, duration=0.5)
         self.auto.take_screenshot()
 
-    def return_home(self) -> bool:
-        for _ in range(30):
-            self.auto.take_screenshot()
-            if self.auto.find_element("battle/victory.png") and self.auto.find_element("battle/battle_finish_confirm_assets.png"):
-                self.auto.click_element("battle/battle_finish_confirm_assets.png", offset=False)
-                time.sleep(0.5)
-            elif self.auto.find_element("home/window_assets.png"):
-                self.auto.click_element("home/window_assets.png", offset=False)
-                time.sleep(0.3)
-                self.auto.take_screenshot()
-                if self.auto.find_element("home/mail_assets.png", model="normal"):
-                    return True
-            elif any(self.auto.find_element(path) for path in
-                     ("home/back_assets.png", "home/back_ios.png", "mirror/entry/grace_back_assets.png")):
-                self.back()
-                time.sleep(0.3)
-            else:
-                time.sleep(0.3)
-        raise RuntimeError("Cannot confirm iOS home; no automatic restart or blind tap was attempted")
-
-    def enter_exp_menu(self) -> None:
-        self.enter_daily_menu("exp")
-
-    def enter_daily_menu(self, kind: str, combat_count: int = 1) -> None:
-        from tasks.daily.playcover_navigation import (
-            consecutive_label,
-            enter_thread_category,
-            enter_thread_level,
-            set_consecutive_count,
-        )
-
-        if kind not in {"exp", "thread"}:
-            raise ValueError(f"Unknown daily stage: {kind}")
-        if not 1 <= combat_count <= 10:
-            raise ValueError("Consecutive battle count must be between 1 and 10")
-        tutorial_exits = 0
-        for _ in range(30):
-            self.auto.take_screenshot()
-            if self.auto.find_element("teams/reset_deployment.png"):
-                if not self.auto.click_element("teams/clear_selection_confirm_assets.png", offset=False):
-                    raise RuntimeError("Cannot confirm iOS Reset Deployment dialog")
-            elif self.auto.find_element("teams/tutorial_heading.png"):
-                tutorial_exits += 1
-                if tutorial_exits > 1:
-                    raise RuntimeError("Repeated iOS team tutorial; close it manually before continuing")
-                self.back()
-            elif self.auto.find_element("teams/identify_assets.png") and (
-                self.auto.find_element("battle/chaim_to_battle_assets.png")
-                or self.auto.find_element("battle/normal_to_battle_assets.png")
-            ):
-                return
-            elif kind == "exp" and self.auto.find_element("luxcavation/exp_enter.png", threshold=0.85):
-                levels = self.auto.find_element("luxcavation/exp_enter.png", threshold=0.85,
-                                                find_type="image_with_multiple_targets")
-                x, y = max(levels, key=lambda point: point[0])
-                set_consecutive_count(self.auto, combat_count, (x + 15, y - 337))
-                self.auto.mouse_click(x, y)
-            elif kind == "thread" and consecutive_label(self.auto, (740, 240, 1180, 310)):
-                enter_thread_level(self.auto, combat_count)
-            elif kind == "thread" and self.auto.find_element("luxcavation/thread_enter_up80_assets.png"):
-                enter_thread_category(self.auto)
-            elif kind == "thread" and self.auto.find_element("luxcavation/exp_enter.png"):
-                if not self.auto.click_element("luxcavation/thread_assets.png", offset=False):
-                    raise RuntimeError("Cannot recognize iOS Thread Luxcavation tab")
-            elif self.auto.find_element("home/luxcavation_assets.png"):
-                self.auto.click_element("home/luxcavation_assets.png", offset=False)
-            elif self.auto.find_element("home/drive_assets.png"):
-                self.auto.click_element("home/drive_assets.png", offset=False)
-            else:
-                raise RuntimeError("Unknown iOS daily navigation page; return to home before starting")
-            time.sleep(0.5)
-        raise RuntimeError(f"iOS {kind} navigation timed out")
-
 
 def get_game_actions() -> GameActions:
     from module.automation import auto
@@ -164,10 +69,6 @@ def validate_task_capabilities(config) -> None:
     if config.backend != "playcover":
         return
     if config.mirror:
-        from utils.utils import check_hard_mirror_time
-
-        if config.hard_mirror or (config.auto_hard_mirror and check_hard_mirror_time()) or config.floor_3_exit or config.save_rewards:
-            raise NotImplementedError("iOS Mirror currently supports a complete normal five-floor run with ordinary reward claim")
         if config.mirror_keyboard_navigation or config.mirror_keyboard_simple_pathfinding:
             raise NotImplementedError("PlayCover does not support keyboard map navigation")
         for index, enabled in enumerate(config.teams_be_select, start=1):
@@ -176,15 +77,5 @@ def validate_task_capabilities(config) -> None:
             team = config.config.teams[str(index)]
             if team.use_team_code:
                 raise NotImplementedError(f"Mirror team {index}: MaaTools v4 has no team-code text input")
-            if team.normal_to_hard_floor:
-                raise NotImplementedError(f"Mirror team {index}: difficulty switching awaits iOS adaptation")
-            if team.observe_ego_gift:
-                from app.observe_ego_gift_selection import MAX_OBSERVE_GIFT_SELECTIONS, parse_observe_ego_gift_value
-
-                values = team.observe_ego_gift_selected
-                if len(values) > MAX_OBSERVE_GIFT_SELECTIONS or len(set(values)) != len(values):
-                    raise ValueError(f"Mirror team {index}: select up to three distinct observed gifts")
-                if any(parse_observe_ego_gift_value(value.removesuffix(".png")) is None for value in values):
-                    raise ValueError(f"Mirror team {index}: invalid observed gift system/level/row/column")
     if config.get_value("after_completion_power_action", "none") != "none" or "exit_emulator" in config.after_completion_actions:
         raise NotImplementedError("macOS completion supports only Exit Game / Exit AALC")

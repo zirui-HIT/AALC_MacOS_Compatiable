@@ -1,7 +1,6 @@
 from time import sleep
 
 from module.automation import auto
-from module.config import cfg
 from module.decorator.decorator import begin_and_finish_time_log
 from module.logger import log
 from tasks.base import update_model_for_retry
@@ -11,10 +10,6 @@ from utils.image_utils import ImageUtils
 
 @begin_and_finish_time_log(task_name="收取日常/周常", calculate_time=False)
 def get_pass_prize():
-    if cfg.backend == "playcover":
-        from tasks.daily.playcover_rewards import claim_pass
-
-        return claim_pass(auto)
     loop_count = 15
     auto.model = "clam"
     last_try = False
@@ -46,6 +41,7 @@ def get_pass_prize():
         update_model_for_retry(loop_count, normal_at=10, aggressive_at=5)
         if loop_count < 0:
             if last_try is False:
+                from config import cfg
                 scale = cfg.set_win_size / 1440
                 mail_pos = auto.find_element("home/mail_assets.png")
                 auto.mouse_click(mail_pos[0], mail_pos[1]+200*scale)
@@ -75,10 +71,6 @@ def get_pass_prize():
 
 @begin_and_finish_time_log(task_name="收取邮箱", calculate_time=False)
 def get_mail_prize():
-    if cfg.backend == "playcover":
-        from tasks.daily.playcover_rewards import claim_mail
-
-        return claim_mail(auto)
     loop_count = 15
     auto.model = "clam"
     while True:

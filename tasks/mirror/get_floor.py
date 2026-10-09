@@ -3,9 +3,7 @@ from time import sleep
 import numpy as np
 
 from module.automation import auto
-from module.config import cfg
 from module.logger import log
-from module.ocr import ocr
 
 # 楼层进度条横带 ROI
 FLOOR_BAND_ROI = (760, 495, 1860, 590)
@@ -38,29 +36,6 @@ def clear_badge_mask(roi_rgb):
 
 def get_floor(previous_floor=0, setting_assets="mirror/road_in_mir/setting_assets.png") -> int:
     """识别当前楼层；失败时记录错误并返回 0，表示楼层未知。"""
-    if cfg.backend == "playcover":
-        import re
-
-        auto.take_screenshot()
-        text = auto.find_text_element("", (40, 120, 450, 220), only_text=True) or []
-        # The embossed lowercase o is read as d on the real grayscale Floor 2 ROI.
-        floor_label = r"fl[od]or"
-        match = re.search(rf"(?:exploring|select)\s*{floor_label}\s*([1-5])", " ".join(text), re.IGNORECASE)
-        if match is None and any("exploring" in part.lower() for part in text):
-            line = ocr.run_line(auto.screenshot.crop((40, 125, 415, 180))) or ""
-            match = re.search(rf"exploring\s*{floor_label}\s*([1-5])", line, re.IGNORECASE)
-            if match is None and re.search(floor_label, " ".join(text), re.IGNORECASE):
-                # Detection sometimes omits the isolated digit beside this label.
-                digit = ocr.run_line(auto.screenshot.crop((370, 133, 397, 177)))
-                if digit in {"1", "2", "3", "4", "5"}:
-                    return int(digit)
-        if match is None:
-            text = auto.find_text_element("", (600, 130, 1300, 215), only_text=True) or []
-            match = re.search(r"floor\s*([1-5])", " ".join(text), re.IGNORECASE)
-            if match is None and any("select" in part.lower() for part in text):
-                line = ocr.run_line(auto.screenshot.crop((600, 130, 1300, 215))) or ""
-                match = re.search(r"select\s*floor\s*([1-5])", line, re.IGNORECASE)
-        return int(match[1]) if match else 0
     current_floor = 0
     setting_button = auto.find_element(setting_assets, take_screenshot=True)
     if setting_button:

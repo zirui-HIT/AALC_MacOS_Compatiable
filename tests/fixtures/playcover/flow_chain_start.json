@@ -1,0 +1,25 @@
+{
+  "game_version": "1.116.2",
+  "language": "en",
+  "raw_size": [
+    1816,
+    1022
+  ],
+  "logical_size": [
+    1920,
+    1080
+  ],
+  "touch_size": [
+    5120,
+    2880
+  ],
+  "page": "Mirror floor 2 chain encounter turn 2; selected five skills; animated start gear",
+  "redactions": [],
+  "start_label_bbox": [
+    1234,
+    744,
+    1298,
+    768
+  ],
+  "source_template": "battle/start_label.png, grayscale, 1440-height basis"
+}

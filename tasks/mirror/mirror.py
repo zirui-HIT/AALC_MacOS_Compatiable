@@ -1,3 +1,4 @@
+import re
 import time
 from time import sleep
 
@@ -46,10 +47,8 @@ def to_log_with_time(msg, elapsed_time):
 
 
 class Mirror:
-    def __init__(self, team_setting: TeamSetting, team_num: int, *, allow_module_rewards: bool | None = None):
-        self.allow_module_rewards = True if allow_module_rewards is None else allow_module_rewards
+    def __init__(self, team_setting: TeamSetting, team_num: int):
         team_setting = team_setting.model_copy(deep=True)  # 避免修改原始配置
-        self.team_setting = team_setting
         self.logger = log
         self.team_order = team_num
         self.sinner_team = team_setting.sinner_order  # 选择的罪人序列
@@ -228,13 +227,7 @@ class Mirror:
         # 本次运行的开始时间
         run_start_time = time.time()
 
-        if cfg.backend == "playcover":
-            from tasks.mirror.playcover_entry import prepare_normal_mirror
-
-            prepare_normal_mirror(auto, self.team_number, team_setting=self.team_setting,
-                                  by_order=cfg.select_team_by_order)
-
-        if cfg.backend != "playcover" and (auto.click_element("home/drive_assets.png") or auto.find_element("home/window_assets.png")):
+        if auto.click_element("home/drive_assets.png") or auto.find_element("home/window_assets.png"):
             sleep(0.5)
             make_enkephalin_module()
 
@@ -250,24 +243,6 @@ class Mirror:
             if auto.take_screenshot() is None:
                 continue
 
-            if cfg.backend == "playcover" and (
-                (auto.find_element("home/window_assets.png") and auto.find_element("home/drive_assets.png"))
-                or (auto.find_element("mirror/road_to_mir/enter_assets.png")
-                    and auto.find_element("mirror/road_to_mir/infinity_mirror_enter_assets.png"))
-            ):
-                raise RuntimeError("iOS Mirror returned to its entrance before completion")
-
-            if any(auto.find_element(path) for path in (
-                "mirror/claim_reward/complete_mirror_100%_assets.png",
-                "mirror/claim_reward/use_enkephalin_assets.png",
-                "mirror/claim_reward/reward_preview_assets.png",
-                "mirror/claim_reward/reward_confirm_prompt_assets.png",
-                "mirror/claim_reward/pass_level_up_assets.png",
-            )):
-                self.require_module_rewards()
-                if cfg.backend == "playcover":
-                    break
-
             retry()
 
             if cfg.floor_3_exit and self.floor >= 4:
@@ -279,10 +254,7 @@ class Mirror:
                     continue
 
             # 镜牢结束领取奖励
-            if auto.find_element("mirror/claim_reward/battle_statistics_assets.png") and not auto.find_element("battle/victory.png"):
-                self.require_module_rewards()
-                if cfg.backend == "playcover":
-                    break
+            if auto.find_element("mirror/claim_reward/battle_statistics_assets.png"):
                 if auto.click_element("mirror/claim_reward/claim_rewards_assets.png") is False:
                     claim_rewards_bbox = ImageUtils.get_bbox(
                         ImageUtils.load_image("mirror/claim_reward/claim_rewards_assets.png")
@@ -398,12 +370,7 @@ class Mirror:
             if auto.find_element("teams/identify_assets.png"):
                 # 如果第一次启动脚本，还没进行编队，就先编队
                 if self.first_battle:
-                    if cfg.backend == "playcover":
-                        from tasks.teams.playcover import select_mirror_participants
-
-                        select_mirror_participants(self.sinner_team)
-                    else:
-                        team_formation(self.sinner_team)
+                    team_formation(self.sinner_team)
                     self.first_battle = False
                     continue
                 # 战斗配队失败的情况
@@ -425,9 +392,6 @@ class Mirror:
                     if continue_mirror is False and self.first_battle is False:
                         self.re_start()
                         preparing = True
-                if cfg.backend == "playcover":
-                    get_game_actions().enter_battle()
-                    continue
                 if auto.click_element("battle/chaim_to_battle_assets.png") or auto.click_element(
                     "battle/normal_to_battle_assets.png"
                 ):
@@ -441,11 +405,6 @@ class Mirror:
                 continue
 
             # 在战斗中
-            if cfg.backend == "playcover" and (
-                auto.find_element("battle/gear_right.png") or auto.find_element("battle/gear_start.png")
-            ):
-                self._fight()
-                continue
             if auto.find_element("battle/more_information_assets.png") or auto.find_element(
                 "battle/in_mirror_assets.png"
             ):
@@ -514,13 +473,13 @@ class Mirror:
                 continue
 
             # 在主界面时，开始进入镜牢
-            if cfg.backend != "playcover" and (auto.click_element("home/drive_assets.png") or auto.find_element("home/window_assets.png")):
+            if auto.click_element("home/drive_assets.png") or auto.find_element("home/window_assets.png"):
                 sleep(0.5)
                 if self.road_to_mir() and self.bequest_from_the_previous_game:
                     break
                 continue
             # 在镜牢界面，进入镜牢
-            if cfg.backend != "playcover" and auto.click_element("mirror/road_to_mir/enter_assets.png"):
+            if auto.click_element("mirror/road_to_mir/enter_assets.png"):
                 if self.road_to_mir() and self.bequest_from_the_previous_game:
                     break
                 continue
@@ -553,12 +512,6 @@ class Mirror:
                 continue
 
             # 防卡死
-            if cfg.backend == "playcover":
-                sleep(0.3)
-                main_loop_count -= 1
-                if main_loop_count < 200:
-                    raise RuntimeError("Unrecognized iOS Mirror page; record it before continuing")
-                continue
             auto.mouse_click_blank()
             retry()
             main_loop_count -= 1
@@ -579,18 +532,16 @@ class Mirror:
                 back_menu_count += 1
                 main_loop_count = 250
 
-        self.require_module_rewards()
         msg = "开始进行镜牢奖励领取"
         log.info(msg)
 
-        rewards_done = cfg.backend == "playcover"
-        if rewards_done or self.bequest_from_the_previous_game:
+        if self.bequest_from_the_previous_game:
             self.get_reward_in_road()
 
         main_loop_count = 20
         auto.model = "clam"
-        failed = False if rewards_done else None
-        while not (rewards_done or self.bequest_from_the_previous_game):
+        failed = None
+        while not self.bequest_from_the_previous_game:
             # 自动截图
             if auto.take_screenshot() is None:
                 auto.mouse_to_blank()
@@ -1004,28 +955,17 @@ class Mirror:
         """
         观测EGO饰品选择
         """
-        from app.observe_ego_gift_selection import OBSERVE_ROW_VALUES, parse_observe_ego_gift_value
-
-        selections = []
-        for value in self.observe_ego_gift_selected:
-            selection = parse_observe_ego_gift_value(value.removesuffix(".png"))
-            if selection is None:
-                raise ValueError(f"Invalid observed EGO gift setting: {value}")
-            selections.append(selection)
-
         def _select_gift(level_p):
             first_gift = (level_p[0], level_p[1] + 80 * my_scale)
             select_gift_point = (first_gift[0] + (gift_col - 1) * 165 * my_scale,
                                  first_gift[1] + (gift_row - 1) * 160 * my_scale)
-            if not gift_box[0] <= select_gift_point[0] < gift_box[2]:
-                raise RuntimeError("Observed gift column lies outside the recognized gallery")
-            if select_gift_point[1] < gift_box[-1] - 40 * my_scale:
+            if select_gift_point[1] < gift_box[-1]:
                 auto.mouse_click(select_gift_point[0], select_gift_point[1])
             else:
                 step = 300 * my_scale
                 height = step
-                if select_gift_point[1] - gift_box[-1] + 80 * my_scale > step:
-                    height = select_gift_point[1] - gift_box[-1] + 80 * my_scale
+                if select_gift_point[1] - gift_box[-1] > step:
+                    height = select_gift_point[1] - gift_box[-1]
                     result = [step] * int(height // step) + ([int(height % step)] if int(height % step) > 0 else [])
                 else:
                     result = [step]
@@ -1050,18 +990,22 @@ class Mirror:
             benchmark_point = (point[0] - 110 * my_scale, point[1])
 
         if not benchmark_point:
-            if cfg.backend == "playcover":
-                raise RuntimeError("Cannot recognize the English iOS observation page")
             return
 
         gift_box = ImageUtils.get_bbox(ImageUtils.load_image("mirror/road_to_mir/observe_ego_gift/gift_box_bbox.png"))
 
         # 选择观测饰品
-        for selection in selections:
-            file_system = selection.system
-            gift_level = selection.level
-            gift_row = selection.row
-            gift_col = selection.col
+        for gift_id in self.observe_ego_gift_selected:
+            # 从文件名推断体系，如 "bleed_3_3_7.png" -> "bleed"
+            gm = re.match(r"^([a-z]+)_", gift_id)
+            if not gm:
+                log.warning(f"无法解析饰品体系：{gift_id}，跳过")
+                continue
+            file_system = gm.group(1)
+            gift_information = gift_id.split("_")[1:]
+            gift_level =int(gift_information[0])
+            gift_row =int(gift_information[1]) # 所在行
+            gift_col =int(gift_information[2]) # 所在列
 
             # 选择体系
             if file_system == "general":
@@ -1069,8 +1013,9 @@ class Mirror:
             else:
                 system_index = [k for k, v in observe_system.items() if v == file_system][0]
             # 选择体系，先点一下其他体系，再点回来，重置页面
-            neighbor = (system_index + 1) % 11
-            auto.mouse_click(benchmark_point[0] + 110 * neighbor * my_scale, benchmark_point[1])
+            auto.mouse_click(benchmark_point[0] + 110 * (system_index+1) * my_scale, benchmark_point[1])
+            sleep(0.2)
+            auto.mouse_click(benchmark_point[0] + 110 * (system_index - 1) * my_scale, benchmark_point[1])
             sleep(0.2)
             auto.mouse_click(benchmark_point[0] + 110 * system_index * my_scale, benchmark_point[1])
             sleep(0.2)
@@ -1079,12 +1024,7 @@ class Mirror:
                 _select_gift(level_point)
             else:
                 level_point = None
-                search_steps = 5
-                if cfg.backend == "playcover":
-                    # Cover preceding tiers even when each contains the maximum configured rows.
-                    search_steps = int(gift_level * max(OBSERVE_ROW_VALUES) * 160 * my_scale
-                                       / ((gift_box[-1] - gift_box[1]) / 2)) + 2
-                for _ in range(search_steps):
+                for _ in range(5):
                     auto.mouse_drag(
                         gift_box[-2] - 100 * my_scale,
                         gift_box[-1] - 100 * my_scale,
@@ -1095,8 +1035,6 @@ class Mirror:
                         level_point = p
                         break
                 if level_point is None:
-                    if cfg.backend == "playcover":
-                        raise RuntimeError(f"Cannot recognize observed {file_system} gift tier {gift_level}")
                     continue
                 _select_gift(level_point)
                 sleep(0.5)
@@ -1111,9 +1049,6 @@ class Mirror:
                 sleep(1)
                 if auto.click_element("mirror/shop/leave_shop_confirm_assets.png",take_screenshot=True):
                     break
-        else:
-            if cfg.backend == "playcover":
-                raise RuntimeError("Cannot confirm configured observed gifts")
         for _ in range(5):
             auto.click_element("mirror/road_in_mir/ego_gift_get_confirm_assets.png",take_screenshot=True)
 
@@ -1174,15 +1109,6 @@ class Mirror:
 
     @begin_and_finish_time_log(task_name="镜牢寻路")
     def search_road(self):
-        if cfg.backend == "playcover":
-            # Legacy route recovery exits to Window and can restart a dungeon.
-            # Use the calibrated adjacent-node path and stop on a missed transition.
-            for _ in range(2):
-                auto.take_screenshot()
-                if search_road_default_distance():
-                    sleep(1)
-                    return True
-            raise RuntimeError("iOS map route is unconfirmed; keep this dungeon open for calibration")
         if cfg.mirror_keyboard_simple_pathfinding:
             if search_road_simple_keyboard():
                 return True
@@ -1258,8 +1184,6 @@ class Mirror:
                 return False
 
     def re_start(self):
-        if cfg.backend == "playcover":
-            raise RuntimeError("iOS Mirror failed; automatic entry into another dungeon is disabled")
         while True:
             # 自动截图
             if auto.take_screenshot() is None:
@@ -1598,16 +1522,7 @@ class Mirror:
                 log.error(e)
                 continue
 
-    def require_module_rewards(self) -> None:
-        if not self.allow_module_rewards:
-            raise RuntimeError("Mirror rewards are disabled for this run; leave the reward page for manual review")
-
     def get_reward_in_road(self):
-        self.require_module_rewards()
-        if cfg.backend == "playcover":
-            from tasks.mirror.playcover_rewards import claim_normal_mirror_rewards
-
-            return claim_normal_mirror_rewards(auto)
         main_loop_count = 20
         auto.model = "clam"
         while True:
@@ -1686,17 +1601,4 @@ class Mirror:
 
     @begin_and_finish_time_log(task_name="镜牢商店")
     def in_shop(self):
-        skip = all(getattr(self.team_setting, key) for key in
-                   ("do_not_heal", "do_not_buy", "do_not_fuse", "do_not_sell", "do_not_enhance"))
-        skip = skip or (1 <= self.floor <= len(self.team_setting.ignore_shop)
-                        and bool(self.team_setting.ignore_shop[self.floor - 1]))
-        if cfg.backend == "playcover" and skip:
-            for _ in range(30):
-                auto.take_screenshot()
-                if auto.find_element("mirror/road_in_mir/legend_assets.png"):
-                    return
-                if not auto.click_element("mirror/shop/leave_shop_confirm_assets.png", offset=False):
-                    auto.click_element("mirror/shop/leave_assets.png", offset=False)
-                sleep(0.5)
-            raise RuntimeError("Cannot confirm iOS shop exit; no purchases were attempted")
         self.shop.in_shop(self.floor)

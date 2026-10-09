@@ -1,4 +1,4 @@
-from unittest.mock import Mock, patch
+from unittest.mock import Mock
 
 import pytest
 
@@ -19,7 +19,7 @@ def test_windows_shortcuts_remain_unchanged():
 def test_ios_clicks_buttons_and_confirms_battle():
     automation = Mock()
     automation.click_element.return_value = True
-    automation.find_element.return_value = True
+    automation.find_element.side_effect = lambda path, **kwargs: path != "battle/pause_assets.png" or automation.click_element.call_count >= 2
     actions = GameActions(automation, BackendCapabilities(touch=True))
     assert actions.select_win_rate()
     assert actions.start_turn()
@@ -28,30 +28,29 @@ def test_ios_clicks_buttons_and_confirms_battle():
     automation.key_press.assert_not_called()
 
 
-def test_ios_sent_touch_without_transition_is_failure():
+@pytest.mark.parametrize("page, ready", [("flow_chain_start", True), ("mirror_battle_ready", False)])
+def test_real_static_start_label_distinguishes_selected_from_unselected_gears(page, ready, monkeypatch):
+    import numpy as np
+    from PIL import Image
+
+    from module.config import cfg
+    from utils.image_utils import ImageUtils
+    from utils.runtime_paths import SOURCE_ROOT
+
+    monkeypatch.setattr(cfg, "config", cfg.config.model_copy(update={"backend": "playcover"}))
+    screen = np.array(Image.open(SOURCE_ROOT / f"tests/fixtures/playcover/{page}.png").convert("L"))
+    template = ImageUtils._prepare_loaded_image(np.array(Image.open(
+        SOURCE_ROOT / "assets/ios_en/default/battle/start_label.png")), True)
+    _, score = ImageUtils.match_template(screen, template, None, "aggressive")
+    assert (score >= 0.9) == ready
+
+
+def test_ios_start_turn_leaves_retry_to_original_battle_loop():
     automation = Mock()
-    automation.click_element.return_value = True
     automation.find_element.return_value = False
-    with patch("time.sleep"), pytest.raises(RuntimeError, match="not confirmed"):
-        GameActions(automation, BackendCapabilities(touch=True)).start_turn()
-
-
-def test_resource_consuming_entry_is_never_replayed_on_missing_transition():
-    automation = Mock()
-    automation.find_element.side_effect = lambda path: path.endswith("chaim_to_battle_assets.png")
-    automation.click_element.return_value = True
-    with patch("time.sleep"), pytest.raises(RuntimeError, match="sent once"):
-        GameActions(automation, BackendCapabilities(touch=True)).enter_battle()
-    assert automation.click_element.call_count == 1
-
-
-def test_unknown_home_page_never_sends_input_or_restarts():
-    automation = Mock()
-    automation.find_element.return_value = False
-    with patch("time.sleep"), pytest.raises(RuntimeError, match="confirm iOS home"):
-        GameActions(automation, BackendCapabilities(touch=True)).return_home()
+    assert not GameActions(automation, BackendCapabilities(touch=True)).start_turn()
     automation.click_element.assert_not_called()
-    automation.mouse_click.assert_not_called()
+    assert automation.take_screenshot.call_count == 1
 
 
 def test_map_zoom_requires_verified_capability_and_page():
@@ -65,18 +64,6 @@ def test_map_zoom_requires_verified_capability_and_page():
     automation.find_element.return_value = True
     GameActions(automation, BackendCapabilities(touch=True, zoom=True)).zoom_map()
     automation.mouse_pinch.assert_called_once_with((960, 540), 600, 300, duration=0.5)
-
-
-def test_mirror_disabled_rewards_cannot_send_any_claim_input(monkeypatch):
-    from tasks.mirror import mirror
-
-    automation = Mock()
-    monkeypatch.setattr(mirror, "auto", automation)
-    dungeon = mirror.Mirror.__new__(mirror.Mirror)
-    dungeon.allow_module_rewards = False
-    with pytest.raises(RuntimeError, match="rewards are disabled"):
-        dungeon.get_reward_in_road()
-    assert not automation.mock_calls
 
 
 def test_calibrated_normal_ios_mirror_is_available_in_task_runner(monkeypatch):
@@ -98,10 +85,6 @@ def test_calibrated_normal_ios_mirror_is_available_in_task_runner(monkeypatch):
     })
     monkeypatch.setattr(cfg, "config", config)
     validate_task_capabilities(cfg)
-    monkeypatch.setattr(cfg, "config", config.model_copy(update={"hard_mirror": True}))
-    with pytest.raises(NotImplementedError, match="normal five-floor"):
-        validate_task_capabilities(cfg)
-
 
 def test_ios_title_waits_for_pulsing_label_then_taps_it(monkeypatch):
     from importlib import import_module
@@ -133,22 +116,3 @@ def test_ios_login_page_requests_manual_login_without_input(monkeypatch):
     with pytest.raises(RuntimeError, match="manual Google / Apple login"):
         recovery.click_title_screen_safely()
     automation.click_element.assert_not_called()
-
-
-def test_return_home_uses_ios_back_from_mirror_menu():
-    automation = Mock()
-    state = {"page": "mirror"}
-    automation.find_element.side_effect = lambda path, **kwargs: path in {
-        "mirror": {"home/back_ios.png"},
-        "drive": {"home/window_assets.png"},
-        "home": {"home/mail_assets.png"},
-    }[state["page"]]
-
-    def click(path, **kwargs):
-        state["page"] = "drive" if path == "home/back_ios.png" else "home"
-        return True
-
-    automation.click_element.side_effect = click
-    with patch("time.sleep"):
-        assert GameActions(automation, BackendCapabilities(touch=True)).return_home()
-    assert [call.args[0] for call in automation.click_element.call_args_list] == ["home/back_ios.png", "home/window_assets.png"]

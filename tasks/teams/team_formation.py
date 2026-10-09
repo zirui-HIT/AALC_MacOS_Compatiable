@@ -118,10 +118,6 @@ def _ordered_team_click_offset(page_count, team_order):
 @begin_and_finish_time_log(task_name="寻找队伍")
 # 找队
 def select_battle_team(num):
-    if cfg.backend == "playcover":
-        from tasks.teams.playcover import select_daily_team
-
-        return select_daily_team(num)
     scale = cfg.set_win_size / 1440
     my_position = [0, 150 * scale]
     find = False

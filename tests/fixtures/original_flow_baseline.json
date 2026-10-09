@@ -1,0 +1,46 @@
+{
+  "source_sha": "b0f439321987f5f7b126ebbc424f6ef144c1bff0",
+  "files": {
+    "tasks/base/make_enkephalin_module.py": {
+      "sha256": "8c7b7f97a9627aff2e266cb08687220011983d01a055b0f1ad7c2176f46335a0"
+    },
+    "tasks/base/back_init_menu.py": {
+      "sha256": "76f0c1536aa5f6574d4f368f9a54ade831d1be26b57e5315e47d04302919e346"
+    },
+    "tasks/daily/get_prize.py": {
+      "sha256": "aeefa00e7d823433a3981b94940266673b7a1f1a658d8b5f8f43cf945a445df9"
+    },
+    "tasks/daily/luxcavation.py": {
+      "sha256": "c96128d74cb3530ce827da99ee09cef482a58bacd7c4bb8c8a421194fd77064c"
+    },
+    "tasks/battle/battle.py": {
+      "sha256": "01e29d9fd84a080774c56c9a5268fea5d3ca6c59d5302be60409cb9c3f93088d"
+    },
+    "tasks/mirror/mirror.py": {
+      "sha256": "654de0c61005debc45284801ad9daeffb237258e23e687fbbead7a418c16bb73"
+    },
+    "tasks/mirror/get_floor.py": {
+      "sha256": "4b610a83f69c88f0aa33ef077dd173a5ea349045935073233624f777b4519a83"
+    },
+    "tasks/mirror/select_theme_pack.py": {
+      "sha256": "9a2f67c5e65548c959ed379add61666c23ccbba2277c7a567e81e633389a711e"
+    },
+    "tasks/teams/team_formation.py": {
+      "sha256": "80462f8eeaeb446b1306b8a4fd976b1003708ae6c2d254ef391b632884442cc0"
+    },
+    "tasks/base/script_task_scheme.py": {
+      "functions": [
+        "onetime_EXP_process",
+        "onetime_thread_process",
+        "onetime_mir_process",
+        "to_get_reward",
+        "_batch_combat",
+        "_single_combat_run",
+        "Daily_task_wrapper",
+        "Buy_enkephalin",
+        "Mirror_task"
+      ],
+      "sha256": "9bb4a44c602b3c9b2ff035a4dcec70b07807fd826c54415cd7a7aa60448c68f2"
+    }
+  }
+}

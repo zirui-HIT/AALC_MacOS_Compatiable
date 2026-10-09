@@ -1,59 +1,44 @@
+"""The existing Mirror entrance loop handles iOS navigation and retries."""
 from unittest.mock import Mock
 
-from tasks.mirror import playcover_entry as entry
+import pytest
 
 
-def test_ios_preparation_uses_preset_then_grace_then_one_gift(monkeypatch):
-    from tasks.common import ios_pages
-    from tasks.mirror import playcover_opening
-    from tasks.teams import playcover
+@pytest.mark.parametrize("ignored", [False, True])
+def test_original_mirror_entry_retries_a_still_visible_button(monkeypatch, ignored):
+    from module.config import cfg
+    from tasks.mirror import mirror
+    from utils.image_utils import ImageUtils
 
-    pages = [
-        {"home/mail_assets.png", "home/drive_assets.png"},
-        {"home/mirror_dungeons_assets.png"},
-        {entry.ENTRY + "landing_enter_assets.png"},
-        {entry.ENTRY + "entry_prompt_assets.png", entry.ENTRY + "entry_confirm_assets.png"},
-        {entry.ENTRY + "preset_assets.png", entry.ENTRY + "preset_confirm_assets.png"},
-        {entry.ENTRY + "grace_assets.png", entry.ENTRY + "grace_enter_assets.png"},
-        {entry.ENTRY + "grace_prompt_assets.png", entry.ENTRY + "convert_checked_assets.png",
-         entry.ENTRY + "grace_confirm_assets.png"},
-        {entry.ENTRY + "grace_prompt_assets.png", entry.ENTRY + "grace_confirm_assets.png"},
-        {entry.ENTRY + "gift_page_assets.png", entry.ENTRY + "search_on_assets.png"},
-        {entry.ENTRY + "gift_page_assets.png", entry.ENTRY + "bleed_assets.png"},
-        {entry.ENTRY + "gift_page_assets.png", entry.ENTRY + "bleed_assets.png", entry.ENTRY + "wound_clerid_assets.png"},
-        {entry.ENTRY + "gift_page_assets.png", entry.ENTRY + "gift_select_assets.png"},
-        {"mirror/theme_pack/feature_theme_pack_assets.png"},
-    ]
-    state = {"page": 0}
+    monkeypatch.setattr(cfg, "config", cfg.config.model_copy(update={"backend": "playcover"}))
     automation = Mock()
-    automation.find_element.side_effect = lambda path: path in pages[state["page"]]
-
+    state = {"page": "entrance", "clicks": 0}
+    automation.find_element.side_effect = lambda path, **kwargs: (
+        path == "mirror/road_to_mir/select_team_stars_assets.png" and state["page"] == "preset")
+    automation.find_text_element.return_value = True
     def click(path, **kwargs):
-        assert path in pages[state["page"]]
-        state["page"] += 1
+        if path != "mirror/road_to_mir/enter_assets.png" or state["page"] != "entrance":
+            return False
+        state["clicks"] += 1
+        if not ignored or state["clicks"] == 2:
+            state["page"] = "preset"
         return True
-
     automation.click_element.side_effect = click
-    select = Mock()
-    monkeypatch.setattr(playcover, "select_preset", select)
-    graces = Mock()
-    monkeypatch.setattr(playcover_opening, "configure_graces", graces)
-    def gifts(auto, setting):
-        state["page"] = 12
-
-    monkeypatch.setattr(playcover_opening, "configure_gifts", gifts)
-    monkeypatch.setattr(ios_pages, "click_label", lambda *args: click(entry.ENTRY + "convert_checked_assets.png"))
-    monkeypatch.setattr(entry.time, "sleep", lambda _: None)
-    entry.prepare_normal_mirror(automation, 1)
-    assert state["page"] == len(pages) - 1
-    select.assert_called_once_with(1, by_order=False)
-    graces.assert_called_once_with(automation, [0] * 10)
-    automation.key_press.assert_not_called()
+    monkeypatch.setattr(mirror, "auto", automation)
+    monkeypatch.setattr(mirror, "retry", lambda: True)
+    monkeypatch.setattr(mirror, "sleep", lambda _: None)
+    monkeypatch.setattr(ImageUtils, "load_image", lambda _: None)
+    monkeypatch.setattr(ImageUtils, "get_bbox", lambda _: (0, 0, 10, 10))
+    mirror.Mirror(cfg.config.teams["1"], 1).road_to_mir()
+    assert state["clicks"] == (2 if ignored else 1)
 
 
-def test_resuming_current_map_does_not_repeat_preparation(monkeypatch):
+def test_original_mirror_resume_uses_current_map(monkeypatch):
+    from module.config import cfg
+    from tasks.mirror import mirror
     automation = Mock()
-    automation.find_element.side_effect = lambda path: path == "mirror/road_in_mir/legend_assets.png"
-    entry.prepare_normal_mirror(automation, 1)
+    automation.find_element.side_effect = lambda path, **kwargs: path == "mirror/road_in_mir/legend_assets.png"
+    monkeypatch.setattr(mirror, "auto", automation)
+    monkeypatch.setattr(mirror, "retry", lambda: True)
+    mirror.Mirror(cfg.config.teams["1"], 1).road_to_mir()
     automation.click_element.assert_not_called()
-    automation.mouse_click.assert_not_called()

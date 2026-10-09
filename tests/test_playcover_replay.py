@@ -1,5 +1,4 @@
 import json
-from unittest.mock import Mock
 
 import pytest
 from PIL import Image
@@ -42,11 +41,12 @@ def test_real_ios_experience_menu_recognizes_three_enters_without_input(monkeypa
     ("mirror_completed", ["mirror/claim_reward/complete_mirror_100%_assets.png", "mirror/claim_reward/claim_rewards_assets.png"]),
     ("mirror_reward_preview", ["mirror/claim_reward/reward_preview_assets.png",
                                "mirror/claim_reward/completed_five_floors_assets.png",
-                               "mirror/claim_reward/claim_modules_assets.png"]),
-    ("mirror_entry_real", ["mirror/entry/landing_enter_assets.png"]),
-    ("mirror_after_enter", ["mirror/entry/entry_prompt_assets.png", "mirror/entry/entry_confirm_assets.png"]),
-    ("mirror_team_settled", ["mirror/entry/preset_assets.png", "mirror/entry/preset_confirm_assets.png"]),
-    ("mirror_team_confirmed", ["mirror/entry/grace_assets.png", "mirror/entry/grace_enter_assets.png"]),
+                               "mirror/claim_reward/claim_modules_assets.png", "mirror/claim_reward/use_enkephalin_assets.png"]),
+    ("energy_max_disabled", ["enkephalin/all_in_assets.png"]),
+    ("mirror_entry_real", ["mirror/entry/landing_enter_assets.png", "mirror/road_to_mir/enter_assets.png"]),
+    ("mirror_after_enter", ["mirror/entry/entry_prompt_assets.png", "mirror/entry/entry_confirm_assets.png", "mirror/road_to_mir/enter_mirror_assets.png"]),
+    ("mirror_team_settled", ["mirror/entry/preset_assets.png", "mirror/entry/preset_confirm_assets.png", "mirror/road_to_mir/select_team_stars_assets.png", "mirror/road_to_mir/select_team_confirm_assets.png"]),
+    ("mirror_team_confirmed", ["mirror/entry/grace_assets.png", "mirror/entry/grace_enter_assets.png", "mirror/road_to_mir/dreaming_star/coins_assets.png"]),
     ("mirror_grace_enter", ["mirror/entry/grace_prompt_assets.png", "mirror/entry/grace_confirm_assets.png",
                             "mirror/entry/convert_checked_assets.png"]),
     ("mirror_start_gifts", ["mirror/entry/gift_page_assets.png", "mirror/entry/search_on_assets.png",
@@ -56,7 +56,7 @@ def test_real_ios_experience_menu_recognizes_three_enters_without_input(monkeypa
     ("mirror_pass_level_up", ["mirror/claim_reward/pass_level_up_assets.png",
                               "mirror/claim_reward/pass_level_confirm_assets.png"]),
     ("mirror_reward_confirm", ["mirror/claim_reward/reward_confirm_prompt_assets.png",
-                               "mirror/claim_reward/reward_final_confirm_assets.png"]),
+                               "mirror/claim_reward/reward_final_confirm_assets.png", "mirror/claim_reward/claim_rewards_confirm_assets.png"]),
 ])
 def test_real_ios_daily_pages_recognize_required_actions(monkeypatch, page, targets):
     from module.automation import auto
@@ -71,16 +71,6 @@ def test_real_ios_daily_pages_recognize_required_actions(monkeypatch, page, targ
         assert auto.find_element(target, model="normal", threshold=0.8), target
 
 
-@pytest.mark.parametrize("page,count", [("formation", (0, 12)), ("formation_selected", (12, 12)), ("mirror_formation_selected", (12, 12))])
-def test_real_ios_participant_count(monkeypatch, page, count):
-    from module.automation import auto
-    from tasks.teams.playcover import participant_count
-
-    monkeypatch.setattr(auto, "take_screenshot", lambda: None)
-    monkeypatch.setattr(auto, "screenshot", Image.open(SOURCE_ROOT / f"tests/fixtures/playcover/{page}.png").convert("L"))
-    assert participant_count() == count
-
-
 def test_feature_matching_blank_roi_is_a_normal_miss():
     import numpy as np
 
@@ -88,49 +78,3 @@ def test_feature_matching_blank_roi_is_a_normal_miss():
 
     blank = np.zeros((100, 100), dtype=np.uint8)
     assert ImageUtils.feature_matching(blank, blank) == (False, 0)
-
-
-@pytest.mark.parametrize("page,floor", [("mirror_map", 1), ("mirror_map_floor2", 2),
-                                       ("mirror_map_floor3", 3), ("mirror_theme_pack", 1)])
-def test_real_ios_floor_header_without_touch(monkeypatch, page, floor):
-    from module.automation import auto
-    from module.config import cfg
-    from tasks.mirror.get_floor import get_floor
-
-    monkeypatch.setattr(cfg, "config", cfg.config.model_copy(update={"backend": "playcover"}))
-    monkeypatch.setattr(auto, "take_screenshot", lambda: None)
-    monkeypatch.setattr(auto, "screenshot", Image.open(SOURCE_ROOT / f"tests/fixtures/playcover/{page}.png"))
-    mouse = Mock()
-    monkeypatch.setattr(auto, "mouse_click", mouse)
-    assert get_floor() == floor
-    mouse.assert_not_called()
-
-
-def test_real_completed_normal_mirror_fee_is_five_without_touch(monkeypatch):
-    from module.automation import auto
-    from tasks.mirror.playcover_rewards import read_completed_reward_cost
-    from utils.path_manager import path_manager
-
-    path_manager.initialize_paths()
-    auto.clear_img_cache()
-    monkeypatch.setattr(auto, "take_screenshot", lambda: None)
-    monkeypatch.setattr(auto, "screenshot", Image.open(SOURCE_ROOT / "tests/fixtures/playcover/mirror_reward_preview.png"))
-    mouse = Mock()
-    monkeypatch.setattr(auto, "mouse_click", mouse)
-    assert read_completed_reward_cost(auto) == 5
-    mouse.assert_not_called()
-
-
-def test_team_reset_waits_for_dialog_before_confirming(monkeypatch):
-    from tasks.teams import playcover
-
-    automation = Mock()
-    settled = iter([False, True])
-    automation.find_element.side_effect = lambda path: next(settled, False) if path == "teams/reset_deployment.png" else True
-    monkeypatch.setattr(playcover, "auto", automation)
-    monkeypatch.setattr(playcover, "participant_count", Mock(side_effect=[(12, 12), (0, 12), (12, 12)]))
-    monkeypatch.setattr(playcover, "select_preset", Mock())
-    monkeypatch.setattr(playcover.time, "sleep", lambda _: None)
-    assert playcover.select_mirror_participants()
-    confirms = [call for call in automation.click_element.call_args_list if call.args[0] == "teams/clear_selection_confirm_assets.png"]
-    assert len(confirms) == 1
