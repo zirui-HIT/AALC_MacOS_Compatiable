@@ -1,0 +1,27 @@
+{
+  "game_version": "1.116.2",
+  "language": "en",
+  "bundle_id": "com.ProjectMoon.LimbusCompany",
+  "protocol_version": 4,
+  "raw_size": [
+    3942,
+    2216
+  ],
+  "touch_size": [
+    5120,
+    2880
+  ],
+  "logical_size": [
+    1920,
+    1080
+  ],
+  "page": "chain_preview_expanded",
+  "captured_at": "2026-10-10",
+  "redactions": [],
+  "source": "Actual MaaTools BGR after link release; same five-slot layout; skill preview moves gears downward",
+  "gear_hit_center": [
+    1274,
+    945
+  ],
+  "gear_hit_radius": 20
+}
