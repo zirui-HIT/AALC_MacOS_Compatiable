@@ -15,6 +15,7 @@ from module.logger import log
 from module.ocr import ocr
 from tasks import sins
 from tasks.base.retry import retry
+from tasks.common.game_actions import get_game_actions
 from tasks.event import event_handling
 from utils.image_utils import ImageUtils
 from utils.utils import find_skill3
@@ -48,6 +49,8 @@ class Battle:
 
     @staticmethod
     def to_battle():
+        if cfg.backend == "playcover":
+            return get_game_actions().enter_battle()
         loop_count = 15
         auto.model = "clam"
         click = False
@@ -116,7 +119,8 @@ class Battle:
         defense_for_solo_state: DefenseForSoloState | None = None,
         defense_for_solo_used_this_turn: bool = False,
     ) -> bool:
-        auto.mouse_click_blank()
+        if cfg.backend != "playcover":
+            auto.mouse_click_blank()
         use_limited_defense = (
             defense_for_solo_state is not None
             and defense_for_solo_state.remaining_turns > 0
@@ -138,9 +142,9 @@ class Battle:
                     msg = "小指良单通连续防御失败，本回合改为P+Enter"
                 else:
                     msg = "第一回合全员防御失败，本场战斗改为P+Enter"
-                auto.key_press("p")
+                get_game_actions().select_win_rate()
                 sleep(0.5)
-                auto.key_press("enter")
+                get_game_actions().start_turn()
             elif use_limited_defense:
                 defense_for_solo_state.consume_turn()
                 limited_defense_succeeded = True
@@ -149,9 +153,9 @@ class Battle:
                     log.info("本次镜牢的连续防御已完成，后续回合恢复普通战斗操作")
             sleep(2)
             if not auto.find_element("battle/pause_assets.png", take_screenshot=True):
-                auto.key_press("p")
+                get_game_actions().select_win_rate()
                 sleep(0.5)
-                auto.key_press("enter")
+                get_game_actions().start_turn()
         elif self.defense_all_time:
             if auto.find_element("battle/gear_left.png", threshold=0.9):
                 msg = "使用全员防御模式开始战斗"
@@ -164,18 +168,18 @@ class Battle:
             msg = f"使用{mode_name}3技能模式开始战斗"
             if self._chain_battle(prioritize_skill_3=use_prioritize_skill_3) is False:
                 msg = f"使用{mode_name}三技能的链接战失败，本场战斗改为P+Enter"
-                auto.key_press("p")
+                get_game_actions().select_win_rate()
                 sleep(0.5)
-                auto.key_press("enter")
+                get_game_actions().start_turn()
             sleep(2)
             if not auto.find_element("battle/pause_assets.png", take_screenshot=True):
-                auto.key_press("p")
+                get_game_actions().select_win_rate()
                 sleep(0.5)
-                auto.key_press("enter")
+                get_game_actions().start_turn()
         else:
-            auto.key_press("p")
+            get_game_actions().select_win_rate()
             sleep(0.5)
-            auto.key_press("enter")
+            get_game_actions().start_turn()
             msg = "使用P+Enter开始战斗"
             if self.mouse_click_rate:
                 my_scale = cfg.set_win_size / 1440
@@ -205,6 +209,10 @@ class Battle:
         defense_for_solo_state: DefenseForSoloState | None = None,
         prioritize_skill_3=False,
     ):
+        if cfg.backend == "playcover":
+            if avoid_skill_3 or prioritize_skill_3 or defense_first_round or defense_all_time or infinite_battle:
+                raise NotImplementedError("iOS currently validates daily Win Rate battles only")
+            return self._fight_playcover(combat_count)
         chance = self.INIT_CHANCE
         waiting = self._update_wait_time()
         total_count = 0
@@ -282,6 +290,8 @@ class Battle:
 
             # 战斗失败重启
             if auto.find_element("battle/dead_all.png"):
+                if cfg.backend == "playcover":
+                    raise RuntimeError("iOS battle failed; automatic resource-consuming retry is disabled")
                 dead_select = auto.find_element("battle/dead_all.png", find_type="image_with_multiple_targets")
                 if len(dead_select) == 3:
                     dead_select = sorted(dead_select, key=lambda y: y[1])
@@ -555,6 +565,43 @@ class Battle:
         else:
             return None
 
+    def _fight_playcover(self, combat_count: int) -> None:
+        """Bounded, recognized-page daily battle; no blind clicks or paid retries."""
+        from module.backends.factory import get_playcover_session
+
+        session = get_playcover_session()
+        deadline = time.monotonic() + 900 + 300 * combat_count
+        unknown_since = None
+        while self.running and time.monotonic() < deadline:
+            session.input.wait_pause()
+            auto.take_screenshot()
+            if auto.find_element("battle/dead_all.png"):
+                raise RuntimeError("iOS battle failed; automatic retry is disabled")
+            if auto.find_element("battle/pause_assets.png"):
+                unknown_since = None
+                session.cancel.wait(0.5)
+                continue
+            if auto.find_element("battle/victory.png") and auto.find_element("battle/battle_finish_confirm_assets.png"):
+                auto.click_element("battle/battle_finish_confirm_assets.png", offset=False)
+                return None
+            if auto.find_element("battle/gear_start.png"):
+                get_game_actions().start_turn()
+                unknown_since = None
+                continue
+            if auto.find_element("battle/gear_right.png") and auto.find_element("battle/win_rate_card.png"):
+                get_game_actions().select_win_rate()
+                session.cancel.wait(0.5)
+                get_game_actions().start_turn()
+                unknown_since = None
+                continue
+            if unknown_since is None:
+                unknown_since = time.monotonic()
+            elif time.monotonic() - unknown_since > 30:
+                raise RuntimeError("Unrecognized iOS battle page for 30s; capture it before continuing")
+            session.cancel.wait(0.3)
+        session.input.check_cancel()
+        raise RuntimeError("iOS daily battle timed out or was interrupted")
+
     @staticmethod
     def _calculate_skills_position(
         skill_positions: list[list],
@@ -670,7 +717,7 @@ class Battle:
 
             sleep(0.5)
 
-            auto.key_press("enter")
+            get_game_actions().start_turn()
 
             sleep(1)
             return True

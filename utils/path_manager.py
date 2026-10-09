@@ -17,6 +17,7 @@ class PathManager(metaclass=SingletonMeta):
     ]
 
     def __init__(self):
+        self.version = 0
         self.active_paths: List[str] = []
         self.is_dark_eliminated = False
         self.is_zh_cn_eliminated = False
@@ -35,7 +36,14 @@ class PathManager(metaclass=SingletonMeta):
             self.current_theme = None
             self.current_language = None
 
+        from module.config import cfg
+
+        self.version += 1
         self.active_paths = self.DEFAULT_ACTIVE_PATHS.copy()
+        if cfg.game_profile == "ios_en":
+            self.current_language = "en"
+            self.is_zh_cn_eliminated = True
+            self.active_paths = ["dark/ios_en", "dark/en", "dark/share", "default/ios_en", "default/en", "default/share"]
         if self.is_dark_eliminated:
             self.active_paths = [path for path in self.active_paths if not path.startswith("dark/")]
         if self.is_zh_cn_eliminated:

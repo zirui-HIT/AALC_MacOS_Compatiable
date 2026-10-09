@@ -348,6 +348,47 @@ class ConfigModel(BaseModel):
     experimental_hdr_warning: bool
     """任务启动时检测游戏显示器 HDR 状态并提示潜在识别问题"""
 
+    backend: str
+    game_profile: str
+    playcover_host: str
+    playcover_port: int
+    playcover_app_path: str
+    playcover_bundle_id: str
+    playcover_capture_method: str
+    playcover_logical_width: int
+    playcover_logical_height: int
+
+    @field_validator("backend")
+    @classmethod
+    def validate_backend(cls, value: str) -> str:
+        from module.backends.configuration import BACKENDS
+
+        if value not in BACKENDS:
+            raise ValueError("Unknown automation backend")
+        return value
+
+    @field_validator("playcover_host")
+    @classmethod
+    def validate_playcover_host(cls, value: str) -> str:
+        from module.backends.playcover.transport import validate_endpoint
+
+        validate_endpoint(value, 1717)
+        return value
+
+    @field_validator("playcover_port")
+    @classmethod
+    def validate_playcover_port(cls, value: int) -> int:
+        if not 1 <= value <= 65535:
+            raise ValueError("MaaTools port must be between 1 and 65535")
+        return value
+
+    @field_validator("playcover_capture_method")
+    @classmethod
+    def validate_playcover_capture(cls, value: str) -> str:
+        if value not in {"bgr", "scrn"}:
+            raise ValueError("Unsupported PlayCover capture method")
+        return value
+
     simulator: bool
     """是否使用模拟器"""
 

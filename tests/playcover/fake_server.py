@@ -8,7 +8,7 @@ from contextlib import AbstractContextManager
 
 
 class FakeServer(AbstractContextManager):
-    def __init__(self, *, version=4, bundle=b"company.test", capture=None, delay=0, handshake=b"OKAY", eof_after_capture=False):
+    def __init__(self, *, version=4, bundle=b"company.test", capture=None, delay=0, handshake=b"OKAY", eof_after_capture=False, captures=()):
         self.listener = socket.socket()
         self.listener.bind(("127.0.0.1", 0))
         self.listener.listen()
@@ -16,6 +16,7 @@ class FakeServer(AbstractContextManager):
         self.port = self.listener.getsockname()[1]
         self.version, self.bundle, self.delay, self.handshake = version, bundle, delay, handshake
         self.eof_after_capture = eof_after_capture
+        self.captures = list(captures)
         self.frame = capture if capture is not None else struct.pack(">III", 16, 9, 16 * 9 * 3) + bytes([0, 0, 255]) * 16 * 9
         self.requests = []
         self.connections = 0
@@ -68,6 +69,8 @@ class FakeServer(AbstractContextManager):
                         if payload == b"TERM":
                             break
                         response = replies.get(payload, b"")
+                        if payload == b"BGR\1" and self.captures:
+                            response = self.captures.pop(0)
                         if payload == b"BGR\1" and self.delay:
                             time.sleep(self.delay)
                         for offset in range(0, len(response), 3):

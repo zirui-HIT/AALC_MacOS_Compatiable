@@ -47,7 +47,6 @@ from module.after_completion_types import (
 from module.automation import auto
 from module.config import TeamSetting, cfg
 from module.game_and_screen import screen
-from module.hotkey_listener import ExactGlobalHotKeys
 from module.logger import log
 from module.logger.my_log import ui_log_dispatcher
 from module.system_actions import (
@@ -103,6 +102,9 @@ class AfterCompletionActionEditor(FlyoutViewBase):
         self.vbox.addWidget(self.label_power)
 
         self.power_combo = ComboBox(self)
+        if sys.platform == "darwin":
+            self._power_items = self._power_items[:1]
+            self.box_exit_emulator.setEnabled(False)
         self.power_combo.addItems([self.tr(text) for text, _ in self._power_items])
         self.vbox.addWidget(self.power_combo)
 
@@ -396,6 +398,14 @@ class FarmingInterface(QWidget):
     def _listener_start(self):
         self._listener_stop()
         try:
+            if sys.platform == "darwin":
+                from module.platforms.macos import hotkeys_available
+
+                if not hotkeys_available():
+                    log.info("Global hotkeys unavailable: enable Input Monitoring; GUI Stop remains available")
+                    return
+            from module.hotkey_listener import ExactGlobalHotKeys
+
             self.listener = ExactGlobalHotKeys(
                 {
                     cfg.shutdown_hotkey: self.my_stop_shortcut,
@@ -477,6 +487,14 @@ class FarmingInterfaceLeft(QWidget):
             None,
             "mirror",
         )
+        if cfg.backend == "playcover":
+            self.set_windows.setVisible(False)
+            self.buy_enkephalin.setEnabled(False)
+            self.buy_enkephalin.setToolTip("PlayCover purchases are disabled during initial validation")
+            self.mirror.setEnabled(False)
+            self.mirror.setToolTip("Mirror Dungeon requires verified iOS zoom, gestures and page fixtures")
+            self.get_reward.setEnabled(False)
+            self.get_reward.setToolTip("iOS mail/pass rewards await separate validation")
         self.resonate_with_Ahab = CheckBoxWithButton(
             "resonate_with_Ahab",
             QT_TRANSLATE_NOOP("CheckBoxWithButton", "亚哈共鸣"),
@@ -536,7 +554,8 @@ class FarmingInterfaceLeft(QWidget):
     @staticmethod
     def select_all_function():
         for check_box in task_check_box[:5]:
-            check_box.setChecked(True)
+            if check_box.isEnabled():
+                check_box.setChecked(True)
 
     @staticmethod
     def clear_all_function():
@@ -636,7 +655,10 @@ class FarmingInterfaceLeft(QWidget):
             self._disable_setting(self.parent())
             self.create_and_start_script()
         else:
-            if cfg.set_reduce_miscontact and cfg.simulator is False:
+            if cfg.backend == "playcover":
+                self.stop_script()
+                return  # The finished signal restores controls after touch/worker cleanup.
+            if cfg.set_reduce_miscontact and cfg.backend == "windows":
                 # 手动停止时仍需恢复游戏窗口，但这里不再要求抢前台。
                 screen.reset_win(activate=False)
             else:
@@ -742,6 +764,11 @@ class FarmingInterfaceLeft(QWidget):
 
     def create_and_start_script(self):
         try:
+            from tasks.common.game_actions import validate_task_capabilities
+
+            validate_task_capabilities(cfg)
+            if self.my_script is not None and self.my_script.isRunning():
+                raise RuntimeError("Previous task is still stopping")
             msg = "开始进行所有任务"
             log.info(msg)
             ui_log_dispatcher.clear()

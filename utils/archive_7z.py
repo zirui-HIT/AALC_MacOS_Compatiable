@@ -1,14 +1,17 @@
+
 """7z 资源包构建与解压工具。"""
 
 from __future__ import annotations
 
-from pathlib import Path
 import shutil
 import subprocess
 import sys
+from pathlib import Path
+
+from utils.runtime_paths import resource_path
 
 # 优先复用项目内置的 7za.exe，避免运行环境额外依赖系统安装的 7-Zip。
-SEVEN_ZIP_EXECUTABLE_RELATIVE_PATH = Path("assets/binary/7za.exe")
+SEVEN_ZIP_EXECUTABLE_RELATIVE_PATH = Path(str(resource_path("assets/binary/7za.exe")))
 # 基于 utils 目录反推项目根目录，便于在工作目录变化时稳定定位内置工具。
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
 # 当内置工具不存在时，按现有 scripts/build.py 的思路回退到系统命令。
@@ -29,6 +32,9 @@ def _resolve_7z_executable() -> str:
 
     # 第二步：源码运行时回退到仓库内的 assets/binary/7za.exe。
     candidate_paths.append(PROJECT_ROOT / SEVEN_ZIP_EXECUTABLE_RELATIVE_PATH)
+
+    if sys.platform != "win32":
+        candidate_paths = []
 
     for candidate_path in candidate_paths:
         resolved_path = candidate_path.resolve()
@@ -107,7 +113,12 @@ def create_7z_archive(source_dir: Path, output_archive_path: Path) -> Path:
         output_archive_path.unlink()
 
     # 第三步：使用当前目录下的 .\* 作为输入，保证包内路径从资源目录根开始计算。
-    _run_7z_command(["a", "-t7z", str(output_archive_path.resolve()), ".\\*"], cwd=source_dir)
+    if sys.platform == "darwin":
+        from module.platforms.macos_archive import create
+
+        create(source_dir, output_archive_path)
+    else:
+        _run_7z_command(["a", "-t7z", str(output_archive_path.resolve()), ".\\*"], cwd=source_dir)
     return output_archive_path
 
 
@@ -122,6 +133,11 @@ def _list_7z_members(archive_path: Path) -> list[Path]:
     """
     if not archive_path.is_file():
         raise FileNotFoundError(f"待检查的 7z 资源包不存在: {archive_path}")
+
+    if sys.platform == "darwin":
+        from module.platforms.macos_archive import members
+
+        return members(archive_path)
 
     # 第一步：通过 7z 的结构化列表模式获取全部成员信息。
     completed = _run_7z_command(["l", "-slt", str(archive_path.resolve())])
@@ -163,5 +179,10 @@ def extract_7z_archive(archive_path: Path, extract_dir: Path) -> Path:
             raise ValueError(f"资源包包含非法路径: {member_path}")
 
     # 第三步：执行覆盖式解压，保证同步时始终拿到完整的新包内容。
-    _run_7z_command(["x", str(archive_path.resolve()), f"-o{extract_dir.resolve()}", "-aoa", "-y"])
+    if sys.platform == "darwin":
+        from module.platforms.macos_archive import extract
+
+        extract(archive_path, extract_dir)
+    else:
+        _run_7z_command(["x", str(archive_path.resolve()), f"-o{extract_dir.resolve()}", "-aoa", "-y"])
     return extract_dir

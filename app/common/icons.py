@@ -2,6 +2,8 @@ from enum import Enum
 
 from qfluentwidgets import FluentIconBase, Theme, getIconColor, isDarkTheme
 
+from utils.runtime_paths import resource_path
+
 
 class OverflowIcons(FluentIconBase, Enum):
     """放一些超出了渲染范围的svg图标
@@ -17,7 +19,7 @@ class OverflowIcons(FluentIconBase, Enum):
     def path(self, theme=Theme.AUTO):
         if self.reverse:
             theme = Theme.DARK if not isDarkTheme() else Theme.LIGHT
-        return f"assets/app/svgs/icons/{self.value}_{getIconColor(theme)}.svg"
+        return str(resource_path(f"assets/app/svgs/icons/{self.value}_{getIconColor(theme)}.svg"))
 
     def set_reverse(self, reverse: bool):
         self.reverse = reverse

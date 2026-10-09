@@ -1,9 +1,7 @@
-import os
 
 from PySide6.QtCore import Qt, QTimer
 from PySide6.QtGui import QPixmap
 from PySide6.QtWidgets import (
-    QApplication,
     QFileDialog,
     QFrame,
     QGridLayout,
@@ -60,6 +58,7 @@ from module.config.team_import_export import (
     generate_team_export_filename,
     import_team_settings,
 )
+from utils.runtime_paths import resource_path
 
 
 class TeamSettingCard(QFrame):
@@ -197,62 +196,62 @@ class TeamSettingCard(QFrame):
 
         self.burn = BaseCheckBox(
             "system_burn",
-            "./assets/app/status_effects/burn.png",
+            str(resource_path("./assets/app/status_effects/burn.png")),
             self.tr("烧伤"),
             icon_size=30,
         )
         self.bleed = BaseCheckBox(
             "system_bleed",
-            "./assets/app/status_effects/bleed.png",
+            str(resource_path("./assets/app/status_effects/bleed.png")),
             self.tr("流血"),
             icon_size=30,
         )
         self.tremor = BaseCheckBox(
             "system_tremor",
-            "./assets/app/status_effects/tremor.png",
+            str(resource_path("./assets/app/status_effects/tremor.png")),
             self.tr("震颤"),
             icon_size=30,
         )
         self.rupture = BaseCheckBox(
             "system_rupture",
-            "./assets/app/status_effects/rupture.png",
+            str(resource_path("./assets/app/status_effects/rupture.png")),
             self.tr("破裂"),
             icon_size=30,
         )
         self.sinking = BaseCheckBox(
             "system_sinking",
-            "./assets/app/status_effects/sinking.png",
+            str(resource_path("./assets/app/status_effects/sinking.png")),
             self.tr("沉沦"),
             icon_size=30,
         )
 
         self.poise = BaseCheckBox(
             "system_poise",
-            "./assets/app/status_effects/poise.png",
+            str(resource_path("./assets/app/status_effects/poise.png")),
             self.tr("呼吸"),
             icon_size=30,
         )
         self.charge = BaseCheckBox(
             "system_charge",
-            "./assets/app/status_effects/charge.png",
+            str(resource_path("./assets/app/status_effects/charge.png")),
             self.tr("充能"),
             icon_size=30,
         )
         self.slash = BaseCheckBox(
             "system_slash",
-            "./assets/app/status_effects/slash.png",
+            str(resource_path("./assets/app/status_effects/slash.png")),
             self.tr("斩击"),
             icon_size=30,
         )
         self.pierce = BaseCheckBox(
             "system_pierce",
-            "./assets/app/status_effects/pierce.png",
+            str(resource_path("./assets/app/status_effects/pierce.png")),
             self.tr("突刺"),
             icon_size=30,
         )
         self.blunt = BaseCheckBox(
             "system_blunt",
-            "./assets/app/status_effects/blunt.png",
+            str(resource_path("./assets/app/status_effects/blunt.png")),
             self.tr("打击"),
             icon_size=30,
         )
@@ -1053,6 +1052,7 @@ class CustomizeSettingsModule(QFrame):
 
     def _apply_total_cost_style(self):
         from qfluentwidgets import setCustomStyleSheet
+
         from app.starlight_bonus import _register_custom_style_widget
 
         _register_custom_style_widget(self.starlight_total_cost_label)
@@ -1283,7 +1283,7 @@ class ObserveEgoGiftModule(QFrame):
 
         self._system_buttons: dict[str, SystemIconButton] = {}
         for system, label in self.observe_systems:
-            icon_path = f"./assets/app/status_effects/{system}.png"
+            icon_path = str(resource_path(f"./assets/app/status_effects/{system}.png"))
             btn = SystemIconButton(system, icon_path, label, self.system_select_widget, force_text=system == "general")
             self._system_buttons[system] = btn
             self.system_select_layout.addWidget(btn)
@@ -1444,7 +1444,7 @@ class ObserveEgoGiftModule(QFrame):
             if index < len(completed_rows):
                 row_index, selection = completed_rows[index]
                 label.row_index = row_index
-                pixmap = QPixmap(f"./assets/app/status_effects/{selection.system}.png")
+                pixmap = QPixmap(str(resource_path(f"./assets/app/status_effects/{selection.system}.png")))
                 if not pixmap.isNull():
                     label.setPixmap(pixmap.scaled(32, 32, Qt.KeepAspectRatio, Qt.SmoothTransformation))
                     label.setStyleSheet(

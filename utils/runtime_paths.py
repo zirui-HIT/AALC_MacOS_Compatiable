@@ -20,6 +20,9 @@ def application_root() -> Path:
     executable = Path(sys.executable).resolve()
     for parent in executable.parents:
         if parent.suffix == ".app":
+            checkout = parent.parent.parent
+            if (checkout / "pyproject.toml").is_file() and (checkout / "main.py").is_file():
+                return checkout  # A local dist/ build shares the source checkout's data.
             return parent.parent
     return executable.parent
 

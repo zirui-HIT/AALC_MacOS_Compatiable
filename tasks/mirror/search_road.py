@@ -10,6 +10,7 @@ from module.config import cfg
 from module.logger import log
 from module.my_error.my_error import InputAttributeError
 from tasks.base.retry import retry
+from utils.runtime_paths import resource_path
 
 # 道路网格参数基于 2560×1440 游戏截图标定。
 ROAD_COLUMN_GAP = 520
@@ -420,7 +421,7 @@ def identify_nodes(bus_x):
     if auto.take_screenshot(gray=False) is None:
         return None
     original = np.array(auto.screenshot)
-    session = ort.InferenceSession("./assets/model/best.onnx")
+    session = ort.InferenceSession(str(resource_path("./assets/model/best.onnx")))
 
     # 等比例缩放并填充到模型输入尺寸；保留比例和偏移以便还原检测框坐标。
     height, width = original.shape[:2]

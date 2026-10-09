@@ -1,15 +1,18 @@
+
 """本地图片资源同步状态协议模型。"""
 
 from __future__ import annotations
 
-from dataclasses import dataclass
 import json
+from dataclasses import dataclass
 from typing import Any, Mapping
+
+from utils.runtime_paths import data_path
 
 from .manifest import RESOURCE_SYNC_SCHEMA_VERSION, _reject_unknown_keys
 
 # 显式声明状态文件路径，统一落到 assets/config 目录，便于与其他本地配置文件集中管理。
-LOCAL_STATE_PATH = "./assets/config/image_resource_state.json"
+LOCAL_STATE_PATH = str(data_path("config/image_resource_state.json"))
 
 
 @dataclass(slots=True)

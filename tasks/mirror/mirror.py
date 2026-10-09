@@ -21,6 +21,7 @@ from tasks.base.make_enkephalin_module import make_enkephalin_module
 from tasks.base.retry import retry
 from tasks.battle import battle
 from tasks.battle.battle import DefenseForSoloState
+from tasks.common.game_actions import get_game_actions
 from tasks.event import event_handling
 from tasks.mirror.get_floor import get_floor
 from tasks.mirror.in_shop import Shop
@@ -1195,7 +1196,7 @@ class Mirror:
                 continue
             if auto.click_element("mirror/road_in_mir/setting_assets.png"):
                 continue
-            auto.key_press("esc")
+            get_game_actions().back()
             time.sleep(1)
             if retry() is False:
                 return False

@@ -4,7 +4,6 @@ import time
 from time import sleep
 
 import psutil
-import win32process
 
 from module.automation import auto
 from module.config import cfg
@@ -55,6 +54,8 @@ def ensure_simulator_game_started() -> bool:
 def click_title_screen_safely() -> None:
     """标题页点击入口，避开账号、清缓存和中间弹窗区域。"""
     global _last_title_screen_tap_time
+    if cfg.backend == "playcover":
+        raise NotImplementedError("iOS title-screen recovery needs a verified safe tap fixture; enter the home page manually")
     if not cfg.simulator:
         auto.mouse_click_blank()
         return
@@ -74,6 +75,11 @@ def click_title_screen_safely() -> None:
 
 def kill_game():
     """关闭游戏"""
+    if cfg.backend == "playcover":
+        from module.backends.factory import get_playcover_session
+
+        get_playcover_session().stop_game()
+        return
     if cfg.simulator:
         if cfg.simulator_type == 0:
             from module.automation.input_handlers.simulator.mumu_control import (
@@ -93,6 +99,8 @@ def kill_game():
         connection_device.close_current_app()
         return
     if platform.system() == "Windows":
+        import win32process
+
         from module.game_and_screen import screen
 
         _, pid = win32process.GetWindowThreadProcessId(screen.handle.hwnd)
@@ -141,7 +149,7 @@ def retry():
     为保证稳定性，retry 内循环始终刷新截图，避免复用旧帧导致误判。
     """
     start_time = time.time()
-    is_windows = not cfg.config.simulator
+    is_windows = cfg.backend == "windows"
     if is_windows:
         saved_hwnd = screen.handle.hwnd
     while True:

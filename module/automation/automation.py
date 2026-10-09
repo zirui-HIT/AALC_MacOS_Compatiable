@@ -20,7 +20,7 @@ from utils.singletonmeta import SingletonMeta
 from ..config import cfg
 from ..logger import log
 from ..ocr import ocr
-from .input_handlers.input import AbstractInput
+from .input_handlers import AbstractInput
 from .screenshot import ScreenShot
 
 # ponytail: 交互门最长关闭时间。监控线程卡在持久弹窗上时,超时放行业务输入,
@@ -41,11 +41,15 @@ class Automation(metaclass=SingletonMeta):
     """自动化管理类，用于管理与游戏窗口有关的自动化操作"""
 
     def __init__(self, windows_title):
+        self.task_running = False
+        self._business_frame = None
+        self._monitor_frame = None
         self.windows_title = windows_title
         self.screenshot = None
         self.input_handler = AbstractInput()
         self._screenshot_lock = threading.RLock()
         self._latest_screenshot = None
+        self._latest_frame = None
         self._latest_screenshot_monotonic = 0.0
         self._input_lock = threading.RLock()
         self._interaction_gate = threading.Event()
@@ -63,7 +67,11 @@ class Automation(metaclass=SingletonMeta):
         """初始化输入处理器，将输入操作如点击、拖动等绑定至实例变量"""
         if self.input_handler:
             self.input_handler = None
-        if cfg.simulator:
+        if cfg.backend == "playcover":
+            from module.backends.factory import get_playcover_session
+
+            self.input_handler = get_playcover_session().input
+        elif cfg.simulator:
             if cfg.simulator_type == 0:
                 from .input_handlers.simulator.mumu_control import MumuControl
 
@@ -93,6 +101,8 @@ class Automation(metaclass=SingletonMeta):
                 log.debug("使用基于窗口移动的后台点击模块")
                 self.input_handler = WindowMoveInput()
         if self.input_handler is None:
+            if cfg.backend == "playcover":
+                raise ConnectionError("PlayCover input is unavailable")
             from .input_handlers.input import BackgroundInput
 
             self.input_handler = BackgroundInput()
@@ -144,15 +154,21 @@ class Automation(metaclass=SingletonMeta):
         """
 
         def wrapper(*args, **kwargs):
+            if cfg.backend == "playcover":
+                # Stop must remain responsive while a monitor popup owns the gate.
+                from module.backends.factory import get_playcover_session
+
+                while not self._interaction_gate.wait(timeout=0.1):
+                    get_playcover_session().input.check_cancel()
             while True:
                 gate_open = self._interaction_gate.wait(timeout=GATE_WAIT_TIMEOUT)
                 with self._input_lock:
                     if gate_open and self._interaction_gate.is_set():
                         method = getattr(self.input_handler, method_name)
-                        return method(*args, **kwargs)
+                        return self._invoke_input(method, self._business_frame, *args, **kwargs)
                     if not gate_open:
                         method = getattr(self.input_handler, method_name)
-                        return method(*args, **kwargs)
+                        return self._invoke_input(method, self._business_frame, *args, **kwargs)
                     # gate_open 但等待输入锁期间门被关闭:重新等待
 
         return wrapper
@@ -160,12 +176,51 @@ class Automation(metaclass=SingletonMeta):
     def monitor_mouse_click(self, x, y, times=1):
         """由系统监控线程点击，不等待该监控线程设置的互斥门。"""
         with self._input_lock:
-            return self.input_handler.mouse_click(x, y, times=times)
+            return self._invoke_input(self.input_handler.mouse_click, self._monitor_frame, x, y, times=times)
 
-    def _remember_screenshot(self, screenshot: Image | None) -> None:
+    def _invoke_input(self, method, frame, *args, **kwargs):
+        if cfg.backend == "playcover":
+            from module.backends.factory import get_playcover_session
+
+            session = get_playcover_session()
+            session.input.check_cancel()
+            if frame is None:
+                raise RuntimeError("Input needs a fresh recognized frame")
+            if frame.geometry_version != session.geometry().version:
+                raise RuntimeError("Geometry changed; capture and recognize the page again")
+            with session.input.geometry_context(frame.geometry):
+                return method(*args, **kwargs)
+        return method(*args, **kwargs)
+
+    def _capture(self, gray, monitor=False):
+        if cfg.backend != "playcover":
+            return ScreenShot.take_screenshot(gray)
+        from module.backends.factory import get_playcover_session
+
+        frame = get_playcover_session().capture()
+        previous = self._business_frame
+        if previous is not None and frame.geometry_version != previous.geometry_version:
+            self.clear_img_cache()
+            self._business_frame = None
+            self.screenshot = None
+        if monitor:
+            self._monitor_frame = frame
+        else:
+            self._business_frame = frame
+        return frame.image.convert("L") if gray else frame.image
+
+    def request_stop(self):
+        if cfg.backend == "playcover":
+            from module.backends.factory import get_playcover_session
+
+            get_playcover_session().request_stop()
+        self.resume_interactions()
+
+    def _remember_screenshot(self, screenshot: Image | None, frame=None) -> None:
         if screenshot is None:
             return
         self._latest_screenshot = screenshot
+        self._latest_frame = frame
         self._latest_screenshot_monotonic = time.monotonic()
 
     def invalidate_screenshot_cache(self) -> None:
@@ -181,12 +236,13 @@ class Automation(metaclass=SingletonMeta):
                 and max_age > 0
                 and time.monotonic() - self._latest_screenshot_monotonic <= max_age
             ):
+                self._monitor_frame = self._latest_frame
                 if gray and self._latest_screenshot.mode != "L":
                     return self._latest_screenshot.convert("L")
                 return self._latest_screenshot
 
-            screenshot = ScreenShot.take_screenshot(gray)
-            self._remember_screenshot(screenshot)
+            screenshot = self._capture(gray, monitor=True)
+            self._remember_screenshot(screenshot, self._monitor_frame)
             return screenshot
 
     def check_pause(self) -> bool:
@@ -350,6 +406,13 @@ class Automation(metaclass=SingletonMeta):
         Returns:
             Image: 截取当前屏幕的图像对象
         """
+        if cfg.backend == "playcover":
+            with self._screenshot_lock:
+                result = self._capture(gray)
+                self._remember_screenshot(result, self._business_frame)
+                self.screenshot = result
+                self.last_screenshot_time = time.time()
+                return result
         start_time = time.time()
         screenshot_interval_time = cfg.screenshot_interval if cfg.screenshot_interval else 0.85
         while True:
@@ -362,7 +425,7 @@ class Automation(metaclass=SingletonMeta):
                     time.sleep(wait_time)
 
                 with self._screenshot_lock:
-                    result = ScreenShot.take_screenshot(gray)
+                    result = self._capture(gray)
                     self._remember_screenshot(result)
                 if result:
                     self.screenshot = result
@@ -722,7 +785,7 @@ class Automation(metaclass=SingletonMeta):
         log.debug("图片缓存已清除", stacklevel=2)
 
     def _load_template_for_path(self, target: str, target_path: str, cacheable: bool):
-        cache_key = (target, target_path)
+        cache_key = (target, str(ImageUtils.resolve_path(target_path, target)), cfg.set_win_size, cfg.game_profile, getattr(path_manager, "version", 0))
         if cacheable and cache_key in self.img_cache:
             cached = self.img_cache[cache_key]
             return cached["template"], cached["bbox"]

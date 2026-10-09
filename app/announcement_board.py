@@ -29,6 +29,7 @@ from app.common.ui_config import (
 )
 from module.config import cfg
 from module.logger import log
+from utils.runtime_paths import resource_path
 
 
 class AnnouncementThread(QThread):
@@ -155,7 +156,7 @@ class AnnouncementBoard(FramelessDialog):
         self.resize(800, 580)
         self.setMinimumSize(700, 500)
         self.setFont(QFont("Microsoft YaHei", 13))
-        self.setWindowIcon(QIcon("./assets/logo/my_icon_256X256.ico"))
+        self.setWindowIcon(QIcon(str(resource_path("./assets/logo/my_icon_256X256.ico"))))
         self.setWindowTitle(self.tr("公告"))
 
         # ========== 左侧侧边栏 ==========
@@ -453,7 +454,7 @@ class AnnouncementBoard(FramelessDialog):
 
         # 加载 GitHub Markdown 样式
         css_path = (
-            "./assets/styles/github-markdown-dark.css" if isDarkTheme() else "./assets/styles/github-markdown-light.css"
+            str(resource_path("./assets/styles/github-markdown-dark.css")) if isDarkTheme() else str(resource_path("./assets/styles/github-markdown-light.css"))
         )
         try:
             with open(css_path, encoding="utf-8") as f:

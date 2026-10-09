@@ -21,7 +21,7 @@ class ScreenshotGet(QThread):
             from tasks.base.script_task_scheme import init_game
 
             init_game()
-            should_reset_window = cfg.set_windows and cfg.set_reduce_miscontact and not cfg.simulator
+            should_reset_window = cfg.set_windows and cfg.set_reduce_miscontact and cfg.backend == "windows"
         except Exception as e:
             log.error(f"初始化游戏失败: {str(e)}")
             return
@@ -29,7 +29,9 @@ class ScreenshotGet(QThread):
             img = auto.take_screenshot(gray=False)
             if img:
                 timestr = time.strftime("%Y%m%d_%H%M%S", time.localtime())
-                img.save(f"screenshot_{timestr}.png")
+                from utils.runtime_paths import data_path
+
+                img.save(data_path(f"templates/screenshot_{timestr}.png"))
                 log.info(f"图片保存为 AALC > screenshot_{timestr}.png")
                 self.on_saved_timestr.emit(timestr)
             else:

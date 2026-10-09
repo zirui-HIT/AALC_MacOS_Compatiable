@@ -2,6 +2,7 @@ import atexit
 import copy
 import sys
 import threading
+import tomllib
 from pathlib import Path
 from time import localtime, strftime, time
 from typing import Any, Optional
@@ -15,7 +16,9 @@ from module.after_completion_types import (
     serialize_after_actions,
     serialize_power_action,
 )
+from module.backends.configuration import migrate_backend
 from module.logger import log
+from utils.runtime_paths import data_path, resource_path
 from utils.singletonmeta import SingletonMeta
 
 from .config_typing import ConfigModel, TeamSetting
@@ -40,10 +43,10 @@ class Config(metaclass=SingletonMeta):
         self.config_path = Path(config_path)
         # example.yaml：既是带注释的模板，也是默认值的唯一来源
         self.example_path = Path(example_path)
-        self.backup_path = Path(backup_path)
+        self.backup_path = data_path("config/backup") if sys.platform == "darwin" and backup_path == "config_backup" else Path(backup_path)
 
         # 默认值全部来自 example.yaml（单一来源）；ConfigModel 只负责类型与校验，不再硬编码默认值
-        self._defaults: dict = self._load_default_config()
+        self._defaults: dict = migrate_backend(self._load_default_config())
         self.config = ConfigModel(**self._defaults)
 
         # 加载实际配置，此方法会根据实际配置覆盖默认配置
@@ -172,7 +175,7 @@ class Config(metaclass=SingletonMeta):
                 teams[team_key] = settings
             loaded_config["teams"] = teams
         if saved_version < 1779444115:
-            current_config_path = Path("config.yaml")
+            current_config_path = self.config_path
             suffixes = [".yaml.bak", ".yaml.backup", ".yaml.old"]
             for suffix in suffixes:
                 file = current_config_path.with_suffix(suffix)
@@ -188,7 +191,11 @@ class Config(metaclass=SingletonMeta):
         """加载版本信息"""
         try:
             with open(version_path, "r", encoding="utf-8") as file:
-                return file.read().strip()
+                version = file.read().strip()
+            if version == "DEFAULT VERSION":
+                with resource_path("pyproject.toml").open("rb") as file:
+                    return tomllib.load(file)["project"]["version"]
+            return version
         except FileNotFoundError:
             sys.exit("版本文件未找到")
 
@@ -248,6 +255,7 @@ class Config(metaclass=SingletonMeta):
                     loaded_config["config_version"] = self.config.config_version
                     self._old_version_cfg_upgrade(saved_version, loaded_config)
                 # 使用更新后的配置初始化 Config 对象
+                loaded_config = migrate_backend(loaded_config)
                 self.config = ConfigModel(**{**self._defaults, **loaded_config})
                 queue_in_loaded_config = loaded_config.get("teams_active_queue")
                 if queue_in_loaded_config is None:
@@ -334,6 +342,7 @@ class Config(metaclass=SingletonMeta):
         # 从快照更新到yaml对象，保持注释不变
         example_yaml.update(snapshot)
 
+        self.config_path.parent.mkdir(parents=True, exist_ok=True)
         with open(self.config_path, "w", encoding="utf-8") as file:
             self.yaml.dump(example_yaml, file)
 
@@ -471,7 +480,15 @@ class Config(metaclass=SingletonMeta):
     def set_value(self, key: str, value: Any, *, config_obj: Optional[BaseModel | dict] = None) -> None:
         """设置配置项的值并延迟保存"""
         with self._lock:
-            self.unsaved_set_value(key, value, config_obj=config_obj, stacklevel=3)
+            if config_obj is None and key.startswith(("playcover_", "backend", "game_profile")):
+                from module.automation import auto
+
+                if auto.task_running:
+                    raise ValueError("Stop the task before changing backend settings")
+                values = migrate_backend({**self.config.model_dump(), key: value})
+                self.config = ConfigModel(**values)
+            else:
+                self.unsaved_set_value(key, value, config_obj=config_obj, stacklevel=3)
 
             # 安排一次延迟保存
             self._schedule_save()
@@ -543,6 +560,7 @@ class Config(metaclass=SingletonMeta):
             with open(path, "r", encoding="utf-8") as file:
                 loaded_config = self.yaml.load(file)
             if loaded_config:
+                loaded_config = migrate_backend(loaded_config)
                 self.config = ConfigModel(**{**self._defaults, **loaded_config})
                 queue_in_loaded_config = loaded_config.get("teams_active_queue")
                 if queue_in_loaded_config is None:

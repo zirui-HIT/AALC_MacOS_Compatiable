@@ -17,6 +17,7 @@ from module.logger import log
 from tasks.battle.battle import Battle
 from tasks.tools.ui_style import apply_tool_window_theme, get_status_label_style
 from utils.path_manager import path_manager
+from utils.runtime_paths import resource_path
 
 
 class BattleWorker(QThread):
@@ -112,7 +113,7 @@ class InfiniteBattles(QWidget):
         """配置窗口的基本属性和界面元素。"""
         self.setWindowTitle("自动战斗")
         self.setGeometry(100, 100, 600, 400)
-        self.setWindowIcon(QIcon("./assets/logo/my_icon_256X256.ico"))
+        self.setWindowIcon(QIcon(str(resource_path("./assets/logo/my_icon_256X256.ico"))))
 
         # 创建布局
         layout = QVBoxLayout()

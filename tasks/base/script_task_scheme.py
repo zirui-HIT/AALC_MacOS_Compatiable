@@ -1,11 +1,8 @@
-import platform
 import random
 from datetime import datetime
 from threading import Event
 from time import sleep, time
 
-import win32api
-import win32con
 from playsound3 import playsound
 from PySide6.QtCore import QT_TRANSLATE_NOOP, QMutex, QThread
 
@@ -14,8 +11,7 @@ from app.windows_toast import TemplateToast, send_toast
 from module.automation import auto
 from module.config import TeamSetting, cfg
 from module.decorator.decorator import begin_and_finish_time_log
-from module.game_and_screen import game_process, screen
-from module.game_and_screen.hdr import get_monitor_hdr_info
+from module.game_and_screen import screen
 from module.logger import log
 from module.my_error.my_error import (
     backMainWinError,
@@ -46,6 +42,7 @@ from tasks.daily.luxcavation import EXP_luxcavation, thread_luxcavation
 from tasks.mirror.mirror import Mirror
 from tasks.teams.team_formation import select_battle_team
 from utils.path_manager import path_manager
+from utils.runtime_paths import resource_path
 from utils.utils import calculate_the_teams, check_hard_mirror_time, get_day_of_week
 
 
@@ -126,6 +123,13 @@ def to_get_reward():
 
 def init_game():
     log.debug("初始化游戏")
+    if cfg.backend == "playcover":
+        from module.backends.factory import get_playcover_session
+
+        auto.init_input()
+        get_playcover_session().start_game()
+        auto.take_screenshot(False)
+        return
     if cfg.simulator:
         if cfg.simulator_type == 0:
             mumu_instance_number = 0
@@ -171,6 +175,8 @@ def init_game():
 
             SimulatorControl.connection_device.start_game()
     else:
+        from module.game_and_screen import game_process
+
         game_process.start_game()
         while not screen.init_handle():
             sleep(10)
@@ -179,8 +185,13 @@ def init_game():
 
 
 def _warn_if_game_monitor_hdr_enabled() -> None:
-    if cfg.simulator or not bool(cfg.get_value("experimental_hdr_warning", True)):
+    if cfg.backend != "windows" or not bool(cfg.get_value("experimental_hdr_warning", True)):
         return
+
+    import win32api
+    import win32con
+
+    from module.game_and_screen.hdr import get_monitor_hdr_info
 
     hwnd = screen.handle.hwnd
     if not hwnd:
@@ -208,7 +219,7 @@ def _warn_if_game_monitor_hdr_enabled() -> None:
 
 def Resonate_with_Ahab():
     random_number = random.randint(1, 4)
-    playsound(f"assets/audio/This_is_all_your_fault_{random_number}.mp3", block=False)
+    playsound(str(resource_path(f"assets/audio/This_is_all_your_fault_{random_number}.mp3")), block=False)
 
 
 def _get_game_rendering_scale() -> int | None:
@@ -360,12 +371,15 @@ def Mirror_task():
 def script_task() -> None | int:
     start_time = time()
     # 获取（启动）游戏对游戏窗口进行设置
+    from tasks.common.game_actions import validate_task_capabilities
+
+    validate_task_capabilities(cfg)
     init_game()
     _warn_if_game_monitor_hdr_enabled()
 
     if cfg.skip_enkephalin:
         log.info("设置了跳过合成脑啡肽，将不会自动合成\nSet to skip make enkephalin, it will not to do")
-    if not cfg.simulator:
+    if cfg.backend == "windows":
         if _get_game_rendering_scale() == 2:
             log.warning("当前游戏渲染比例为低, 可能会导致识别错误, 建议设置为中或更高")
         if cfg.set_win_size == 720:
@@ -404,7 +418,7 @@ def script_task() -> None | int:
     for task in task_list:
         task()
 
-    if cfg.set_reduce_miscontact and not cfg.simulator:
+    if cfg.set_reduce_miscontact and cfg.backend == "windows":
         # 任务已结束，这里只恢复游戏窗口样式，避免把前台重新切回游戏。
         screen.reset_win(activate=False)
 
@@ -427,7 +441,7 @@ def script_task() -> None | int:
         Resonate_with_Ahab()
 
     should_exit_aalc = False
-    if platform.system() == "Windows":
+    if cfg.backend in {"windows", "playcover", "android_mumu", "android_adb"}:
         # 收尾动作可能主动关闭游戏或模拟器。先停止截图监控，避免设备消失
         # 被误判为断链并触发自动恢复，重新拉起刚关闭的模拟器。
         retry_monitor.stop()
@@ -478,10 +492,27 @@ class my_script_task(QThread):
             self.exception = e
             log.exception("脚本线程执行失败")
         finally:
-            retry_monitor.stop()
-            self.mutex.unlock()
+            try:
+                retry_monitor.stop()
+                if cfg.backend == "playcover":
+                    from module.backends.factory import get_playcover_session
+
+                    session = get_playcover_session()
+                    try:
+                        if session.transport.connected:
+                            session.input.release_contacts()
+                    finally:
+                        session.disconnect()
+            except OSError as exc:
+                log.warning(f"Task cleanup disconnected: {exc}")
+            finally:
+                auto.task_running = False
+                self.mutex.unlock()
 
     def terminate(self):
+        if cfg.backend == "playcover":
+            auto.request_stop()
+            return
         retry_monitor.stop()
         super().terminate()
         # TerminateThread 不会释放被杀线程持有的 RLock,换新锁防止后续任务取锁永久阻塞
@@ -492,7 +523,14 @@ class my_script_task(QThread):
         self.finished_signal.emit()"""
 
     def _run(self):
-        keep_awake_enabled = bool(cfg.get_value("experimental_keep_screen_awake", False))
+        auto.task_running = True
+        if cfg.backend == "playcover":
+            from module.backends.factory import get_playcover_session
+
+            session = get_playcover_session()
+            session.cancel.clear()
+            session.input.is_pause = False
+        keep_awake_enabled = cfg.backend == "playcover" or bool(cfg.get_value("experimental_keep_screen_awake", False))
         try:
             if keep_awake_enabled:
                 apply_power_keep_awake(True)
@@ -502,7 +540,8 @@ class my_script_task(QThread):
         finally:
             if keep_awake_enabled:
                 # 先切回 AALC 再释放线程级防息屏，避免游戏仍持有前台时继续阻止息屏。
-                mediator.request_focus.emit()
-                self.msleep(800)  # 覆盖 WinRT toast 异步归还焦点（延迟约 600ms），再释放防息屏
+                if cfg.backend == "windows":
+                    mediator.request_focus.emit()
+                    self.msleep(800)  # 覆盖 WinRT toast 异步归还焦点
                 apply_power_keep_awake(False)
             auto.clear_img_cache()

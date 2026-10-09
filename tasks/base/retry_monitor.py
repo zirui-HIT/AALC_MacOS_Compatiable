@@ -5,6 +5,7 @@ import cv2
 import numpy as np
 
 from module.automation import auto
+from module.config import cfg
 from module.logger import log
 from utils.image_utils import ImageUtils
 
@@ -57,10 +58,14 @@ class RetryMonitor:
         """停止监控并确保业务点击门恢复。"""
         with self._lifecycle_lock:
             thread = self._thread
-            self._thread = None
             self._stop_event.set()
+        auto.resume_interactions()
         if thread is not None and thread is not threading.current_thread():
-            thread.join(timeout=2)
+            thread.join(timeout=30 if cfg.backend == "playcover" else 2)
+            if thread.is_alive():
+                raise TimeoutError("Retry monitor did not finish its pending capture")
+        with self._lifecycle_lock:
+            self._thread = None
         self._handling_retry = False
         self._clear_frames = 0
         auto.resume_interactions()

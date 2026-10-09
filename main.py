@@ -9,28 +9,14 @@ import threading
 # 此处仅清除当前进程的环境变量，不影响系统设置和其他进程。
 _ORIG_SSLKEYLOGFILE = os.environ.pop("SSLKEYLOGFILE", None)
 
-# 将当前工作目录设置为程序所在的目录，确保无论从哪里执行，其工作目录都正确设置为程序本身的位置，避免路径错误。
-os.chdir(
-    os.path.dirname(sys.executable) if getattr(sys, "frozen", False) else os.path.dirname(os.path.abspath(__file__))
-)
-# 解决 Windows DPI 缩放问题
-from ctypes import c_void_p, windll
+from utils.runtime_paths import prepare_runtime
 
-try:
-    # 1. 尝试 Win10 1703+ 的最强方案 (Per Monitor V2)
-    # -4 对应 DPI_AWARENESS_CONTEXT_PER_MONITOR_AWARE_V2
-    windll.user32.SetProcessDpiAwarenessContext(c_void_p(-4))
-except (AttributeError, OSError):
-    try:
-        # 2. 尝试 Win8.1+ 的方案 (Per Monitor)
-        # 2 对应 PROCESS_PER_MONITOR_DPI_AWARE
-        windll.shcore.SetProcessDpiAwareness(2)
-    except (AttributeError, OSError):
-        try:
-            # 3. 最后的兜底方案 (Win7/Vista)
-            windll.user32.SetProcessDPIAware()
-        except Exception:
-            pass
+prepare_runtime()
+
+if sys.platform == "win32":
+    from module.platforms.windows import initialize_windows
+
+    initialize_windows()
 
 # 先配好日志（给 "AALC" logger 挂 handler），再 import 会在 import 期就打日志的 app/config 模块，
 # 否则那些启动日志会丢。
@@ -39,22 +25,12 @@ from module.logger.my_log import Logger
 
 Logger()
 
-# 获取管理员权限
-import pyuac
+from PySide6.QtCore import QObject, Qt, QTimer, Signal
+from PySide6.QtWidgets import QApplication
 
 from app.language_manager import LanguageManager
 from app.my_app import MainWindow
 from module.config import cfg
-
-if not pyuac.isUserAdmin():
-    try:
-        pyuac.runAsAdmin(False)
-        sys.exit(0)
-    except Exception:
-        sys.exit(1)
-
-from PySide6.QtCore import QObject, Qt, QTimer, Signal
-from PySide6.QtWidgets import QApplication
 
 QApplication.setHighDpiScaleFactorRoundingPolicy(Qt.HighDpiScaleFactorRoundingPolicy.PassThrough)
 QApplication.setAttribute(Qt.AA_DontCreateNativeWidgetSiblings)
@@ -102,7 +78,7 @@ if __name__ == "__main__":
     APP_PORT = 62333
 
     # 1. 尝试发送参数给已有实例
-    if send_args_to_existing_instance(APP_PORT, sys.argv[1:]):
+    if not any(flag in sys.argv for flag in ("--smoke-test", "--ocr-smoke-test")) and send_args_to_existing_instance(APP_PORT, sys.argv[1:]):
         sys.exit(0)
 
     # 2. 如果发送失败，说明是第一个实例，开始初始化
@@ -115,8 +91,27 @@ if __name__ == "__main__":
     app = QApplication(sys.argv)
     app.setAttribute(Qt.AA_DontCreateNativeWidgetSiblings)
 
+    if "--ocr-smoke-test" in sys.argv:
+        from PIL import Image, ImageDraw, ImageFont
+
+        from module.ocr import ocr
+        from utils.runtime_paths import resource_path
+
+        fixture = Image.new("RGB", (640, 120), "white")
+        font = ImageFont.truetype(str(resource_path("assets/app/fonts/ChineseFont.ttf")), 48)
+        ImageDraw.Draw(fixture).text((20, 20), "Win Rate", fill="black", font=font)
+        result = ocr.run(fixture)
+        if "winrate" not in "".join(result.txts or []).replace(" ", "").lower():
+            raise RuntimeError("Offline OCR smoke failed")
+        log.info("Offline OCR smoke passed")
+        sys.exit(0)
+
     # 创建主窗口
     ui = MainWindow(sys.argv)
+
+    if "--smoke-test" in sys.argv:
+        QTimer.singleShot(1000, app.quit)
+        sys.exit(app.exec())
 
     # 3. 设置参数监听信号
     signaler = ArgumentSignaler()

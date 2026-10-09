@@ -1,4 +1,5 @@
 import os
+from pathlib import Path
 
 import cv2
 import numpy as np
@@ -8,9 +9,21 @@ from PIL import Image
 from module.config import cfg
 from module.logger import log
 from utils.path_manager import path_manager
+from utils.runtime_paths import data_path, resource_path
 
 
 class ImageUtils:
+    @staticmethod
+    def resolve_path(profile, image_path):
+        if ".." in Path(image_path).parts or Path(image_path).is_absolute():
+            raise ValueError("Template path must stay inside the resource tree")
+        if profile.endswith("/ios_en"):
+            theme = profile.split("/")[0]
+            custom = data_path(f"templates/ios_en/{theme}/{image_path}")
+            return custom if custom.exists() else resource_path(f"assets/ios_en/{theme}/{image_path}")
+        updated = data_path(f"resources/images/{profile}/{image_path}")
+        return updated if updated.exists() else resource_path(f"assets/images/{profile}/{image_path}")
+
     @staticmethod
     def load_image(image_path, resize=True, return_path=False):
         """
@@ -23,8 +36,9 @@ class ImageUtils:
         try:
             img_path = None
             selected_path = None
-            for path in path_manager.pic_path:
-                img_path = os.path.join(f"./assets/images/{path}/{image_path}")
+            candidate_paths = ImageUtils.existing_image_paths(image_path) if cfg.game_profile == "ios_en" else path_manager.pic_path
+            for path in candidate_paths:
+                img_path = os.path.join(str(ImageUtils.resolve_path(path, image_path)))
                 if os.path.exists(img_path):
                     selected_path = path
                     break
@@ -53,7 +67,7 @@ class ImageUtils:
         for path in path_manager.pic_path:
             if path_manager.is_path_dark(path):
                 continue
-            img_path = os.path.join(f"./assets/images/{path}/{image_path}")
+            img_path = os.path.join(str(ImageUtils.resolve_path(path, image_path)))
             if os.path.exists(img_path):
                 return True, path
         return False, None
@@ -63,7 +77,7 @@ class ImageUtils:
         """返回当前有效路径中存在该图片的路径列表。"""
         paths = []
         for path in path_manager.pic_path:
-            img_path = os.path.join(f"./assets/images/{path}/{image_path}")
+            img_path = os.path.join(str(ImageUtils.resolve_path(path, image_path)))
             if os.path.exists(img_path):
                 paths.append(path)
         if path_manager.current_theme == "dark":
@@ -78,7 +92,7 @@ class ImageUtils:
             if zh_cn_paths:
                 paths = zh_cn_paths
         elif path_manager.current_language == "en":
-            en_paths = [path for path in paths if path.endswith("/en")]
+            en_paths = [path for path in paths if path.endswith(("/ios_en", "/en"))]
             if en_paths:
                 paths = en_paths
             else:
@@ -88,7 +102,7 @@ class ImageUtils:
     @staticmethod
     def load_from_specific_path(image_path, target_path, resize=True):
         """从指定路径加载图片。"""
-        img_path = os.path.join(f"./assets/images/{target_path}/{image_path}")
+        img_path = os.path.join(str(ImageUtils.resolve_path(target_path, image_path)))
         if not os.path.exists(img_path):
             return None
         try:

@@ -32,13 +32,13 @@ from qfluentwidgets import (
     setTheme,
     setThemeColor,
 )
-from qfluentwidgets.components.widgets.frameless_window import FramelessWindow
 from qframelesswindow import StandardTitleBar
 from qframelesswindow.titlebar.title_bar_buttons import TitleBarButtonState
 
 from app import AnnouncementStatus, mediator
 from app.announcement_board import AnnouncementBoard, AnnouncementThread
 from app.card.messagebox_custom import MessageBoxConfirm, MessageBoxWarning
+from app.common.ui_config import apply_font_config, get_main_window_style, get_title_bar_style
 from app.custom_pivot import FullWidthPivot
 from app.farming_interface import FarmingInterface
 from app.language_manager import LanguageManager
@@ -47,6 +47,8 @@ from app.resource_sync_coordinator import ResourceSyncCoordinator
 from app.setting_interface import SettingInterface
 from app.team_setting_card import TeamSettingCard
 from app.tools_interface import ToolsInterface
+from app.widget.dev_watermark import DevWatermark
+from app.window_base import ApplicationWindow
 from module.after_completion_types import (
     LEGACY_AFTER_COMPLETION_TO_CONFIG,
     POWER_ACTION_NONE,
@@ -56,6 +58,7 @@ from module.config import cfg
 from module.font_manager import font_manager
 from module.logger import log
 from module.system_actions import autodaily_exit_to_after_completion_config, suspend_completion_actions
+from utils.runtime_paths import resource_path
 
 # WinRT toast / Win32 焦点切换存在异步回跳，这里保留一次延迟补偿。
 _FOREGROUND_RETRY_DELAY_MS = 600
@@ -70,14 +73,6 @@ class Language(Enum):
     AUTO = QLocale()
 
 
-from app.common.ui_config import (
-    apply_font_config,
-    get_main_window_style,
-    get_title_bar_style,
-)
-from app.widget.dev_watermark import DevWatermark
-
-
 # 自定义托盘菜单，处理鼠标在外部释放时关闭菜单
 class TrayRoundMenu(RoundMenu):
     def mouseReleaseEvent(self, e):
@@ -88,7 +83,7 @@ class TrayRoundMenu(RoundMenu):
 
 
 # 使用无框窗口
-class MainWindow(FramelessWindow):
+class MainWindow(ApplicationWindow):
     def __init__(self, argv: list[str]):
         super().__init__()
 
@@ -100,7 +95,7 @@ class MainWindow(FramelessWindow):
         apply_font_config()
 
         self.setTitleBar(StandardTitleBar(self))
-        self.setWindowIcon(QIcon("./assets/logo/my_icon_256X256.ico"))
+        self.setWindowIcon(QIcon(str(resource_path("./assets/logo/my_icon_256X256.ico"))))
         self.setWindowTitle(f"Ahab Assistant Limbus Company - {cfg.version}")
         self.setObjectName("MainWindow")
         setThemeColor("#9c080b")
@@ -160,6 +155,7 @@ class MainWindow(FramelessWindow):
         self.farming_interface = FarmingInterface(self)
         self.tools_interface = ToolsInterface(self)
         self.setting_interface = SettingInterface(self)
+        QApplication.instance().aboutToQuit.connect(self.farming_interface._listener_stop)
         # 由独立协调类统一接管资源同步编排，主窗口只保留界面接缝。
         self.resource_sync_coordinator = ResourceSyncCoordinator(
             window=self,
@@ -178,9 +174,9 @@ class MainWindow(FramelessWindow):
         # 向 pivot 添加子界面
         self.addSubInterface(self.farming_interface, "farming_interface", "一键长草")
         if cfg.language_in_program == "zh_cn":
-            self.help_interface = MarkdownViewer("./assets/doc/zh/How_to_use.md")
+            self.help_interface = MarkdownViewer(str(resource_path("./assets/doc/zh/How_to_use.md")))
         else:
-            self.help_interface = MarkdownViewer("./assets/doc/en/How_to_use_EN.md")
+            self.help_interface = MarkdownViewer(str(resource_path("./assets/doc/en/How_to_use_EN.md")))
         self.addSubInterface(self.help_interface, "help_interface", "帮助")
         self.addSubInterface(self.tools_interface, "tools_interface", "小工具")
         self.addSubInterface(self.setting_interface, "setting_interface", "设置")
@@ -212,7 +208,8 @@ class MainWindow(FramelessWindow):
         # 初始化进度环
         self.set_ring()
         # 启动阶段先走软件更新检查，再决定是否继续执行资源同步。
-        self.resource_sync_coordinator.start_startup_check()
+        if "--smoke-test" not in argv:
+            self.resource_sync_coordinator.start_startup_check()
 
         # 判断是否需要降低缩放以适配小屏幕
         screen_rect = self.screen().availableGeometry()  # 获取到的rect会经过缩放因子的缩放
@@ -251,7 +248,7 @@ class MainWindow(FramelessWindow):
         # 创建系统托盘对象，并绑定主窗口的激活处理逻辑。
         self.tray_menu = None
         self.tray_icon = QSystemTrayIcon(self)
-        self.tray_icon.setIcon(QIcon("./assets/logo/my_icon_256X256.ico"))
+        self.tray_icon.setIcon(QIcon(str(resource_path("./assets/logo/my_icon_256X256.ico"))))
         self.tray_icon.activated.connect(self.on_tray_icon_activated)
         self.tray_icon.show()
 
@@ -493,6 +490,12 @@ class MainWindow(FramelessWindow):
             self.resource_sync_coordinator.apply_status_style(is_dark)
 
     def closeEvent(self, e):
+        if sys.platform == "darwin":
+            worker = self.setting_interface.playcover_settings.worker
+            if worker is not None and worker.isRunning():
+                worker.finished.connect(self.close)
+                e.ignore()
+                return
         # 保存窗口位置
         cfg.set_value("window_position_x", self.x())
         cfg.set_value("window_position_y", self.y())
@@ -513,7 +516,12 @@ class MainWindow(FramelessWindow):
                 self.window(),
             )
             if message_box.exec():
-                self.farming_interface.interface_left.my_script.terminate()
+                worker = self.farming_interface.interface_left.my_script
+                worker.terminate()
+                if cfg.backend == "playcover":
+                    e.ignore()
+                    worker.finished.connect(self.close)
+                    return
             else:
                 e.ignore()
                 return
@@ -529,7 +537,16 @@ class MainWindow(FramelessWindow):
                     if isinstance(tool.w, QWidget):
                         tool.w.close()
                     elif isinstance(tool.w, QThread):
-                        tool.w.terminate()
+                        if cfg.backend == "playcover":
+                            from module.automation import auto
+
+                            auto.request_stop()
+                            tool.w.requestInterruption()
+                            if not tool.w.wait(6000):
+                                e.ignore()
+                                return
+                        else:
+                            tool.w.terminate()
             else:
                 e.ignore()
                 return
@@ -586,7 +603,7 @@ class MainWindow(FramelessWindow):
             page.deleteLater()
             del page
             self.pivot.removeWidget("team_setting")
-            font_manager.unload_font("./assets/app/fonts/ChineseFont.ttf")
+            font_manager.unload_font(str(resource_path("./assets/app/fonts/ChineseFont.ttf")))
         except Exception as e:
             log.error(f"delete_team 出错：{e}")
 
@@ -696,6 +713,9 @@ class MainWindow(FramelessWindow):
             self.help_interface.load_markdown(url)
 
     def download_and_install(self, file_name):
+        if sys.platform == "darwin":
+            mediator.warning.emit("macOS updates are notification-only; install a verified Mac build manually.")
+            return
         messages_box = MessageBoxConfirm(self.tr("更新提醒"), self.tr("下载已经完成，是否开始更新"), self.window())
         if messages_box.exec():
             source_file = os.path.abspath("./AALC Updater.exe")

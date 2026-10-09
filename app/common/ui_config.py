@@ -1,4 +1,6 @@
 # 应用 UI 配置
+import sys
+
 from PySide6.QtCore import QT_TRANSLATE_NOOP, Qt
 from PySide6.QtGui import QColor
 from PySide6.QtWidgets import QFrame
@@ -19,6 +21,8 @@ FONT_FAMILIES = [
     "SansSerif",  # 无衬线字体另一个名称
     "SimSun",  # 宋体
 ]
+if sys.platform == "darwin":
+    FONT_FAMILIES = ["PingFang SC", "Helvetica Neue", "sans-serif"]
 
 # 主窗口样式配置
 MAIN_WINDOW_STYLES = {

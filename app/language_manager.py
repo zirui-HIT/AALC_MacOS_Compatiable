@@ -5,6 +5,7 @@ from PySide6.QtWidgets import QApplication
 
 from module.config import cfg
 from module.logger import log
+from utils.runtime_paths import resource_path
 from utils.singletonmeta import SingletonMeta
 
 # from app.my_app import MainWindow # 不要导入这个
@@ -111,7 +112,7 @@ class LanguageManager(metaclass=SingletonMeta):
 
         # 加载应用翻译
         self.app_translator = QTranslator()
-        ts_path = "i18n"
+        ts_path = str(resource_path("i18n"))
         if self.app_translator.load(f"myapp_{lang_code}", ts_path):
             self.app.installTranslator(self.app_translator)  # type: ignore
 

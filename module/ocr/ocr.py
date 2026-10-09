@@ -1,20 +1,29 @@
 import logging
+from pathlib import Path
 
 import cv2
 import numpy as np
+import rapidocr
 from cv2 import createCLAHE
 from PIL import Image
 from rapidocr import EngineType, LangDet, LangRec, ModelType, OCRVersion, RapidOCR
 from rapidocr.utils.output import RapidOCROutput
 
+from utils.runtime_paths import resource_path
 from utils.singletonmeta import SingletonMeta
 
 
 class OCR(metaclass=SingletonMeta):
     def __init__(self, logger: logging.Logger):
         self.logger = logger
+        models = Path(rapidocr.__file__).resolve().parent / "models"
         self.engine = RapidOCR(
             params={
+                "Det.model_path": str(models / "ch_PP-OCRv4_det_infer.onnx"),
+                "Cls.model_path": str(models / "ch_ppocr_mobile_v2.0_cls_infer.onnx"),
+                "Rec.model_path": str(models / "ch_PP-OCRv4_rec_infer.onnx"),
+                "Rec.rec_keys_path": str(models / "ppocr_keys_v1.txt"),
+                "Global.font_path": str(resource_path("assets/app/fonts/ChineseFont.ttf")),
                 "Det.engine_type": EngineType.ONNXRUNTIME,
                 "Det.lang_type": LangDet.CH,
                 "Det.model_type": ModelType.MOBILE,
@@ -24,7 +33,7 @@ class OCR(metaclass=SingletonMeta):
                 "Rec.model_type": ModelType.MOBILE,
                 "Rec.ocr_version": OCRVersion.PPOCRV4,
             },
-            config_path=r"assets\config\default_rapidocr.yaml",
+            config_path=str(resource_path("assets/config/default_rapidocr.yaml")),
         )
 
     def run(self, image: Image.Image | np.ndarray | str) -> RapidOCROutput:

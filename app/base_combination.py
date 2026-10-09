@@ -1,5 +1,6 @@
 import base64
 import datetime
+import sys
 from typing import Callable
 
 import pyperclip
@@ -68,6 +69,7 @@ from module.font_manager import font_manager
 from module.logger import log
 from module.my_error.my_error import settingsTypeError
 from module.update.check_update import check_update
+from utils.runtime_paths import resource_path
 from utils.utils import decrypt_string, encrypt_string
 
 
@@ -409,8 +411,8 @@ class SinnerSelect(QFrame):
         parent=None,
     ):
         super().__init__(parent)
-        img_path = f"./assets/app/sinner/{config_name}"
-        ui_img_path = "./assets/app/sinner/ui_components"
+        img_path = str(resource_path(f"./assets/app/sinner/{config_name}"))
+        ui_img_path = str(resource_path("./assets/app/sinner/ui_components"))
         self.main_layout = QVBoxLayout(self)
         self.main_layout.setContentsMargins(0, 0, 0, 0)
         self.setObjectName(config_name)
@@ -487,7 +489,7 @@ class SinnerSelect(QFrame):
         self.main_layout.addWidget(self.name_label)
         self.main_layout.setAlignment(self.name_label, Qt.AlignBottom | Qt.AlignRight)
         # Load chinese font
-        family = font_manager.load_font("./assets/app/fonts/ChineseFont.ttf")
+        family = font_manager.load_font(str(resource_path("./assets/app/fonts/ChineseFont.ttf")))
         name_font = QFont(family, 16)
         self.name_label.setFont(name_font)
         self.name_label.setStyleSheet(
@@ -580,7 +582,7 @@ class SinnerSelect(QFrame):
                 number = int(text)
                 if number >= 8:
                     # BACKUP: Teal style
-                    banner_pixmap = QPixmap("./assets/app/sinner/ui_components/SinnerBackup.png")
+                    banner_pixmap = QPixmap(str(resource_path("./assets/app/sinner/ui_components/SinnerBackup.png")))
                     self.number_label.setStyleSheet(
                         """
                         color: rgb(34, 255, 227);
@@ -590,7 +592,7 @@ class SinnerSelect(QFrame):
                     self.number_glow_effect.setColor(QColor(7, 104, 92))
                 else:
                     # SELECTED: Amber style
-                    banner_pixmap = QPixmap("./assets/app/sinner/ui_components/SinnerSelected.png")
+                    banner_pixmap = QPixmap(str(resource_path("./assets/app/sinner/ui_components/SinnerSelected.png")))
                     self.number_label.setStyleSheet(
                         """
                         color: rgb(255, 185, 0);
@@ -601,7 +603,7 @@ class SinnerSelect(QFrame):
                 self.banner_label.setPixmap(banner_pixmap)
             except ValueError:
                 # Fallback if text is not a number
-                banner_pixmap = QPixmap("./assets/app/sinner/ui_components/SinnerSelected.png")
+                banner_pixmap = QPixmap(str(resource_path("./assets/app/sinner/ui_components/SinnerSelected.png")))
                 self.banner_label.setPixmap(banner_pixmap)
                 # Fallback Glow
                 self.number_glow_effect.setColor(QColor(254, 95, 0))
@@ -787,7 +789,7 @@ class PushSettingCardMirrorchyan(SettingCard):
         config_name,
         parent: QObject | None = None,
     ):
-        self.config_value = decrypt_string(str(cfg.get_value(config_name)))
+        self.config_value = decrypt_string(str(cfg.get_value(config_name))) if sys.platform == "win32" else ""
         self.update_callback = update_callback
         super().__init__(icon, title, "", parent)
 

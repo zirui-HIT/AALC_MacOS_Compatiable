@@ -1,0 +1,46 @@
+name: macOS PlayCover
+on:
+  workflow_dispatch:
+  pull_request:
+  push:
+    branches: [main]
+permissions:
+  contents: read
+jobs:
+  protocol:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.13'
+      - run: python -m unittest tests.playcover.test_transport tests.playcover.test_probe -v
+  macos:
+    runs-on: macos-14
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v8.1.0
+      - name: Install pinned arm64 environment
+        run: |
+          test "$(uname -m)" = arm64
+          export UV_CACHE_DIR="$PWD/.runtime/cache/uv"
+          export UV_PYTHON_INSTALL_DIR="$PWD/.runtime/python"
+          uv sync --frozen --group dev
+      - name: Tests and GUI smoke
+        run: |
+          mkdir -p .runtime/tmp
+          export TMPDIR="$PWD/.runtime/tmp"
+          .venv/bin/python -m pytest -q --basetemp .runtime/tmp/pytest
+          QT_QPA_PLATFORM=offscreen .venv/bin/python main.py --smoke-test
+      - name: Build local app
+        run: |
+          export TMPDIR="$PWD/.runtime/tmp"
+          export PYINSTALLER_CONFIG_DIR="$PWD/.runtime/cache/pyinstaller"
+          .venv/bin/pyinstaller main_macos.spec --clean --noconfirm
+          QT_QPA_PLATFORM=offscreen dist/AALC.app/Contents/MacOS/AALC --smoke-test
+          QT_QPA_PLATFORM=offscreen dist/AALC.app/Contents/MacOS/AALC --ocr-smoke-test
+          tar -czf dist/AALC-macos-arm64.tar.gz -C dist AALC.app
+      - uses: actions/upload-artifact@v4
+        with:
+          name: AALC-macos-arm64-local
+          path: dist/AALC-macos-arm64.tar.gz

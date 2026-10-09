@@ -1,4 +1,5 @@
 import datetime
+import sys
 
 from PySide6.QtCore import QT_TRANSLATE_NOOP, QPoint, Qt, QUrl, Signal
 from PySide6.QtGui import QDesktopServices
@@ -41,6 +42,7 @@ from app.theme_pack_setting_interface import ThemePackSettingDialog
 from app.widget.setting_nav import SettingNav
 from module.config import cfg, theme_list
 from utils.adb_endpoint import normalize_adb_host
+from utils.runtime_paths import data_path
 from utils.schedule_helper import ScheduleHelper
 
 
@@ -60,6 +62,16 @@ class SettingInterface(QWidget):
         self.__init_card()
         self.__initLayout()
         self.__init_nav()
+        if sys.platform == "darwin":
+            from app.playcover_settings import PlayCoverSettings
+
+            self.playcover_settings = PlayCoverSettings(self.scroll_widget)
+            self.expand_layout.addWidget(self.playcover_settings)
+            for widget in (self.simulator_setting_group, self.game_path_group, self.autodaily_group,
+                           self.win_input_type_card, self.hdr_warning_card, self.mirrorchyan_cdk_card):
+                widget.setVisible(False)
+            self.update_source_card.setEnabled(False)
+            self.screenshot_benchmark_card.setVisible(False)
 
         # 再应用主题样式并注册主题切换监听。
         self._apply_theme_style()
@@ -582,6 +594,8 @@ class SettingInterface(QWidget):
             ),
         ]
 
+        if sys.platform == "darwin":
+            nav_items = [item for item in nav_items if item[0] not in {"simulator", "game_path", "autodaily"}]
         self.setting_nav.add_nav_items(nav_items)
 
         # connect scroll sync
@@ -641,9 +655,8 @@ class SettingInterface(QWidget):
         self.manualResourceSyncRequested.emit()
 
     def __onOpenLogsCardClicked(self):
-        import os
 
-        os.startfile(os.path.abspath("./logs"))
+        QDesktopServices.openUrl(QUrl.fromLocalFile(str(data_path("logs"))))
 
     def __onScreenshotBenchmarkCardClicked(self):
         from module.automation.screenshot import ScreenShot

@@ -1,7 +1,9 @@
 import os
 
+from utils.runtime_paths import resource_path
+
 purchase_path = "mirror/shop/must_purchase"
-must_purchase_path = "./assets/images/share/mirror/shop/must_purchase"
+must_purchase_path = str(resource_path("./assets/images/share/mirror/shop/must_purchase"))
 must_purchase = []
 for root, dirs, files in os.walk(must_purchase_path):
     for file in files:
@@ -11,7 +13,7 @@ for root, dirs, files in os.walk(must_purchase_path):
         must_purchase.append(full_path)
 
 abandoned_path = "mirror/shop/must_be_abandoned"
-must_be_abandoned_path = "./assets/images/share/mirror/shop/must_be_abandoned"
+must_be_abandoned_path = str(resource_path("./assets/images/share/mirror/shop/must_be_abandoned"))
 must_be_abandoned = []
 for root, dirs, files in os.walk(must_be_abandoned_path):
     for file in files:
@@ -21,7 +23,7 @@ for root, dirs, files in os.walk(must_be_abandoned_path):
         must_be_abandoned.append(full_path)
 
 result_path = "mirror/shop/fusion_result"
-fusion_result_path = "./assets/images/share/mirror/shop/fusion_result"
+fusion_result_path = str(resource_path("./assets/images/share/mirror/shop/fusion_result"))
 fusion_result = []
 for root, dirs, files in os.walk(fusion_result_path):
     for file in files:

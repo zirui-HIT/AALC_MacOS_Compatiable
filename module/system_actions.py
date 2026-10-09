@@ -1,6 +1,7 @@
 import ctypes
 import os
 import subprocess
+import sys
 import threading
 from collections.abc import Iterable
 
@@ -122,6 +123,11 @@ def apply_power_keep_awake(enable: bool) -> None:
     状态绑定在调用线程上，线程结束时由 Windows 自动回收，无需手动 CloseHandle。
     这里按线程维护深度计数，避免跨线程共享全局状态导致错误释放。
     """
+    if sys.platform == "darwin":
+        from module.platforms.macos import keep_awake
+
+        keep_awake(enable)
+        return
     if os.name != "nt":
         return
 
@@ -142,6 +148,11 @@ def apply_power_keep_awake(enable: bool) -> None:
 
 
 def _action_exit_game() -> None:
+    if cfg.backend == "playcover":
+        from module.backends.factory import get_playcover_session
+
+        get_playcover_session().stop_game()
+        return
     from module.game_and_screen import game_process, screen
 
     if os.name != "nt":
@@ -252,6 +263,15 @@ def execute_after_completion(actions: Iterable[str], power_action: str) -> bool:
     执行结束后动作。
     返回值表示是否需要退出 AALC（由 exit_aalc 动作决定）。
     """
+    if sys.platform == "darwin":
+        if _completion_actions_suspended.is_set():
+            return False
+        normalized = normalize_after_actions(actions)
+        if normalize_power_action(power_action) != POWER_ACTION_NONE or ACTION_EXIT_EMULATOR in normalized:
+            raise NotImplementedError("macOS supports only exit_game and exit_aalc completion actions")
+        if ACTION_EXIT_GAME in normalized:
+            _action_exit_game()
+        return ACTION_EXIT_AALC in normalized
     if os.name != "nt":
         return False
 

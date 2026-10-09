@@ -46,6 +46,7 @@ from module.config.theme_pack_import_export import (
     import_theme_pack_weight,
     import_theme_pack_weight_from_base64,
 )
+from utils.runtime_paths import resource_path
 
 THEME_PACK_PREVIEW_SIZE = QSize(150, 272)
 THEME_PACK_CARD_BATCH_SIZE = 5
@@ -309,7 +310,7 @@ def get_image_path(pack_key, is_hard=False, is_cn=False):
     pack_key_str = str(pack_key)
     image_name = image_map.get(pack_key_str, "")
     if image_name:
-        return f"./assets/app/theme_packs/{image_name}"
+        return str(resource_path(f"./assets/app/theme_packs/{image_name}"))
     return ""
 
 

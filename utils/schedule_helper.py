@@ -6,10 +6,12 @@ import datetime
 import getpass
 import os
 import sys
-import winreg
 
-import win32com.client
-from pywintypes import com_error
+if os.name == "nt":
+    import winreg
+
+    import win32com.client
+    from pywintypes import com_error
 
 from module.logger import log
 

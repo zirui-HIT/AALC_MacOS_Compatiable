@@ -1,9 +1,7 @@
 import logging
 import os
-import sys
 from collections import deque
 from copy import deepcopy
-from pathlib import Path
 from threading import Lock
 
 import colorlog
@@ -13,13 +11,14 @@ from PySide6.QtWidgets import QApplication
 from ruamel.yaml import YAML
 
 from module import CONFIG_PATH, VERSION_PATH
+from utils.runtime_paths import RESOURCE_ROOT, data_path
 from utils.singletonmeta import SingletonMeta
 
 
 class TranslationFormatter(colorlog.ColoredFormatter):
     """自定义日志格式化器，用于日志消息国际化"""
 
-    project_root = Path(sys._MEIPASS) if hasattr(sys, "_MEIPASS") else Path.cwd()
+    project_root = RESOURCE_ROOT
 
     def format(self, record):
         record.msg = QApplication.translate("Logger", str(record.msg))
@@ -142,11 +141,11 @@ class Logger(metaclass=SingletonMeta):
             console_handler.setLevel(logging.DEBUG)
 
             # 创建日志目录
-            os.makedirs("./logs", exist_ok=True)
+            data_path("logs").mkdir(parents=True, exist_ok=True)
 
             # debug日志文件，按文件大小切割
             debug_file_handler = SettingConcurrentRotatingFileHandler(
-                "./logs/debugLog.log",
+                str(data_path("logs/debugLog.log")),
                 maxBytes=5 * 1024 * 1024,  # 每份 5 MB
                 backupCount=10,  # 最多保留 10 份
                 encoding="utf-8",

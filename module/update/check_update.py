@@ -2,6 +2,7 @@ import os  # 导入os模块以便操作文件路径
 import re
 import shutil
 import subprocess
+import sys
 from enum import Enum
 from threading import Thread
 from typing import Callable
@@ -17,6 +18,7 @@ from app.card.messagebox_custom import BaseInfoBar, MessageBoxUpdate
 from module.config import cfg
 from module.decorator.decorator import begin_and_finish_time_log
 from module.logger import log
+from utils.runtime_paths import resource_path
 from utils.utils import decrypt_string
 
 md_renderer = MarkdownIt("gfm-like", {"html": True})
@@ -244,6 +246,8 @@ class UpdateThread(QThread):
         返回:
         .7z 文件的下载 URL，如果没有找到则返回 None
         """
+        if sys.platform == "darwin":
+            return None
         for asset in assets:
             if asset["name"].endswith(".7z"):
                 return asset["browser_download_url"]
@@ -289,7 +293,7 @@ class UpdateThread(QThread):
                 assets_url = self.get_download_url_from_assets(data["assets"])
 
                 # 如果没有可用的下载 URL，则发送成功信号并返回
-                if assets_url is None:
+                if assets_url is None and sys.platform != "darwin":
                     self.updateSignal.emit(UpdateStatus.SUCCESS)
                     return
                 return assets_url
@@ -318,6 +322,9 @@ def handle_update_status(
         show_failure: 是否显示“检查更新失败”的提示。
         show_update_dialog: 是否显示“发现新版本”的更新弹窗。
     """
+    if status == UpdateStatus.UPDATE_AVAILABLE and sys.platform == "darwin":
+        BaseInfoBar.success(title="Update available", content="macOS updates are informational; Windows installers are disabled", parent=self)
+        return
     if status == UpdateStatus.UPDATE_AVAILABLE:
         # 第一类：发现新版本时，按策略决定是否弹出更新确认框。
         if not show_update_dialog:
@@ -438,6 +445,8 @@ def update(assets_url):
     从给定的URL下载更新文件到本地。
     :param assets_url : 更新文件的URL。
     """
+    if sys.platform == "darwin":
+        raise NotImplementedError("Windows software updater is disabled on macOS")
     # 检查URL是否有效
     if not is_valid_url(assets_url):
         log.error("更新失败：获取的URL无效 ")
@@ -475,7 +484,7 @@ def update(assets_url):
         log.info("下载进度100%")
 
         if "OCR" in file_name:
-            exe_path = os.path.abspath("./assets/binary/7za.exe")
+            exe_path = os.path.abspath(str(resource_path("./assets/binary/7za.exe")))
             download_file_path = os.path.join("./update_temp", file_name)
             destination = os.path.abspath("./3rdparty")
             try:
@@ -511,5 +520,7 @@ def start_update_thread(assets_url):
 
 
 def start_update(assert_name):
+    if sys.platform == "darwin":
+        raise NotImplementedError("Windows installer is disabled on macOS")
     source_file = os.path.abspath("./AALC Updater.exe")
     subprocess.Popen([source_file, assert_name], creationflags=subprocess.DETACHED_PROCESS)

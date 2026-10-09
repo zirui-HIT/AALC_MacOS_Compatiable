@@ -7,8 +7,6 @@ from PySide6.QtWidgets import QApplication, QWidget
 
 from module.logger import log
 from tasks.base.script_task_scheme import init_game
-from tasks.tools.infinite_battle import InfiniteBattles
-from tasks.tools.production_module import ProductionModule
 from tasks.tools.screenshot_module import ScreenshotGet
 
 
@@ -37,8 +35,12 @@ class ToolManager:
         def create_and_show():
             try:
                 if self.tool == "battle":
+                    from tasks.tools.infinite_battle import InfiniteBattles
+
                     self.w = InfiniteBattles()
                 elif self.tool == "production":
+                    from tasks.tools.production_module import ProductionModule
+
                     self.w = ProductionModule()
                 elif self.tool == "screenshot":
                     self.w = ScreenshotGet()

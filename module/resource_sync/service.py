@@ -1,30 +1,32 @@
+
 """图片资源同步服务层。"""
 
 from __future__ import annotations
 
+import hashlib
+import shutil
 from dataclasses import dataclass, field
 from enum import Enum
-import hashlib
 from pathlib import Path
-import shutil
 from typing import Callable
 from urllib.parse import quote, urljoin
 
 import requests
 
 from module.logger import log
-from utils.file_utils import sha256_file
 from module.resource_sync.manifest import ResourceFileEntry, ResourceManifest, ResourcePackageEntry
 from module.resource_sync.source import ResourceSource, get_default_sources
 from module.resource_sync.state import LOCAL_STATE_PATH, ResourceSyncState
 from utils.archive_7z import extract_7z_archive
+from utils.file_utils import sha256_file
+from utils.runtime_paths import data_path
 
 # 默认的本地图片资源目录。
-DEFAULT_LOCAL_IMAGES_DIR = Path("assets/images")
+DEFAULT_LOCAL_IMAGES_DIR = data_path("resources/images")
 # 默认的本地同步状态文件路径。
 DEFAULT_LOCAL_STATE_PATH = Path(LOCAL_STATE_PATH)
 # 默认的下载临时目录。
-DEFAULT_TEMP_DIR = Path("update_temp")
+DEFAULT_TEMP_DIR = data_path("cache/resource-sync")
 # 网络请求超时时间，单位为秒。
 DEFAULT_REQUEST_TIMEOUT = 10
 

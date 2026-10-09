@@ -3,6 +3,7 @@ from time import sleep
 from module.automation import auto
 from module.config import cfg
 from module.logger import log
+from tasks.common.game_actions import get_game_actions
 
 
 def _prepare_continuous_combat_count(
@@ -46,6 +47,10 @@ def _prepare_continuous_combat_count(
 
 
 def EXP_luxcavation(combat_count: int = 1):
+    if cfg.backend == "playcover":
+        if combat_count != 1:
+            raise NotImplementedError("iOS continuous combat requires separate validation")
+        return get_game_actions().enter_exp_menu()
     loop_count = 30
     auto.model = "clam"
     while True:
@@ -59,7 +64,7 @@ def EXP_luxcavation(combat_count: int = 1):
             and auto.find_element("home/back_assets.png", model="normal")
             and not auto.find_element("luxcavation/exp_enter.png", threshold=0.85)
         ):
-            auto.key_press("esc")
+            get_game_actions().back()
             continue
         if auto.find_element("luxcavation/exp_enter.png", threshold=0.85, take_screenshot=True):
             if level := auto.find_element("luxcavation/exp_enter.png", find_type="image_with_multiple_targets"):
@@ -154,7 +159,7 @@ def thread_luxcavation(combat_count: int = 1):
             and not auto.find_element("luxcavation/thread_enter_up80_assets.png")
             and not auto.find_element("luxcavation/thread_consume.png")
         ):
-            auto.key_press("esc")
+            get_game_actions().back()
             continue
         if thread_enter := auto.click_element("luxcavation/thread_enter_up80_assets.png", click=False):
             scale = cfg.set_win_size / 1440

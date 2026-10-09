@@ -1,0 +1,27 @@
+"""Native frameless window, with a QWidget host for Qt offscreen smoke tests.
+
+The macOS frameless library casts winId() to NSView. Offscreen IDs are not
+NSViews, so that native operation must never be used on the offscreen plugin.
+"""
+
+import os
+import sys
+
+from PySide6.QtWidgets import QWidget
+from qfluentwidgets.components.widgets.frameless_window import FramelessWindow
+
+
+class OffscreenWindow(QWidget):
+    def setTitleBar(self, title_bar):
+        self.titleBar = title_bar
+
+    def setResizeEnabled(self, enabled):
+        self._resize_enabled = enabled
+
+    def resizeEvent(self, event):
+        super().resizeEvent(event)
+        if hasattr(self, "titleBar"):
+            self.titleBar.resize(self.width(), self.titleBar.height())
+
+
+ApplicationWindow = OffscreenWindow if sys.platform == "darwin" and os.environ.get("QT_QPA_PLATFORM") == "offscreen" else FramelessWindow

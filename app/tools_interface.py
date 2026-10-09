@@ -1,3 +1,4 @@
+import sys
 from time import sleep
 
 from PySide6.QtCore import QT_TRANSLATE_NOOP, Qt, QThread
@@ -25,6 +26,10 @@ class ToolsInterface(ScrollArea):
         self.__initLayout()
         self.set_style_sheet()  # 设置滚动区域和内容容器的透明背景，使显示主窗口背景色
         self.__connect_signal()
+        if sys.platform == "darwin":
+            for card in (self.auto_battle_card, self.auto_production_card):
+                card.setEnabled(False)
+                card.setToolTip("This legacy tool is not yet validated on PlayCover; use the main task runner")
         self.setWidget(self.scroll_widget)
 
         LanguageManager().register_component(self)
