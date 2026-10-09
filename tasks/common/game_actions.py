@@ -14,7 +14,7 @@ class GameActions:
         if self.capabilities.native_keys:
             self.auto.key_press("p")
             return True
-        self.auto.take_screenshot()
+        self.auto.take_screenshot(max_age=0.85)
         if not self.auto.click_element("battle/win_rate_card.png", offset=False):
             raise RuntimeError("Cannot recognize iOS Win Rate button; record this page for calibration")
         return True

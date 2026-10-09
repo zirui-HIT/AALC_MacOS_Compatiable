@@ -1,6 +1,7 @@
 import heapq
 import time
 from enum import Enum
+from functools import lru_cache
 from time import sleep
 
 import cv2
@@ -23,34 +24,21 @@ class MirrorMap:
         self.floor_map = []
         self.map = {}
         self.hard_mode = hard_mode
+        self._next_position = []
 
     def get_next_step(self):
-        re_identify = False
-        if len(self.floor_map) > 0:
-            next_step = self.floor_map.pop(0)
-            if next_step is not None:
-                return next_step
-            else:
-                re_identify = True
-        else:
-            re_identify = True
-
-        if re_identify is True:
-            self.floor_map, self.floor_nodes = search_road_from_road_map(hard_mode=self.hard_mode)
-            if self.floor_map is True and self.floor_nodes is True:
-                return True
-            if self.floor_map is False:
-                self.floor_map = []
-                return False
-            if not isinstance(self.floor_map, list):
-                self.floor_map = list(self.floor_map)
-            self.map[f"floor{self.floor}"] = [self.floor_map[:], self.floor_nodes[:]]
-
-        if len(self.floor_map) > 0:
-            next_step = self.floor_map.pop(0)
-            return next_step
-        else:
+        # 每个节点用当前帧重新规划，避免沿用相机移动前的坐标或不可达分支。
+        self._next_position.clear()
+        self.floor_map, self.floor_nodes = search_road_from_road_map(
+            hard_mode=self.hard_mode, next_position=self._next_position
+        )
+        if self.floor_map is True and self.floor_nodes is True:
+            return True
+        if not self.floor_map:
+            self.floor_map = []
             return False
+        self.map[f"floor{self.floor}"] = [self.floor_map[:], self.floor_nodes[:]]
+        return self.floor_map.pop(0)
 
     def enter_next_node(self, next_step):
         if cfg.mirror_keyboard_navigation:
@@ -64,7 +52,9 @@ class MirrorMap:
             sleep(1)
             return _keyboard_enter_succeeded()
 
-        if next_position := self._get_next_position(next_step):
+        next_position = self._next_position[:] or self._get_next_position(next_step)
+        self._next_position.clear()
+        if next_position:
             auto.mouse_click(next_position[0], next_position[1])
             sleep(1.25)
             if auto.click_element("mirror/road_in_mir/enter_assets.png", take_screenshot=True):
@@ -104,6 +94,7 @@ class MirrorMap:
         log.debug(f"镜牢地图楼层缓存更新: {self.floor} -> {floor}")
         self.floor = floor
         self.floor_map = []
+        self._next_position.clear()
 
 
 def get_node_weight(x, y):
@@ -114,9 +105,9 @@ def get_node_weight(x, y):
         x + 125 * scale,
         y + 125 * scale,
     )
-    if auto.find_feature_element("mirror/road_in_mir/shop.png", road_node_bbox, 50):
-        return 3
-    elif auto.find_feature_element("mirror/road_in_mir/event.png", road_node_bbox):
+    if auto.find_feature_element("mirror/road_in_mir/event.png", road_node_bbox):
+        return 4
+    elif auto.find_feature_element("mirror/road_in_mir/shop.png", road_node_bbox, 50):
         return 3
     elif auto.find_feature_element(
         "mirror/road_in_mir/battle.png",
@@ -180,16 +171,18 @@ def search_road_default_distance():
         continue
     if retry() is False:
         return False
-    # 判断中、下两个节点是否有权重3的节点，有的话直接选择进入
+    # 先检查三个可见方向，事件优先，其次商店。
     node_weight = {}
     if bus_position := auto.find_element("mirror/mybus_default_distance.png", take_screenshot=True):
-        for road in three_roads[:2]:
+        for road in three_roads:
             node_x = bus_position[0] + road[0]
             node_y = bus_position[1] + road[1]
+            if not (0 < node_x < cfg.set_win_size * 16 / 9 and 0 < node_y < cfg.set_win_size):
+                continue
             weight = get_node_weight(node_x, node_y)
             node_weight[(node_x, node_y)] = weight
-        max_weight = max(node_weight.values())
-        if max_weight == 3:
+        max_weight = max(node_weight.values(), default=-5)
+        if max_weight >= 3:
             road_list = sorted(node_weight, key=node_weight.get, reverse=True)
             road = road_list[0]
             if 0 < road[0] < cfg.set_win_size * 16 / 9 and 0 < road[1] < cfg.set_win_size:
@@ -197,7 +190,7 @@ def search_road_default_distance():
                 sleep(0.75)
                 if auto.click_element("mirror/road_in_mir/enter_assets.png", take_screenshot=True):
                     return True
-    # 如果中、下两个节点没有权重3的节点，查看所有节点的权重，选择权重最大的节点进入
+    # 无可见事件/商店时，保留原有相机调整和普通节点回退。
     if bus_position := auto.find_element("mirror/mybus_default_distance.png", take_screenshot=True):
         from tasks.base.retry import check_times
 
@@ -266,151 +259,89 @@ def search_road_farthest_distance():
         [250 * scale, 225 * scale],
     ]
     if bus_position := auto.find_element("mirror/mybus_maximum_distance.png"):
-        for road in three_roads:
-            road[0] += bus_position[0]
-            road[1] += bus_position[1]
-            if 0 < road[0] < cfg.set_win_size * 16 / 9 and 0 < road[1] < cfg.set_win_size:
-                auto.mouse_click(road[0], road[1])
-                sleep(0.75)
-                if auto.click_element("mirror/road_in_mir/enter_assets.png", take_screenshot=True):
-                    return True
+        positions = [(bus_position[0] + road[0], bus_position[1] + road[1]) for road in three_roads]
+        positions = [p for p in positions if 0 < p[0] < cfg.set_win_size * 16 / 9 and 0 < p[1] < cfg.set_win_size]
+        for road in sorted(positions, key=lambda p: get_node_weight(*p), reverse=True):
+            auto.mouse_click(*road)
+            sleep(0.75)
+            if auto.click_element("mirror/road_in_mir/enter_assets.png", take_screenshot=True):
+                return True
         auto.mouse_click(bus_position[0], bus_position[1])
         if auto.click_element("mirror/road_in_mir/enter_assets.png", take_screenshot=True):
             return True
     return False
 
 
-def search_road_from_road_map(hard_mode=False):
-    start_time = time.time()
+def search_road_from_road_map(hard_mode=False, *, next_position: list | None = None):
+    """复用节点/道路识别，在同一帧上规划；只在节点不可见时移动一次相机。"""
+    started = time.monotonic()
     scale = cfg.set_win_size / 1440
-    bus = None
-
-    if auto.click_element("mirror/mybus_default_distance.png", take_screenshot=True):
-        sleep(0.75)
-        if auto.click_element("mirror/road_in_mir/enter_assets.png", take_screenshot=True):
-            return True, True
-
-    if bus_position := auto.find_element("mirror/mybus_default_distance.png", take_screenshot=True):
-        from tasks.base.retry import check_times
-
-        change_times = 5
-        while True:
-            if auto.get_restore_time() is not None:
-                start_time = max(start_time, auto.get_restore_time())
-            if check_times(start_time, logs=False):
-                from tasks.base.back_init_menu import back_init_menu
-
-                back_init_menu()
-                return False, []
-            if 675 * scale < bus_position[1] < 700 * scale and 150 * scale > bus_position[0]:
-                bus = bus_position
-                break
-            dx = 80 * scale - bus_position[0]
-            dy = 690 * scale - bus_position[1]
-            auto.mouse_drag(bus_position[0], bus_position[1], drag_time=1.5, dx=dx, dy=dy)
-            sleep(0.5)
-            auto.mouse_to_blank()
-
-            bus_position = auto.find_element("mirror/mybus_default_distance.png", take_screenshot=True)
-            if bus_position is None:
-                break
-            change_times -= 1
-            if change_times <= 0:
-                bus = bus_position
-                break
-
-    bus_pos = auto.find_element("mirror/mybus_default_distance.png") or bus
-    all_nodes = identify_nodes(bus[0])
-    y_area = divide_the_area_by_y(all_nodes)
-    reset_position = False
-    bus_row = Row.MID
-    if len(y_area) == 2:
-        if bus_pos[1] > y_area[0][0][1][1] + 50 * scale:
-            reset_position = "Bottom"
-            bus_row = Row.BOTTOM
-        else:
-            reset_position = "Top"
-            bus_row = Row.TOP
-    elif len(y_area) == 1:
-        nodes_column = divide_the_area_by_x(all_nodes)
-        connections = identify_road(bus, nodes_column[:1], bus_row)
-        # 没有 Bus 到首列的连线时，无法推导下一步方向。
-        if not connections:
+    if next_position is not None:
+        next_position.clear()
+    if auto.take_screenshot(gray=False, max_age=0.85) is None:
+        return [], []
+    image = auto.screenshot
+    auto.screenshot = image.convert("L")
+    bus = auto.find_element("mirror/mybus_default_distance.png")
+    if bus is None:
+        # 左侧裁切的 Bus 无法匹配完整模板，先确认地图再把有效画面移回一次。
+        if not auto.find_element("mirror/road_in_mir/legend_assets.png"):
+            return [], []
+        auto.mouse_drag(1280 * scale, 960 * scale, drag_time=0.4, dx=400 * scale, dy=0)
+        sleep(0.5)
+        if auto.take_screenshot(gray=False) is None:
+            return [], []
+        image = auto.screenshot
+        auto.screenshot = image.convert("L")
+        bus = auto.find_element("mirror/mybus_default_distance.png")
+        if bus is None:
             return [], []
 
-        _, source_position, target_position = connections[0]
-        row_delta = target_position.value - source_position.value
-        return [{1: "U", 0: "M", -1: "D"}[row_delta]], ["unknown"]
-    if reset_position is not False:
-        if reset_position == "Bottom":
-            set_y_position = 1100 * scale
-        else:
-            set_y_position = 250 * scale
-        if bus_position := auto.find_element("mirror/mybus_default_distance.png", take_screenshot=True):
-            from tasks.base.retry import check_times
-
-            while True:
-                if auto.get_restore_time() is not None:
-                    start_time = max(start_time, auto.get_restore_time())
-                if check_times(start_time, logs=False):
-                    from tasks.base.back_init_menu import back_init_menu
-
-                    back_init_menu()
-                    return False, []
-                if (
-                    set_y_position - 50 * scale < bus_position[1] < set_y_position + 50 * scale
-                    and 500 * scale < bus_position[0] < 600 * scale
-                ):
-                    bus = bus_position
-                    break
-                dx = 550 * scale - bus_position[0]
-                dy = set_y_position - bus_position[1]
-                auto.mouse_drag(bus_position[0], bus_position[1], drag_time=1.5, dx=dx, dy=dy)
-                sleep(0.5)
-                auto.mouse_to_blank()
-
-                bus_position = auto.find_element("mirror/mybus_default_distance.png", take_screenshot=True)
-                if bus_position is None:
-                    break
-        all_nodes = identify_nodes(bus[0])
-        if not all_nodes:  # identify_nodes() 可能返回 None，无法继续按列分组。
-            log.warning("调整地图位置后未识别到节点")
-            return [], []
+    all_nodes = identify_nodes(bus[0], image=image)
+    if not all_nodes:
+        return [], []
+    row_offsets = [round((bus[1] - node[1][1]) / (ROAD_ROW_GAP * scale)) for node in all_nodes]
+    bus_row = next((row for row in (Row.MID, Row.TOP, Row.BOTTOM)
+                    if all(-1 <= row.value + offset <= 1 for offset in row_offsets)), None)
+    if bus_row is None:
+        return [], []
 
     nodes_column = divide_the_area_by_x(all_nodes)
-    connections = identify_road(bus, nodes_column, bus_row)
-
-    route_graph = RouteGraph(
-        nodes_column,
-        bus_row=bus_row,
-        bus_position=bus,
-        hard_mode=hard_mode,
-    )
+    connections = identify_road(bus, nodes_column, bus_row, take_screenshot=False)
+    route_graph = RouteGraph(nodes_column, bus_row=bus_row, bus_position=bus, hard_mode=hard_mode)
     route_graph.init_road(connections)
-
     min_weight, path = route_graph.find_min_weight_route()
-
-    if path:
-        # 生成方向列表
-        directions, road_class_list = route_graph.get_path_directions(path)
-        log.debug(f"最小权重: {min_weight}")
-        log.debug(f"路径方向: {directions}")
-        log.debug(f"行走路径: {road_class_list}")
-        return directions, road_class_list
-    else:
+    if len(path) < 2:
         log.warning("未能检测到有效路径")
+        return [], []
 
-    return [], []
+    directions, road_class_list = route_graph.get_path_directions(path)
+    _, _, target_row = route_graph.get_node_column_info(path[1])
+    if next_position is not None:
+        for node_class, position in nodes_column[0]:
+            if node_class == path[1].node_class and _position_from_y(position[1], bus, bus_row) == target_row:
+                next_position.extend(position)
+                break
+    log.debug(f"最小权重: {min_weight}")
+    log.debug(f"路径方向: {directions}")
+    log.debug(f"行走路径: {road_class_list}")
+    log.info("镜牢路线规划 %.3fs，下一节点 %s", time.monotonic() - started, path[1].node_class)
+    return directions, road_class_list
 
 
 # battle 是常规遭遇战，boss_battle 是 Boss 战，event 是事件，focused_encounter 是集中遭遇战（链式战）
 # risky_encounter 是精锐遭遇战（链式战），shop 是商店，abnormality_focused_encounter 是异想体集中遭遇战
 
 
-def identify_nodes(bus_x):
-    import numpy as np
+@lru_cache(maxsize=1)
+def _node_detection_session():
     import onnxruntime as ort
 
+    return ort.InferenceSession(str(resource_path("./assets/model/best.onnx")))
+
+
+def identify_nodes(bus_x, *, image=None):
+    import numpy as np
     model_input_height = 544
     model_input_width = 960
     confidence_threshold = 0.4
@@ -423,10 +354,12 @@ def identify_nodes(bus_x):
         "shop",
         "abnormality_focused_encounter",
     ]
-    if auto.take_screenshot(gray=False) is None:
-        return None
-    original = np.array(auto.screenshot)
-    session = ort.InferenceSession(str(resource_path("./assets/model/best.onnx")))
+    if image is None:
+        if auto.take_screenshot(gray=False) is None:
+            return None
+        image = auto.screenshot
+    original = np.array(image)
+    session = _node_detection_session()
 
     # 等比例缩放并填充到模型输入尺寸；保留比例和偏移以便还原检测框坐标。
     height, width = original.shape[:2]
@@ -483,9 +416,9 @@ def identify_nodes(bus_x):
     return node_list
 
 
-def identify_road(bus_position, nodes_column, bus_row):
+def identify_road(bus_position, nodes_column, bus_row, *, take_screenshot=True):
     """返回相邻节点列中经模板确认的连接。"""
-    if not nodes_column or auto.take_screenshot() is None:
+    if not nodes_column or (take_screenshot and auto.take_screenshot() is None):
         return []
 
     scale = cfg.set_win_size / 1440
@@ -732,126 +665,32 @@ class RouteGraph:
         return None, None, None
 
     def find_min_weight_route(self) -> tuple[float, list[Node]]:
-        """
-        使用Dijkstra算法计算从入口到出口的最小权重路径
-        返回：(最小总权重, 路径节点列表)
-        """
-        # 确定起点节点（column1 的初始公交位置）
+        """优先走当前可达事件；同优先级下复用原有路径总权重。"""
         start_node = self.columns["column1"][self.bus_row]
-
-        # 收集所有终点节点（boss_battle）
-        end_nodes = []
-        for column in self.columns.values():
-            for pos_node in column.values():
-                if pos_node.node_class in ["boss_battle"]:
-                    end_nodes.append(pos_node)
-
-        if not end_nodes:
-            # 确定目标列：至多三列，取当前最大列（不超过 3）
-            current_max_column = self.column_count
-            target_column_number = min(current_max_column, 3)
-            target_column = f"column{target_column_number}"
-
-            # 检查目标列是否存在
-            if target_column not in self.columns:
-                return float("inf"), []  # 目标列不存在，无法到达
-
-            # 收集目标列的所有节点
-            target_nodes = list(self.columns[target_column].values())
-            if not target_nodes:
-                return float("inf"), []  # 目标列无节点，无法到达
-
-            # 初始化距离字典，所有节点初始距离为无穷大，起点距离为自身权重
-            distances = {
-                node: float("inf")
-                for column in self.columns.values()
-                for pos_node in column.values()
-                for node in [pos_node]
-            }
-            distances[start_node] = start_node.weight
-
-            # 优先队列：(当前总权重, 节点唯一标识（避免比较Node）, 当前节点, 路径列表)
-            heap = []
-            heapq.heappush(heap, (start_node.weight, id(start_node), start_node, [start_node]))
-
-            # 记录已处理的节点
-            processed = set()
-
-            min_total = float("inf")
-            min_path = []
-
-            while heap:
-                current_total, _, current_node, current_path = heapq.heappop(heap)
-
-                if current_node in processed:
-                    continue
-                processed.add(current_node)
-
-                # 检查是否是目标节点（目标列的节点）
-                if current_node in target_nodes:
-                    # 更新最小路径
-                    if current_total < min_total:
-                        min_total = current_total
-                        min_path = current_path.copy()
-
-                # 遍历所有邻接节点
-                for next_node in current_node.next_nodes:
-                    if next_node in processed:
-                        continue  # 已处理过，跳过
-
-                    new_total = current_total + next_node.weight
-                    new_path = current_path + [next_node]
-
-                    # 如果找到更短路径，更新距离并加入队列
-                    if new_total < distances[next_node]:
-                        distances[next_node] = new_total
-                        heapq.heappush(heap, (new_total, id(next_node), next_node, new_path))
-
-            # 返回找到的最小路径，若没有则返回无穷大和空列表
-            return (min_total, min_path) if min_total != float("inf") else (float("inf"), [])
-
-        # 初始化距离字典，所有节点初始距离为无穷大，起点距离为自身权重
-        distances = {
-            node: float("inf")
-            for column in self.columns.values()
-            for pos_node in column.values()
-            for node in [pos_node]
+        end_nodes = {
+            node for column in self.columns.values() for node in column.values()
+            if node.node_class == "boss_battle"
         }
-        distances[start_node] = start_node.weight
+        if not end_nodes:
+            end_nodes = set(self.columns[f"column{min(self.column_count, 3)}"].values())
 
-        # 优先队列：(当前总权重, 节点唯一标识（避免比较Node）, 当前节点, 路径列表)
-        heap = []
-        heapq.heappush(heap, (start_node.weight, id(start_node), start_node, [start_node]))
-
-        # 记录已处理的节点（优化：当节点第一次弹出时，已找到最短路径）
-        processed = set()
-
+        # 非负的二元距离保留 Dijkstra 的性质，事件死路不会压过可达出口。
+        distances = {start_node: (0, start_node.weight)}
+        heap = [(0, start_node.weight, id(start_node), start_node, [start_node])]
         while heap:
-            current_total, _, current_node, current_path = heapq.heappop(heap)  # 忽略辅助标识
-
-            if current_node in processed:
+            priority, total, _, current, path = heapq.heappop(heap)
+            if (priority, total) != distances[current]:
                 continue
-            processed.add(current_node)
-
-            # 到达终点，返回结果
-            if current_node in end_nodes:
-                return current_total, current_path
-
-            # 遍历所有邻接节点
-            for next_node in current_node.next_nodes:
-                if next_node in processed:
-                    continue  # 已处理过，跳过
-
-                new_total = current_total + next_node.weight
-                new_path = current_path + [next_node]
-
-                # 如果找到更短路径，更新并加入队列
-                if new_total < distances[next_node]:
-                    distances[next_node] = new_total
-                    # 添加辅助标识（id(next_node)）确保堆能正确排序
-                    heapq.heappush(heap, (new_total, id(next_node), next_node, new_path))
-
-        # 无可达路径
+            if current in end_nodes:
+                return total, path
+            for target in current.next_nodes:
+                if target.node_class is None:
+                    continue
+                next_priority = int(target.node_class != "event") if current is start_node else priority
+                distance = (next_priority, total + target.weight)
+                if distance < distances.get(target, (float("inf"), float("inf"))):
+                    distances[target] = distance
+                    heapq.heappush(heap, (*distance, id(target), target, path + [target]))
         return float("inf"), []
 
     def get_path_directions(self, path: list[Node]) -> tuple[list[str], list[str]]:

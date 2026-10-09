@@ -153,10 +153,10 @@ def check_times(start_time, timeout=90, logs=True):
         return False
 
 
-def retry():
+def retry(*, reuse_screenshot=False):
     """重试连接。
 
-    为保证稳定性，retry 内循环始终刷新截图，避免复用旧帧导致误判。
+    只读入口可复用最近帧；重连循环的后续检查始终刷新截图。
     """
     start_time = time.time()
     is_windows = cfg.backend == "windows"
@@ -174,7 +174,9 @@ def retry():
             start_time = max(start_time, auto.get_restore_time())
         if check_times(start_time):
             return False
-        if auto.take_screenshot() is None:
+        max_age = 0.85 if reuse_screenshot else 0.0
+        reuse_screenshot = False
+        if auto.take_screenshot(max_age=max_age) is None:
             continue
         if cfg.backend == "playcover" and auto.find_element("base/sign_in_assets.png"):
             raise RuntimeError("Limbus requires manual Google / Apple login before automation can continue")

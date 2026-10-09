@@ -24,6 +24,7 @@ def test_layout_only_changes_image_geometry_for_ios(monkeypatch, profile, offset
 def test_original_chain_algorithm_selects_correct_ios_skill_rows(monkeypatch, prioritize, lower):
     from module.automation import auto
     from module.config import cfg
+    from utils.image_utils import ImageUtils
     from utils.path_manager import path_manager
 
     task = import_module("tasks.battle.battle")
@@ -45,7 +46,11 @@ def test_original_chain_algorithm_selects_correct_ios_skill_rows(monkeypatch, pr
     points = gesture.call_args.args[0]
     assert len(points) == 7
     assert 515 < points[0][0] < 555 and 835 < points[0][1] < 865
-    assert 1240 < points[-1][0] < 1290 and 830 < points[-1][1] < 870
+    # A loose bounding-box assertion used to accept points below the actual gear.
+    start_template = ImageUtils._prepare_loaded_image(np.array(Image.open(
+        SOURCE_ROOT / "assets/ios_en/default/battle/gear_start.png")), True)
+    gear, _ = ImageUtils.match_template(np.array(image.convert("L")), start_template, None, "aggressive")
+    assert abs(points[-1][0] - gear[0]) <= 5 and abs(points[-1][1] - gear[1]) <= 5
     assert {i for i, point in enumerate(points[1:-1], 1) if point[1] > 840} == lower
     assert all(650 < x < 1180 and 790 < y < 900 for x, y in points[1:-1])
 

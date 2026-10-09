@@ -46,6 +46,8 @@ class Automation(metaclass=SingletonMeta):
         self._monitor_frame = None
         self.windows_title = windows_title
         self.screenshot = None
+        self._ocr_image = None
+        self._ocr_regions = {}
         self.input_handler = AbstractInput()
         self._screenshot_lock = threading.RLock()
         self._latest_screenshot = None
@@ -190,7 +192,13 @@ class Automation(metaclass=SingletonMeta):
             if frame.geometry_version != session.geometry().version:
                 raise RuntimeError("Geometry changed; capture and recognize the page again")
             with session.input.geometry_context(frame.geometry):
-                return method(*args, **kwargs)
+                if getattr(method, "__name__", None) == "mouse_to_blank":
+                    return method(*args, **kwargs)
+                self.invalidate_screenshot_cache()
+                try:
+                    return method(*args, **kwargs)
+                finally:
+                    self.invalidate_screenshot_cache()
         return method(*args, **kwargs)
 
     def _capture(self, gray, monitor=False):
@@ -219,6 +227,7 @@ class Automation(metaclass=SingletonMeta):
 
     def _remember_screenshot(self, screenshot: Image | None, frame=None) -> None:
         if screenshot is None:
+            self._latest_screenshot_monotonic = 0.0
             return
         self._latest_screenshot = screenshot
         self._latest_frame = frame
@@ -399,11 +408,12 @@ class Automation(metaclass=SingletonMeta):
 
         return True
 
-    def take_screenshot(self, gray: bool = True) -> Image | None:
+    def take_screenshot(self, gray: bool = True, *, max_age: float = 0.0) -> Image | None:
         """
         截取当前屏幕并返回图像对象。
         Args:
             gray (bool): 是否将图像转换为灰度图，默认为True。
+            max_age (float): PlayCover 只读检查可复用的帧龄；默认仍获取新帧。
         Returns:
             Image: 截取当前屏幕的图像对象
         """
@@ -413,8 +423,22 @@ class Automation(metaclass=SingletonMeta):
             # Preserve the original capture cadence after touch input. MaaTools
             # has no acknowledgement that the UI has handled a touch yet.
             interval = cfg.screenshot_interval or 0.85
-            wait_time = max(interval - (time.time() - self.last_screenshot_time), 0)
             session = get_playcover_session()
+            session.input.check_cancel()
+            with self._screenshot_lock:
+                frame = self._latest_frame
+                if (max_age > 0 and frame is not None and session.transport.connected
+                        and self._latest_screenshot_monotonic > 0
+                        and time.monotonic() - self._latest_screenshot_monotonic <= min(max_age, interval)
+                        and frame.geometry_version == session.geometry().version):
+                    self._business_frame = frame
+                    if gray and self._latest_screenshot is not None and self._latest_screenshot.mode == "L":
+                        self.screenshot = self._latest_screenshot
+                    else:
+                        self.screenshot = frame.image.convert("L") if gray else frame.image
+                    self._latest_screenshot = self.screenshot
+                    return self.screenshot
+            wait_time = max(interval - (time.time() - self.last_screenshot_time), 0)
             if session.cancel.wait(wait_time):
                 session.input.check_cancel()
             with self._screenshot_lock:
@@ -604,11 +628,7 @@ class Automation(metaclass=SingletonMeta):
         return False
 
     def _run_ocr_for_text(self, my_crop=None, only_text=False, additional_stack=0):
-        if my_crop is not None:
-            cropped_image = self.screenshot.crop(my_crop)
-            ocr_result = ocr.run(cropped_image)
-        else:
-            ocr_result = ocr.run(self.screenshot)
+        ocr_result = self._ocr_screenshot(my_crop)
 
         if not ocr_result.txts:
             return False if only_text else {}
@@ -626,6 +646,19 @@ class Automation(metaclass=SingletonMeta):
         ocr_dict = {text: position for text, position in zip(ocr_text_list, ocr_position_list)}
         log.debug(f"识别到文本及其坐标：{ocr_dict}", stacklevel=additional_stack + 3)
         return ocr_dict
+
+    def _ocr_screenshot(self, my_crop=None):
+        """同一图像、同一裁剪复用推理；关键词匹配和返回值仍由原代码处理。"""
+        image = self.screenshot
+        if self._ocr_image is not image:
+            self._ocr_image = image
+            self._ocr_regions.clear()
+        region = tuple(my_crop) if my_crop is not None else None
+        if region not in self._ocr_regions:
+            if len(self._ocr_regions) >= 32:
+                self._ocr_regions.clear()
+            self._ocr_regions[region] = ocr.run(image.crop(my_crop) if my_crop is not None else image)
+        return self._ocr_regions[region]
 
     def _find_target_in_ocr_dict(self, target, ocr_dict, all_text=False):
         if ocr_dict == {}:
@@ -714,12 +747,7 @@ class Automation(metaclass=SingletonMeta):
         """
         从屏幕截图中提取文字
         """
-        if my_crop is not None:
-            # 根据my_crop（为左上与右下四个坐标），截取self.screenshot的部分区域进行ocr
-            cropped_image = self.screenshot.crop(my_crop)
-            ocr_result = ocr.run(cropped_image)
-        else:
-            ocr_result = ocr.run(self.screenshot)
+        ocr_result = self._ocr_screenshot(my_crop)
         if ocr_result.txts:
             ocr_text_list = [ocr_result.txts[i] for i in range(len(ocr_result.txts))]
         else:
@@ -790,6 +818,8 @@ class Automation(metaclass=SingletonMeta):
     def clear_img_cache(self) -> None:
         """清除图片缓存"""
         self.img_cache.clear()
+        self._ocr_image = None
+        self._ocr_regions.clear()
         self._unavailable_feature_templates.clear()
         gc.collect()  # 强制垃圾回收，清理内存
         log.debug("图片缓存已清除", stacklevel=2)

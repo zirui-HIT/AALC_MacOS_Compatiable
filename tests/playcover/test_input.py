@@ -111,3 +111,31 @@ def test_cancelled_pinch_releases_both_contacts():
         handler.pinch((960, 540), 400, 200, duration=0.2)
     assert {(e[0], e[3]) for e in recorder.events[-2:]} == {(3, 0), (3, 1)}
     assert not handler.active_contacts
+
+
+def test_link_holds_both_gears_before_moving_and_releasing(monkeypatch):
+    handler, recorder = make_input()
+    handler.timing = GestureTiming(drag_hold=0.1)
+    held = []
+    monkeypatch.setattr(handler, "_wait", lambda seconds: held.append((seconds, recorder.events[-1])))
+    handler.mouse_drag_link([(100, 800), (700, 850), (1250, 840)], drag_time=0.1)
+    assert held[0] == (0.1, (0, 200, 1600, 0))
+    assert held[-1] == (0.1, (1, 2500, 1680, 0))
+    assert recorder.events[-1] == (3, 2500, 1680, 0)
+    assert [event[0] for event in recorder.events].count(0) == 1
+    assert [event[0] for event in recorder.events].count(3) == 1
+
+
+@pytest.mark.parametrize("height", [720, 1080, 1440])
+def test_pack_pull_crosses_card_bottom_and_scales_with_logical_height(height, monkeypatch):
+    from unittest.mock import Mock
+
+    handler, _ = make_input()
+    geometry = replace(handler._current_geometry(), logical_size=(height * 16 // 9, height))
+    drag = Mock()
+    monkeypatch.setattr(handler, "mouse_drag", drag)
+    with handler.geometry_context(geometry):
+        handler.mouse_drag_down(100, 339 * height / 1080)
+    assert drag.call_args.kwargs["drag_time"] == 0.4
+    assert drag.call_args.kwargs["dy"] == pytest.approx(660 * height / 1080)
+    assert drag.call_args.args[1] + drag.call_args.kwargs["dy"] > 900 * height / 1080

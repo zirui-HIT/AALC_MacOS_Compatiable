@@ -126,8 +126,10 @@ class PlayCoverInput(AbstractInput):
         if len(position) < 2:
             raise ValueError("A linked drag needs at least two points")
         with self._gesture(position[0]) as geometry:
+            self._wait(drag_time)  # Original implementations visit the first point before moving.
             for start, end in zip(position, position[1:]):
                 self._segment(geometry, start, end, drag_time)
+            self._wait(self.timing.drag_hold)  # Let Unity handle the terminal gear before lifting.
 
     def mouse_swipe_for_scroll(self, x, y, duration=0.3, dx=0, dy=0, move_back=True) -> None:
         with self._gesture((x, y)) as geometry:
@@ -140,7 +142,8 @@ class PlayCoverInput(AbstractInput):
         self.mouse_swipe_for_scroll(x, y, duration, dx, dy, move_back)
 
     def mouse_drag_down(self, x, y, reverse=1, move_back=True) -> None:
-        self.mouse_drag(x, y, dx=0, dy=360 * self._current_geometry().logical_size[1] / 1080 * reverse, move_back=move_back)
+        self.mouse_drag(x, y, drag_time=0.4, dx=0,
+                        dy=660 * self._current_geometry().logical_size[1] / 1080 * reverse, move_back=move_back)
 
     def mouse_to_blank(self, coordinate=(1, 1), move_back=False) -> None:
         self.check_cancel()  # Touch input has no hovering cursor.

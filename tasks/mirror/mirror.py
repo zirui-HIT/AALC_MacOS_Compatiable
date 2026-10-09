@@ -243,7 +243,7 @@ class Mirror:
             if auto.take_screenshot() is None:
                 continue
 
-            retry()
+            retry(reuse_screenshot=True)
 
             if cfg.floor_3_exit and self.floor >= 4:
                 if auto.click_element("mirror/road_in_mir/towindow&forfeit_confirm_assets.png"):
@@ -320,7 +320,7 @@ class Mirror:
             if auto.find_element("mirror/road_in_mir/legend_assets.png"):
                 theme_pack_active = False
                 auto.mouse_to_blank()
-                while auto.take_screenshot() is None:
+                while auto.take_screenshot(max_age=0.85) is None:
                     continue
                 if auto.click_element("mirror/road_in_mir/ego_gift_get_confirm_assets.png"):
                     continue
@@ -332,7 +332,7 @@ class Mirror:
                     "mirror/claim_reward/complete_mirror_100%_assets.png"
                 ):
                     break
-                retry()
+                retry(reuse_screenshot=True)
                 # 楼层未知且本层尚未识别失败才尝试；失败后不再重试，等进入新的层（卡包页）再识别。
                 if self.floor == 0 and not self.floor_detect_failed:
                     self.floor = get_floor(self.floor)
@@ -342,7 +342,7 @@ class Mirror:
                 if cfg.floor_3_exit and self.floor >= 4:
                     continue
 
-                while auto.take_screenshot() is None:
+                while auto.take_screenshot(max_age=0.85) is None:
                     continue
                 if auto.find_element("mirror/road_in_mir/legend_assets.png"):
                     _, elapsed = self._time_call(self.search_road)
