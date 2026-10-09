@@ -1,0 +1,29 @@
+{
+  "game_version": "1.116.2",
+  "language": "en",
+  "bundle_id": "com.ProjectMoon.LimbusCompany",
+  "protocol_version": 4,
+  "raw_size": [
+    3942,
+    2216
+  ],
+  "touch_size": [
+    5120,
+    2880
+  ],
+  "logical_size": [
+    1920,
+    1080
+  ],
+  "page": "energy_max_disabled",
+  "captured_at": "2026-10-10",
+  "redactions": [
+    [
+      20,
+      920,
+      470,
+      1065
+    ]
+  ],
+  "source": "Real MaaTools RGB frame; 22 energy, quantity already at maximum 1, disabled Max; no conversion"
+}

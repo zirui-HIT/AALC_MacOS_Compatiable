@@ -18,6 +18,8 @@ def test_real_lunacy_preview_reads_actual_price_without_input(page, used, cost):
 @pytest.mark.parametrize('page,owned,energy,amount', [
     ('features_enkephalin_panel', 202, 61, 1), ('energy_module_max', 194, 76, 3),
     ('energy_modules_after_first', 197, 19, 1), ('energy_modules_after_refill', 204, 18, 1),
+    ('energy_max_disabled', 204, 22, 1),
+    ('energy_single_module_converted', 205, 3, 1),
 ])
 def test_real_module_quantity_inventory_and_energy(page, owned, energy, amount):
     from tasks.base.playcover_enkephalin import ModuleState, read_module_state
@@ -61,6 +63,24 @@ def test_conversion_waits_for_maximum_and_inventory_update(monkeypatch, close, p
     assert [c.args[0] for c in automation.click_element.call_args_list] == [
         'enkephalin/all_in_assets.png', 'enkephalin/enkephalin_confirm_assets.png']
     assert energy.close_panel.call_count == int(close)
+
+
+@pytest.mark.parametrize('available,amount', [(20, 1), (22, 1), (39, 1), (60, 3), (139, 6)])
+def test_already_maximum_quantity_does_not_require_enabled_max_button(monkeypatch, available, amount):
+    from tasks.base import playcover_enkephalin as energy
+    automation = Mock()
+    state = {'owned': 204, 'energy': available, 'amount': amount}
+    def click(path, **kwargs):
+        assert path == 'enkephalin/enkephalin_confirm_assets.png'
+        state.update(owned=204 + amount, energy=available - 20 * amount, amount=1)
+        return True
+    automation.click_element.side_effect = click
+    monkeypatch.setattr(energy, 'read_module_state', lambda _: energy.ModuleState(**state))
+    for name in ('open_panel', 'select_tab', 'close_panel'):
+        monkeypatch.setattr(energy, name, Mock())
+    monkeypatch.setattr(energy, 'wait_until', lambda auto, condition, *args: condition() or pytest.fail('Wrong conversion state'))
+    assert energy.assemble_modules(automation)
+    automation.click_element.assert_called_once_with('enkephalin/enkephalin_confirm_assets.png', offset=False)
 
 
 @pytest.mark.parametrize('available', [0, 1, 19])

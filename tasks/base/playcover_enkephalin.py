@@ -30,7 +30,7 @@ def read_module_state(automation) -> ModuleState | None:
     amount = (ocr.run_line(automation.screenshot.crop((995, 470, 1065, 525))) or "").strip()
     owned = ocr.run_line(automation.screenshot.crop((1090, 402, 1255, 448))) or ""
     energy = ocr.run_line(automation.screenshot.crop((870, 610, 1005, 678))) or ""
-    match = re.fullmatch(r"\s*(\d+)\s*/\s*(\d+)\s*", energy)
+    match = re.search(r"(\d+)\s*/\s*(\d+)\s*$", energy)
     inventory = re.search(r"(\d+)\s*$", owned)
     if not amount.isdecimal() or inventory is None or match is None:
         return None
@@ -95,8 +95,10 @@ def assemble_modules(automation, *, close: bool = True) -> bool:
         if close:
             close_panel(automation)
         return False
-    if not automation.click_element("enkephalin/all_in_assets.png", offset=False):
-        raise RuntimeError("Cannot recognize iOS maximum module amount")
+    # At the maximum already (notably 20–39 energy / one module), Max is disabled.
+    if state.amount != state.energy // 20:
+        if not automation.click_element("enkephalin/all_in_assets.png", offset=False):
+            raise RuntimeError("Cannot recognize iOS maximum module amount")
     def maximum_selected() -> bool:
         current = read_module_state(automation)
         return current is not None and current.amount == current.energy // 20

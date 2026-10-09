@@ -1,0 +1,29 @@
+{
+  "game_version": "1.116.2",
+  "language": "en",
+  "bundle_id": "com.ProjectMoon.LimbusCompany",
+  "protocol_version": 4,
+  "raw_size": [
+    3942,
+    2216
+  ],
+  "touch_size": [
+    5120,
+    2880
+  ],
+  "logical_size": [
+    1920,
+    1080
+  ],
+  "page": "energy_single_module_converted",
+  "captured_at": "2026-10-10",
+  "redactions": [
+    [
+      20,
+      920,
+      470,
+      1065
+    ]
+  ],
+  "source": "Real MaaTools grayscale frame converted to RGB for fixture; after converting one module, inventory 205 and remaining energy 3; OCR energy includes a leading # artifact"
+}
