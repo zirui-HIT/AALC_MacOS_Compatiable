@@ -48,9 +48,7 @@ def _prepare_continuous_combat_count(
 
 def EXP_luxcavation(combat_count: int = 1):
     if cfg.backend == "playcover":
-        if combat_count != 1:
-            raise NotImplementedError("iOS continuous combat requires separate validation")
-        return get_game_actions().enter_exp_menu()
+        return get_game_actions().enter_daily_menu("exp", combat_count)
     loop_count = 30
     auto.model = "clam"
     while True:
@@ -129,6 +127,8 @@ def EXP_luxcavation(combat_count: int = 1):
 
 
 def thread_luxcavation(combat_count: int = 1):
+    if cfg.backend == "playcover":
+        return get_game_actions().enter_daily_menu("thread", combat_count)
     def _click_level_targets(level: list, log_prefix: str) -> bool:
         for lv_idx, lv in enumerate(level):
             for retry in range(3):

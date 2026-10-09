@@ -55,7 +55,8 @@ class GameActions:
             self.auto.key_press("esc")
             return True
         self.auto.take_screenshot()
-        target = "home/back_assets.png" if self.auto.find_element("home/back_assets.png") else "home/back_ios.png"
+        target = next((path for path in ("home/back_assets.png", "home/back_ios.png", "mirror/entry/grace_back_assets.png")
+                       if self.auto.find_element(path)), "home/back_ios.png")
         if not self.auto.click_element(target, offset=False):
             raise RuntimeError("Cannot recognize an iOS Back button on this page")
         self.auto.take_screenshot()
@@ -83,7 +84,8 @@ class GameActions:
                 self.auto.take_screenshot()
                 if self.auto.find_element("home/mail_assets.png", model="normal"):
                     return True
-            elif self.auto.find_element("home/back_assets.png") or self.auto.find_element("home/back_ios.png"):
+            elif any(self.auto.find_element(path) for path in
+                     ("home/back_assets.png", "home/back_ios.png", "mirror/entry/grace_back_assets.png")):
                 self.back()
                 time.sleep(0.3)
             else:
@@ -91,6 +93,20 @@ class GameActions:
         raise RuntimeError("Cannot confirm iOS home; no automatic restart or blind tap was attempted")
 
     def enter_exp_menu(self) -> None:
+        self.enter_daily_menu("exp")
+
+    def enter_daily_menu(self, kind: str, combat_count: int = 1) -> None:
+        from tasks.daily.playcover_navigation import (
+            consecutive_label,
+            enter_thread_category,
+            enter_thread_level,
+            set_consecutive_count,
+        )
+
+        if kind not in {"exp", "thread"}:
+            raise ValueError(f"Unknown daily stage: {kind}")
+        if not 1 <= combat_count <= 10:
+            raise ValueError("Consecutive battle count must be between 1 and 10")
         tutorial_exits = 0
         for _ in range(30):
             self.auto.take_screenshot()
@@ -102,13 +118,24 @@ class GameActions:
                 if tutorial_exits > 1:
                     raise RuntimeError("Repeated iOS team tutorial; close it manually before continuing")
                 self.back()
-            elif self.auto.find_element("teams/identify_assets.png") and self.auto.find_element("battle/chaim_to_battle_assets.png"):
+            elif self.auto.find_element("teams/identify_assets.png") and (
+                self.auto.find_element("battle/chaim_to_battle_assets.png")
+                or self.auto.find_element("battle/normal_to_battle_assets.png")
+            ):
                 return
-            elif self.auto.find_element("luxcavation/exp_enter.png", threshold=0.85):
+            elif kind == "exp" and self.auto.find_element("luxcavation/exp_enter.png", threshold=0.85):
                 levels = self.auto.find_element("luxcavation/exp_enter.png", threshold=0.85,
                                                 find_type="image_with_multiple_targets")
                 x, y = max(levels, key=lambda point: point[0])
+                set_consecutive_count(self.auto, combat_count, (x + 15, y - 337))
                 self.auto.mouse_click(x, y)
+            elif kind == "thread" and consecutive_label(self.auto, (740, 240, 1180, 310)):
+                enter_thread_level(self.auto, combat_count)
+            elif kind == "thread" and self.auto.find_element("luxcavation/thread_enter_up80_assets.png"):
+                enter_thread_category(self.auto)
+            elif kind == "thread" and self.auto.find_element("luxcavation/exp_enter.png"):
+                if not self.auto.click_element("luxcavation/thread_assets.png", offset=False):
+                    raise RuntimeError("Cannot recognize iOS Thread Luxcavation tab")
             elif self.auto.find_element("home/luxcavation_assets.png"):
                 self.auto.click_element("home/luxcavation_assets.png", offset=False)
             elif self.auto.find_element("home/drive_assets.png"):
@@ -116,7 +143,7 @@ class GameActions:
             else:
                 raise RuntimeError("Unknown iOS daily navigation page; return to home before starting")
             time.sleep(0.5)
-        raise RuntimeError("iOS EXP navigation timed out")
+        raise RuntimeError(f"iOS {kind} navigation timed out")
 
 
 def get_game_actions() -> GameActions:
@@ -133,33 +160,31 @@ def get_game_actions() -> GameActions:
 
 
 def validate_task_capabilities(config) -> None:
-    """Fail before game input for workflows not yet validated on iOS."""
+    """Reject unavailable capabilities, without restricting ordinary configuration choices."""
     if config.backend != "playcover":
         return
     if config.mirror:
-        if config.hard_mirror or config.auto_hard_mirror or config.floor_3_exit or config.save_rewards or config.re_claim_rewards:
+        from utils.utils import check_hard_mirror_time
+
+        if config.hard_mirror or (config.auto_hard_mirror and check_hard_mirror_time()) or config.floor_3_exit or config.save_rewards:
             raise NotImplementedError("iOS Mirror currently supports a complete normal five-floor run with ordinary reward claim")
-        if not config.fight_to_last_man:
-            raise NotImplementedError("Enable Fight to Last Man for the calibrated iOS Mirror battle flow")
-        selected = [index + 1 for index, enabled in enumerate(config.teams_be_select) if enabled]
-        if selected != [1]:
-            raise NotImplementedError("Select only team #1 for the calibrated iOS Mirror preset")
-        team = config.config.teams["1"]
-        if team.team_number != 1 or team.team_system != 1 or team.use_starlight or any(team.opening_bonus):
-            raise NotImplementedError("iOS Mirror requires preset #1, Bleed, and no opening Starlight upgrades")
-        if (team.normal_to_hard_floor or team.observe_ego_gift or team.opening_items or team.re_formation_each_floor
-                or team.avoid_skill_3 or team.prioritize_skill_3 or team.defense_first_round or team.defense_for_solo):
-            raise NotImplementedError("Disable unvalidated custom opening, formation, and battle strategies on iOS")
-    if config.daily_task and (config.set_thread_count or config.use_continuous_combat or config.daily_teams != 1 or config.targeted_teaming_EXP):
-        raise NotImplementedError("First iOS daily validation requires EXP only, team #1, no continuous combat or targeted teams")
-    if config.get_reward:
-        raise NotImplementedError("iOS additional mail/pass rewards await separate validation")
-    if config.buy_enkephalin or not config.skip_enkephalin:
-        raise NotImplementedError("For first PlayCover validation, disable purchases and enable Skip Enkephalin")
-    if config.mirror_keyboard_navigation or config.mirror_keyboard_simple_pathfinding:
-        raise NotImplementedError("PlayCover does not support keyboard map navigation")
+        if config.mirror_keyboard_navigation or config.mirror_keyboard_simple_pathfinding:
+            raise NotImplementedError("PlayCover does not support keyboard map navigation")
+        for index, enabled in enumerate(config.teams_be_select, start=1):
+            if not enabled:
+                continue
+            team = config.config.teams[str(index)]
+            if team.use_team_code:
+                raise NotImplementedError(f"Mirror team {index}: MaaTools v4 has no team-code text input")
+            if team.normal_to_hard_floor:
+                raise NotImplementedError(f"Mirror team {index}: difficulty switching awaits iOS adaptation")
+            if team.observe_ego_gift:
+                from app.observe_ego_gift_selection import MAX_OBSERVE_GIFT_SELECTIONS, parse_observe_ego_gift_value
+
+                values = team.observe_ego_gift_selected
+                if len(values) > MAX_OBSERVE_GIFT_SELECTIONS or len(set(values)) != len(values):
+                    raise ValueError(f"Mirror team {index}: select up to three distinct observed gifts")
+                if any(parse_observe_ego_gift_value(value.removesuffix(".png")) is None for value in values):
+                    raise ValueError(f"Mirror team {index}: invalid observed gift system/level/row/column")
     if config.get_value("after_completion_power_action", "none") != "none" or "exit_emulator" in config.after_completion_actions:
         raise NotImplementedError("macOS completion supports only Exit Game / Exit AALC")
-    teams = config.config.teams.values()
-    if any(team.use_team_code for team in teams):
-        raise NotImplementedError("Disable team-code import: MaaTools v4 has no text-input command")

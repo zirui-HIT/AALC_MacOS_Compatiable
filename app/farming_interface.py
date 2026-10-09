@@ -489,11 +489,7 @@ class FarmingInterfaceLeft(QWidget):
         )
         if cfg.backend == "playcover":
             self.set_windows.setVisible(False)
-            self.buy_enkephalin.setEnabled(False)
-            self.buy_enkephalin.setToolTip("PlayCover purchases are disabled during initial validation")
-            self.mirror.setToolTip("iOS normal Mirror: preset #1, Bleed/Wound Clerid, no opening upgrades; shops are skipped")
-            self.get_reward.setEnabled(False)
-            self.get_reward.setToolTip("iOS mail/pass rewards await separate validation")
+            self.mirror.setToolTip("iOS Mirror uses the selected preset, formation order, opening graces and battle settings")
         self.resonate_with_Ahab = CheckBoxWithButton(
             "resonate_with_Ahab",
             QT_TRANSLATE_NOOP("CheckBoxWithButton", "亚哈共鸣"),

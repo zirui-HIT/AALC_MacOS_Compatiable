@@ -129,7 +129,8 @@ def test_team_reset_waits_for_dialog_before_confirming(monkeypatch):
     automation.find_element.side_effect = lambda path: next(settled, False) if path == "teams/reset_deployment.png" else True
     monkeypatch.setattr(playcover, "auto", automation)
     monkeypatch.setattr(playcover, "participant_count", Mock(side_effect=[(12, 12), (0, 12), (12, 12)]))
+    monkeypatch.setattr(playcover, "select_preset", Mock())
     monkeypatch.setattr(playcover.time, "sleep", lambda _: None)
-    assert playcover.select_daily_team(1)
+    assert playcover.select_mirror_participants()
     confirms = [call for call in automation.click_element.call_args_list if call.args[0] == "teams/clear_selection_confirm_assets.png"]
     assert len(confirms) == 1

@@ -210,9 +210,14 @@ class Battle:
         prioritize_skill_3=False,
     ):
         if cfg.backend == "playcover":
-            if avoid_skill_3 or prioritize_skill_3 or defense_first_round or defense_all_time or infinite_battle:
-                raise NotImplementedError("iOS currently validates daily Win Rate battles only")
-            return self._fight_playcover(combat_count)
+            if infinite_battle:
+                raise NotImplementedError("iOS infinite battle tool is not implemented")
+            return self._fight_playcover(
+                combat_count, avoid_skill_3=avoid_skill_3, prioritize_skill_3=prioritize_skill_3,
+                defense_first_round=defense_first_round or defense_on_turn1,
+                defense_all_time=defense_all_time, defense_for_solo_state=defense_for_solo_state,
+                choice_event_handling=choice_event_handling,
+            )
         chance = self.INIT_CHANCE
         waiting = self._update_wait_time()
         total_count = 0
@@ -565,13 +570,39 @@ class Battle:
         else:
             return None
 
-    def _fight_playcover(self, combat_count: int) -> None:
+    def _operate_playcover(
+        self, *, first_turn: bool, avoid_skill_3: bool, prioritize_skill_3: bool,
+        defense_first_round: bool, defense_all_time: bool, defense_for_solo_state: DefenseForSoloState | None,
+    ) -> None:
+        limited = defense_for_solo_state is not None and defense_for_solo_state.remaining_turns > 0
+        if limited or defense_all_time or (first_turn and defense_first_round):
+            if not self._defense_this_round():
+                raise RuntimeError("Cannot apply the configured iOS defense strategy on this battle page")
+            if limited:
+                defense_for_solo_state.consume_turn()
+                log.info(f"连续防御已执行，剩余 {defense_for_solo_state.remaining_turns} 回合")
+        elif avoid_skill_3 or prioritize_skill_3:
+            auto.take_screenshot(gray=False)  # Sin colors require the RGB frame, not the default gray frame.
+            if not self._chain_battle(prioritize_skill_3=prioritize_skill_3 and not avoid_skill_3):
+                raise RuntimeError("Cannot apply the configured iOS skill-3 strategy on this battle page")
+        else:
+            get_game_actions().select_win_rate()
+            sleep(0.3)
+            get_game_actions().start_turn()
+
+    def _fight_playcover(
+        self, combat_count: int, *, avoid_skill_3: bool = False, prioritize_skill_3: bool = False,
+        defense_first_round: bool = False, defense_all_time: bool = False,
+        defense_for_solo_state: DefenseForSoloState | None = None,
+        choice_event_handling: bool = True,
+    ) -> None:
         """Bounded, recognized-page daily battle; no blind clicks or paid retries."""
         from module.backends.factory import get_playcover_session
 
         session = get_playcover_session()
         deadline = time.monotonic() + 900 + 300 * combat_count
         unknown_since = None
+        first_turn = True
         while self.running and time.monotonic() < deadline:
             session.input.wait_pause()
             auto.take_screenshot()
@@ -579,6 +610,7 @@ class Battle:
                 raise RuntimeError("iOS battle failed; automatic retry is disabled")
             if auto.find_element("battle/pause_assets.png"):
                 unknown_since = None
+                first_turn = False
                 session.cancel.wait(0.5)
                 continue
             if auto.find_element("battle/victory.png") and auto.find_element("battle/battle_finish_confirm_assets.png"):
@@ -592,14 +624,35 @@ class Battle:
                 "mirror/road_in_mir/legend_assets.png",
             )):
                 return None  # Mirror owns these pages, including its reward policy.
+            if choice_event_handling and auto.find_element("event/perform_the_check_feature_assets.png"):
+                event_handling.decision_event_handling()
+                unknown_since = None
+                continue
+            if choice_event_handling and auto.find_element("event/choices_assets.png"):
+                if auto.click_element("event/select_first_option_assets.png", offset=False):
+                    unknown_since = None
+                    continue
+            if choice_event_handling and any(auto.click_element(path, offset=False) for path in (
+                "event/continue_assets.png", "event/proceed_assets.png", "event/commence_assets.png", "event/skip_assets.png",
+            )):
+                unknown_since = None
+                continue
             if auto.find_element("battle/gear_start.png"):
-                get_game_actions().start_turn()
+                self._operate_playcover(
+                    first_turn=first_turn, avoid_skill_3=avoid_skill_3, prioritize_skill_3=prioritize_skill_3,
+                    defense_first_round=defense_first_round, defense_all_time=defense_all_time,
+                    defense_for_solo_state=defense_for_solo_state,
+                )
+                first_turn = False
                 unknown_since = None
                 continue
             if auto.find_element("battle/gear_right.png") and auto.find_element("battle/win_rate_card.png"):
-                get_game_actions().select_win_rate()
-                session.cancel.wait(0.5)
-                get_game_actions().start_turn()
+                self._operate_playcover(
+                    first_turn=first_turn, avoid_skill_3=avoid_skill_3, prioritize_skill_3=prioritize_skill_3,
+                    defense_first_round=defense_first_round, defense_all_time=defense_all_time,
+                    defense_for_solo_state=defense_for_solo_state,
+                )
+                first_turn = False
                 unknown_since = None
                 continue
             if unknown_since is None:
@@ -730,6 +783,8 @@ class Battle:
             sleep(1)
             return True
         except Exception:
+            if cfg.backend == "playcover":
+                raise
             return False
 
     @staticmethod
@@ -739,8 +794,13 @@ class Battle:
 
             gear_left = auto.find_element("battle/gear_left.png")
 
+            if gear_left is None:
+                return False
+
             gear_1 = [gear_left[0] + 100 * scale, gear_left[1] - 35 * scale]
             gear_right = auto.find_element("battle/gear_right.png")
+            if gear_right is None:
+                return False
             gear_2 = [gear_right[0] - 100 * scale, gear_right[1]]
 
             bbox = (gear_1[0], gear_1[1] - 15 * scale, gear_2[0], gear_1[1])
@@ -764,7 +824,12 @@ class Battle:
 
             auto.mouse_to_blank(move_back=move_back)
 
+            if cfg.backend == "playcover":
+                get_game_actions().start_turn()
+
             sleep(1)
             return True
         except Exception:
+            if cfg.backend == "playcover":
+                raise
             return False

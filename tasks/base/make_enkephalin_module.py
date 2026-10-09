@@ -84,6 +84,10 @@ def make_enkephalin_module(cancel=True, skip=True, *, task_name: str = "体力�
     """
     if skip and cfg.skip_enkephalin:
         return
+    if cfg.backend == "playcover":
+        from tasks.base.playcover_enkephalin import assemble_modules
+
+        return assemble_modules(auto, close=cancel)
     import time
 
     start_time = time.time()
@@ -176,6 +180,10 @@ def make_enkephalin_module(cancel=True, skip=True, *, task_name: str = "体力�
 
 @begin_and_finish_time_log(task_name="狂气换体", calculate_time=False)
 def lunacy_to_enkephalin(times=0):
+    if cfg.backend == "playcover":
+        from tasks.base.playcover_enkephalin import refill_lunacy
+
+        return refill_lunacy(auto, times, grandet=cfg.Dr_Grandet_mode)
     make_enkephalin_module(cancel=False, skip=False, task_name="狂气换体")
     auto.click_element("enkephalin/use_lunacy_assets.png")
     sleep(0.5)

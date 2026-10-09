@@ -4,6 +4,10 @@ from tasks.mirror import playcover_entry as entry
 
 
 def test_ios_preparation_uses_preset_then_grace_then_one_gift(monkeypatch):
+    from tasks.common import ios_pages
+    from tasks.mirror import playcover_opening
+    from tasks.teams import playcover
+
     pages = [
         {"home/mail_assets.png", "home/drive_assets.png"},
         {"home/mirror_dungeons_assets.png"},
@@ -30,11 +34,20 @@ def test_ios_preparation_uses_preset_then_grace_then_one_gift(monkeypatch):
         return True
 
     automation.click_element.side_effect = click
+    select = Mock()
+    monkeypatch.setattr(playcover, "select_preset", select)
+    graces = Mock()
+    monkeypatch.setattr(playcover_opening, "configure_graces", graces)
+    def gifts(auto, setting):
+        state["page"] = 12
+
+    monkeypatch.setattr(playcover_opening, "configure_gifts", gifts)
+    monkeypatch.setattr(ios_pages, "click_label", lambda *args: click(entry.ENTRY + "convert_checked_assets.png"))
     monkeypatch.setattr(entry.time, "sleep", lambda _: None)
     entry.prepare_normal_mirror(automation, 1)
     assert state["page"] == len(pages) - 1
-    automation.mouse_click.assert_called_once_with(195, 470)
-    assert automation.mouse_swipe_for_team_scroll.call_count == 10
+    select.assert_called_once_with(1, by_order=False)
+    graces.assert_called_once_with(automation, [0] * 10)
     automation.key_press.assert_not_called()
 
 

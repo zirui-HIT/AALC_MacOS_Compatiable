@@ -1,4 +1,3 @@
-import re
 import time
 from time import sleep
 
@@ -50,6 +49,7 @@ class Mirror:
     def __init__(self, team_setting: TeamSetting, team_num: int, *, allow_module_rewards: bool | None = None):
         self.allow_module_rewards = True if allow_module_rewards is None else allow_module_rewards
         team_setting = team_setting.model_copy(deep=True)  # 避免修改原始配置
+        self.team_setting = team_setting
         self.logger = log
         self.team_order = team_num
         self.sinner_team = team_setting.sinner_order  # 选择的罪人序列
@@ -231,7 +231,8 @@ class Mirror:
         if cfg.backend == "playcover":
             from tasks.mirror.playcover_entry import prepare_normal_mirror
 
-            prepare_normal_mirror(auto, self.team_number)
+            prepare_normal_mirror(auto, self.team_number, team_setting=self.team_setting,
+                                  by_order=cfg.select_team_by_order)
 
         if cfg.backend != "playcover" and (auto.click_element("home/drive_assets.png") or auto.find_element("home/window_assets.png")):
             sleep(0.5)
@@ -400,7 +401,7 @@ class Mirror:
                     if cfg.backend == "playcover":
                         from tasks.teams.playcover import select_mirror_participants
 
-                        select_mirror_participants()
+                        select_mirror_participants(self.sinner_team)
                     else:
                         team_formation(self.sinner_team)
                     self.first_battle = False
@@ -1003,17 +1004,28 @@ class Mirror:
         """
         观测EGO饰品选择
         """
+        from app.observe_ego_gift_selection import OBSERVE_ROW_VALUES, parse_observe_ego_gift_value
+
+        selections = []
+        for value in self.observe_ego_gift_selected:
+            selection = parse_observe_ego_gift_value(value.removesuffix(".png"))
+            if selection is None:
+                raise ValueError(f"Invalid observed EGO gift setting: {value}")
+            selections.append(selection)
+
         def _select_gift(level_p):
             first_gift = (level_p[0], level_p[1] + 80 * my_scale)
             select_gift_point = (first_gift[0] + (gift_col - 1) * 165 * my_scale,
                                  first_gift[1] + (gift_row - 1) * 160 * my_scale)
-            if select_gift_point[1] < gift_box[-1]:
+            if not gift_box[0] <= select_gift_point[0] < gift_box[2]:
+                raise RuntimeError("Observed gift column lies outside the recognized gallery")
+            if select_gift_point[1] < gift_box[-1] - 40 * my_scale:
                 auto.mouse_click(select_gift_point[0], select_gift_point[1])
             else:
                 step = 300 * my_scale
                 height = step
-                if select_gift_point[1] - gift_box[-1] > step:
-                    height = select_gift_point[1] - gift_box[-1]
+                if select_gift_point[1] - gift_box[-1] + 80 * my_scale > step:
+                    height = select_gift_point[1] - gift_box[-1] + 80 * my_scale
                     result = [step] * int(height // step) + ([int(height % step)] if int(height % step) > 0 else [])
                 else:
                     result = [step]
@@ -1038,22 +1050,18 @@ class Mirror:
             benchmark_point = (point[0] - 110 * my_scale, point[1])
 
         if not benchmark_point:
+            if cfg.backend == "playcover":
+                raise RuntimeError("Cannot recognize the English iOS observation page")
             return
 
         gift_box = ImageUtils.get_bbox(ImageUtils.load_image("mirror/road_to_mir/observe_ego_gift/gift_box_bbox.png"))
 
         # 选择观测饰品
-        for gift_id in self.observe_ego_gift_selected:
-            # 从文件名推断体系，如 "bleed_3_3_7.png" -> "bleed"
-            gm = re.match(r"^([a-z]+)_", gift_id)
-            if not gm:
-                log.warning(f"无法解析饰品体系：{gift_id}，跳过")
-                continue
-            file_system = gm.group(1)
-            gift_information = gift_id.split("_")[1:]
-            gift_level =int(gift_information[0])
-            gift_row =int(gift_information[1]) # 所在行
-            gift_col =int(gift_information[2]) # 所在列
+        for selection in selections:
+            file_system = selection.system
+            gift_level = selection.level
+            gift_row = selection.row
+            gift_col = selection.col
 
             # 选择体系
             if file_system == "general":
@@ -1061,9 +1069,8 @@ class Mirror:
             else:
                 system_index = [k for k, v in observe_system.items() if v == file_system][0]
             # 选择体系，先点一下其他体系，再点回来，重置页面
-            auto.mouse_click(benchmark_point[0] + 110 * (system_index+1) * my_scale, benchmark_point[1])
-            sleep(0.2)
-            auto.mouse_click(benchmark_point[0] + 110 * (system_index - 1) * my_scale, benchmark_point[1])
+            neighbor = (system_index + 1) % 11
+            auto.mouse_click(benchmark_point[0] + 110 * neighbor * my_scale, benchmark_point[1])
             sleep(0.2)
             auto.mouse_click(benchmark_point[0] + 110 * system_index * my_scale, benchmark_point[1])
             sleep(0.2)
@@ -1072,7 +1079,12 @@ class Mirror:
                 _select_gift(level_point)
             else:
                 level_point = None
-                for _ in range(5):
+                search_steps = 5
+                if cfg.backend == "playcover":
+                    # Cover preceding tiers even when each contains the maximum configured rows.
+                    search_steps = int(gift_level * max(OBSERVE_ROW_VALUES) * 160 * my_scale
+                                       / ((gift_box[-1] - gift_box[1]) / 2)) + 2
+                for _ in range(search_steps):
                     auto.mouse_drag(
                         gift_box[-2] - 100 * my_scale,
                         gift_box[-1] - 100 * my_scale,
@@ -1083,6 +1095,8 @@ class Mirror:
                         level_point = p
                         break
                 if level_point is None:
+                    if cfg.backend == "playcover":
+                        raise RuntimeError(f"Cannot recognize observed {file_system} gift tier {gift_level}")
                     continue
                 _select_gift(level_point)
                 sleep(0.5)
@@ -1097,6 +1111,9 @@ class Mirror:
                 sleep(1)
                 if auto.click_element("mirror/shop/leave_shop_confirm_assets.png",take_screenshot=True):
                     break
+        else:
+            if cfg.backend == "playcover":
+                raise RuntimeError("Cannot confirm configured observed gifts")
         for _ in range(5):
             auto.click_element("mirror/road_in_mir/ego_gift_get_confirm_assets.png",take_screenshot=True)
 
@@ -1669,8 +1686,11 @@ class Mirror:
 
     @begin_and_finish_time_log(task_name="镜牢商店")
     def in_shop(self):
-        if cfg.backend == "playcover":
-            # First iOS validation leaves every shop without changing its inventory.
+        skip = all(getattr(self.team_setting, key) for key in
+                   ("do_not_heal", "do_not_buy", "do_not_fuse", "do_not_sell", "do_not_enhance"))
+        skip = skip or (1 <= self.floor <= len(self.team_setting.ignore_shop)
+                        and bool(self.team_setting.ignore_shop[self.floor - 1]))
+        if cfg.backend == "playcover" and skip:
             for _ in range(30):
                 auto.take_screenshot()
                 if auto.find_element("mirror/road_in_mir/legend_assets.png"):

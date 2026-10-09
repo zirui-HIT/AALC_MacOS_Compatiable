@@ -236,13 +236,6 @@ class PageDailyTask(PageCard):
             all_teams,
         )
         self.EXP_day_7 = LabelWithComboBox(QT_TRANSLATE_NOOP("LabelWithComboBox", "周日"), "EXP_day_7", all_teams)
-        if cfg.backend == "playcover":
-            self.thread_count.box.spin_box.setMaximum(0)
-            self.thread_count.setEnabled(False)
-            self.thread_count.setToolTip("iOS Thread Luxcavation awaits separate validation")
-            for widget in (self.coutinuous_combat, self.targeted_teaming_EXP):
-                widget.setEnabled(False)
-                widget.setToolTip("iOS initial validation supports individual EXP runs with team #1")
         self.targeted_teaming_thread = BaseCheckBox(
             "targeted_teaming_thread",
             None,
