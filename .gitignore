@@ -38,3 +38,10 @@ __main_dev_temp__.py
 
 # 其他
 .worktrees
+
+# macOS portable development data
+.runtime/
+artifacts/
+.pytest_cache/
+.ruff_cache/
+__pycache__/
