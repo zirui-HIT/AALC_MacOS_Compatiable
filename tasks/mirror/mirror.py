@@ -47,7 +47,9 @@ def to_log_with_time(msg, elapsed_time):
 
 
 class Mirror:
-    def __init__(self, team_setting: TeamSetting, team_num: int):
+    def __init__(self, team_setting: TeamSetting, team_num: int, *, allow_module_rewards: bool | None = None):
+        # A diagnostic run must opt in separately to spending modules on rewards.
+        self.allow_module_rewards = cfg.backend != "playcover" if allow_module_rewards is None else allow_module_rewards
         team_setting = team_setting.model_copy(deep=True)  # 避免修改原始配置
         self.logger = log
         self.team_order = team_num
@@ -227,7 +229,7 @@ class Mirror:
         # 本次运行的开始时间
         run_start_time = time.time()
 
-        if auto.click_element("home/drive_assets.png") or auto.find_element("home/window_assets.png"):
+        if cfg.backend != "playcover" and (auto.click_element("home/drive_assets.png") or auto.find_element("home/window_assets.png")):
             sleep(0.5)
             make_enkephalin_module()
 
@@ -242,6 +244,20 @@ class Mirror:
             # 自动截图
             if auto.take_screenshot() is None:
                 continue
+
+            if cfg.backend == "playcover" and (
+                (auto.find_element("home/window_assets.png") and auto.find_element("home/drive_assets.png"))
+                or (auto.find_element("mirror/road_to_mir/enter_assets.png")
+                    and auto.find_element("mirror/road_to_mir/infinity_mirror_enter_assets.png"))
+            ):
+                raise RuntimeError("iOS validation only resumes the current dungeon; starting another run is disabled")
+
+            if any(auto.find_element(path) for path in (
+                "mirror/claim_reward/battle_statistics_assets.png",
+                "mirror/claim_reward/complete_mirror_100%_assets.png",
+                "mirror/claim_reward/use_enkephalin_assets.png",
+            )):
+                self.require_module_rewards()
 
             retry()
 
@@ -370,7 +386,12 @@ class Mirror:
             if auto.find_element("teams/identify_assets.png"):
                 # 如果第一次启动脚本，还没进行编队，就先编队
                 if self.first_battle:
-                    team_formation(self.sinner_team)
+                    if cfg.backend == "playcover":
+                        from tasks.teams.playcover import select_mirror_participants
+
+                        select_mirror_participants()
+                    else:
+                        team_formation(self.sinner_team)
                     self.first_battle = False
                     continue
                 # 战斗配队失败的情况
@@ -392,6 +413,9 @@ class Mirror:
                     if continue_mirror is False and self.first_battle is False:
                         self.re_start()
                         preparing = True
+                if cfg.backend == "playcover":
+                    get_game_actions().enter_battle()
+                    continue
                 if auto.click_element("battle/chaim_to_battle_assets.png") or auto.click_element(
                     "battle/normal_to_battle_assets.png"
                 ):
@@ -405,6 +429,11 @@ class Mirror:
                 continue
 
             # 在战斗中
+            if cfg.backend == "playcover" and (
+                auto.find_element("battle/gear_right.png") or auto.find_element("battle/gear_start.png")
+            ):
+                self._fight()
+                continue
             if auto.find_element("battle/more_information_assets.png") or auto.find_element(
                 "battle/in_mirror_assets.png"
             ):
@@ -473,13 +502,13 @@ class Mirror:
                 continue
 
             # 在主界面时，开始进入镜牢
-            if auto.click_element("home/drive_assets.png") or auto.find_element("home/window_assets.png"):
+            if cfg.backend != "playcover" and (auto.click_element("home/drive_assets.png") or auto.find_element("home/window_assets.png")):
                 sleep(0.5)
                 if self.road_to_mir() and self.bequest_from_the_previous_game:
                     break
                 continue
             # 在镜牢界面，进入镜牢
-            if auto.click_element("mirror/road_to_mir/enter_assets.png"):
+            if cfg.backend != "playcover" and auto.click_element("mirror/road_to_mir/enter_assets.png"):
                 if self.road_to_mir() and self.bequest_from_the_previous_game:
                     break
                 continue
@@ -512,6 +541,12 @@ class Mirror:
                 continue
 
             # 防卡死
+            if cfg.backend == "playcover":
+                sleep(0.3)
+                main_loop_count -= 1
+                if main_loop_count < 200:
+                    raise RuntimeError("Unrecognized iOS Mirror page; record it before continuing")
+                continue
             auto.mouse_click_blank()
             retry()
             main_loop_count -= 1
@@ -532,6 +567,7 @@ class Mirror:
                 back_menu_count += 1
                 main_loop_count = 250
 
+        self.require_module_rewards()
         msg = "开始进行镜牢奖励领取"
         log.info(msg)
 
@@ -1109,6 +1145,15 @@ class Mirror:
 
     @begin_and_finish_time_log(task_name="镜牢寻路")
     def search_road(self):
+        if cfg.backend == "playcover":
+            # Legacy route recovery exits to Window and can restart a dungeon.
+            # Use the calibrated adjacent-node path and stop on a missed transition.
+            for _ in range(2):
+                auto.take_screenshot()
+                if search_road_default_distance():
+                    sleep(1)
+                    return True
+            raise RuntimeError("iOS map route is unconfirmed; keep this dungeon open for calibration")
         if cfg.mirror_keyboard_simple_pathfinding:
             if search_road_simple_keyboard():
                 return True
@@ -1184,6 +1229,8 @@ class Mirror:
                 return False
 
     def re_start(self):
+        if cfg.backend == "playcover":
+            raise RuntimeError("iOS Mirror failed; automatic entry into another dungeon is disabled")
         while True:
             # 自动截图
             if auto.take_screenshot() is None:
@@ -1522,7 +1569,12 @@ class Mirror:
                 log.error(e)
                 continue
 
+    def require_module_rewards(self) -> None:
+        if not self.allow_module_rewards:
+            raise RuntimeError("Mirror rewards are disabled for this run; leave the reward page for manual review")
+
     def get_reward_in_road(self):
+        self.require_module_rewards()
         main_loop_count = 20
         auto.model = "clam"
         while True:
@@ -1601,4 +1653,14 @@ class Mirror:
 
     @begin_and_finish_time_log(task_name="镜牢商店")
     def in_shop(self):
+        if cfg.backend == "playcover":
+            # First iOS validation leaves every shop without changing its inventory.
+            for _ in range(30):
+                auto.take_screenshot()
+                if auto.find_element("mirror/road_in_mir/legend_assets.png"):
+                    return
+                if not auto.click_element("mirror/shop/leave_shop_confirm_assets.png", offset=False):
+                    auto.click_element("mirror/shop/leave_assets.png", offset=False)
+                sleep(0.5)
+            raise RuntimeError("Cannot confirm iOS shop exit; no purchases were attempted")
         self.shop.in_shop(self.floor)

@@ -52,3 +52,28 @@ def test_unknown_home_page_never_sends_input_or_restarts():
         GameActions(automation, BackendCapabilities(touch=True)).return_home()
     automation.click_element.assert_not_called()
     automation.mouse_click.assert_not_called()
+
+
+def test_map_zoom_requires_verified_capability_and_page():
+    automation = Mock()
+    automation.find_element.return_value = False
+    with pytest.raises(NotImplementedError):
+        GameActions(automation, BackendCapabilities(touch=True)).zoom_map()
+    with pytest.raises(RuntimeError, match="recognized Mirror"):
+        GameActions(automation, BackendCapabilities(touch=True, zoom=True)).zoom_map()
+    automation.mouse_pinch.assert_not_called()
+    automation.find_element.return_value = True
+    GameActions(automation, BackendCapabilities(touch=True, zoom=True)).zoom_map()
+    automation.mouse_pinch.assert_called_once_with((960, 540), 600, 300, duration=0.5)
+
+
+def test_mirror_disabled_rewards_cannot_send_any_claim_input(monkeypatch):
+    from tasks.mirror import mirror
+
+    automation = Mock()
+    monkeypatch.setattr(mirror, "auto", automation)
+    dungeon = mirror.Mirror.__new__(mirror.Mirror)
+    dungeon.allow_module_rewards = False
+    with pytest.raises(RuntimeError, match="rewards are disabled"):
+        dungeon.get_reward_in_road()
+    assert not automation.mock_calls

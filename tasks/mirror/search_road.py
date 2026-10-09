@@ -167,6 +167,8 @@ def search_road_simple_keyboard():
 
 # 在默认缩放情况下，进行镜牢寻路
 def search_road_default_distance():
+    if cfg.backend == "playcover":
+        return _search_playcover_adjacent()
     start_time = time.time()
     scale = cfg.set_win_size / 1440
     three_roads = [
@@ -245,12 +247,47 @@ def search_road_default_distance():
     return False
 
 
+def _search_playcover_adjacent() -> bool:
+    """One bounded node transition at the calibrated default map scale."""
+    auto.take_screenshot()
+    if not auto.find_element("mirror/road_in_mir/legend_assets.png"):
+        return False
+    bus = auto.find_element("mirror/mybus_default_distance.png")
+    if bus is None:
+        raise RuntimeError("Cannot recognize the iOS train at default zoom; no map input was sent")
+    # Current iOS train body and node centers differ from the old bus template.
+    # Probe adjacent nodes only; inaccessible nodes do not show an enabled entry.
+    for dx, dy in ((383, 66), (383, 386), (383, -254)):
+        x, y = bus[0] + dx, bus[1] + dy
+        if not (0 < x < 1780 and 100 < y < 900):
+            continue
+        auto.take_screenshot()
+        auto.mouse_click(x, y)
+        sleep(0.6)
+        auto.take_screenshot()
+        if not auto.click_element("mirror/road_in_mir/enter_assets.png", offset=False):
+            continue
+        # Entry is sent once. Only read until the selected-node panel closes.
+        for _ in range(30):
+            sleep(0.3)
+            auto.take_screenshot()
+            if not auto.find_element("mirror/road_in_mir/enter_assets.png"):
+                return True
+        raise RuntimeError("iOS node entry was sent once; transition unconfirmed")
+    return False
+
+
 # 如果默认缩放无法镜牢寻路，进行滚轮缩放后继续寻路
 def search_road_farthest_distance():
     scale = cfg.set_win_size / 1440
-    auto.mouse_click_blank()
-    if not auto.mouse_scroll():
-        raise InputAttributeError("后台输入不支持滚轮操作!")
+    if cfg.backend == "playcover":
+        from tasks.common.game_actions import get_game_actions
+
+        get_game_actions().zoom_map()
+    else:
+        auto.mouse_click_blank()
+        if not auto.mouse_scroll():
+            raise InputAttributeError("后台输入不支持滚轮操作!")
     while auto.take_screenshot() is None:
         continue
     if retry() is False:

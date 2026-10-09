@@ -146,7 +146,34 @@ class PlayCoverInput(AbstractInput):
         self.check_cancel()  # Touch input has no hovering cursor.
 
     def mouse_scroll(self, direction: int = -3) -> bool:
-        raise NotImplementedError("PlayCover map zoom has not been validated; wheel input is unavailable")
+        raise NotImplementedError("MaaTools has no wheel input; use the verified map pinch action")
+
+    def pinch(self, center: tuple[float, float], start_distance: float, end_distance: float, duration: float = 0.4) -> None:
+        """Two stable contacts with the same geometry until both are released."""
+        if min(start_distance, end_distance) <= 0 or duration < 0:
+            raise ValueError("Pinch distances must be positive and duration non-negative")
+        with self._gesture_lock:
+            self.wait_pause()
+            geometry = self._current_geometry()
+            try:
+                for contact, sign in ((0, -1), (1, 1)):
+                    self.check_cancel()
+                    self._touch(0, geometry.point(center[0] + sign * start_distance / 2, center[1]), contact)
+                steps = max(1, round(duration / self.timing.sample_interval))
+                for step in range(1, steps + 1):
+                    self.check_cancel()
+                    distance = start_distance + (end_distance - start_distance) * step / steps
+                    for contact, sign in ((0, -1), (1, 1)):
+                        self.check_cancel()
+                        self._touch(1, geometry.point(center[0] + sign * distance / 2, center[1]), contact)
+                    self._wait(duration / steps)
+            finally:
+                for contact in (0, 1):
+                    if contact in self.active_contacts and self.transport.connected:
+                        try:
+                            self._touch(3, self.active_contacts[contact], contact)
+                        except OSError as exc:
+                            log.warning(f"Pinch release failed; retained for same-process reconnect: {exc}")
 
     def key_press(self, key: str) -> None:
         raise NotImplementedError(f"iOS native keys are unavailable ({key}); use GameActions")

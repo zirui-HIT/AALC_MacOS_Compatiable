@@ -1,5 +1,6 @@
 import logging
 from pathlib import Path
+from threading import RLock
 
 import cv2
 import numpy as np
@@ -16,6 +17,7 @@ from utils.singletonmeta import SingletonMeta
 class OCR(metaclass=SingletonMeta):
     def __init__(self, logger: logging.Logger):
         self.logger = logger
+        self._inference_lock = RLock()
         models = Path(rapidocr.__file__).resolve().parent / "models"
         self.engine = RapidOCR(
             params={
@@ -69,12 +71,26 @@ class OCR(metaclass=SingletonMeta):
             # 自适应均衡化(均值化后更亮)
             clahe = createCLAHE(clipLimit=2.0, tileGridSize=(8, 8))
             processed_image = clahe.apply(img_cv_gray)
-            results = self.engine(processed_image)
+            with self._inference_lock:
+                results = self.engine(processed_image)
             self.log_results(results)
             return results
         except Exception as e:
             self.logger.error(e)
             return RapidOCROutput()
+
+    def run_line(self, image: Image.Image) -> str | None:
+        """Recognize a known single-line ROI, including isolated floor digits.
+
+        Use the existing recognition model directly without changing RapidOCR's
+        shared detection flags, which are also used by the monitor thread.
+        """
+        pixels = np.asarray(image.convert("RGB"))
+        with self._inference_lock:
+            result = self.engine.get_rec_res([pixels])
+        if result.txts and result.scores and result.scores[0] >= 0.7:
+            return result.txts[0]
+        return None
 
     def log_results(self, ocr_results: RapidOCROutput) -> None:
         """记录OCR识别记录"""

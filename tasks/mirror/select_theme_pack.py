@@ -56,7 +56,7 @@ def select_theme_pack(hard_mode=False, floor=None, team_num=None, use_custom_the
         )
     # 游戏更新后新增的主题包尚未收录时的兜底权重，取自「未知 / unknown」配置项
     unknown_weight = int(theme_pack_list_zh.get("未知", theme_pack_list_en.get("unknown", -5)))
-    refresh_times = 3
+    refresh_times = -1 if cfg.backend == "playcover" else 3
     if auto.find_element("mirror/road_in_mir/legend_assets.png", take_screenshot=True):
         return
     while True:
@@ -123,6 +123,8 @@ def select_theme_pack(hard_mode=False, floor=None, team_num=None, use_custom_the
                     return
 
         except Exception as e:
+            if cfg.backend == "playcover":
+                raise RuntimeError("iOS theme-pack recognition failed; keep the current dungeon open") from e
             log.error(f"识别主题包出错:{e}")
             continue
 
@@ -148,6 +150,8 @@ def select_theme_pack(hard_mode=False, floor=None, team_num=None, use_custom_the
                 log.info(msg)
                 return
             except Exception as e:
+                if cfg.backend == "playcover":
+                    raise RuntimeError("iOS theme-pack selection failed; keep the current dungeon open") from e
                 log.error(f"选择主题包出错:{e},尝试回到初始界面")
                 back_init_menu()
                 break
@@ -158,6 +162,8 @@ def select_theme_pack(hard_mode=False, floor=None, team_num=None, use_custom_the
         if loop_count < 10:
             auto.model = "aggressive"
         if loop_count < 0:
+            if cfg.backend == "playcover":
+                raise RuntimeError("iOS theme-pack selection timed out; no restart or reroll was attempted")
             log.error("无法选取主题包,尝试回到初始界面")
             back_init_menu()
             break

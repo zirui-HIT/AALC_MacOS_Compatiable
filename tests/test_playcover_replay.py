@@ -31,6 +31,12 @@ def test_real_ios_experience_menu_recognizes_three_enters_without_input(monkeypa
     ("battle_selected", ["battle/gear_start.png", "battle/win_rate_card.png"]),
     ("victory", ["battle/victory.png", "battle/battle_finish_confirm_assets.png"]),
     ("reset_deployment", ["teams/reset_deployment.png", "teams/clear_selection_confirm_assets.png"]),
+    ("mirror_map", ["mirror/road_in_mir/legend_assets.png", "mirror/mybus_default_distance.png"]),
+    ("mirror_theme_pack", ["mirror/theme_pack/normal_assets.png", "mirror/theme_pack/theme_pack_features.png"]),
+    ("mirror_guide", ["home/back_ios.png"]),
+    ("mirror_battle_ready", ["battle/win_rate_card.png", "battle/gear_right.png"]),
+    ("mirror_map_floor2", ["mirror/road_in_mir/legend_assets.png", "mirror/mybus_default_distance.png"]),
+    ("mirror_map_floor3", ["mirror/road_in_mir/legend_assets.png", "mirror/mybus_default_distance.png"]),
 ])
 def test_real_ios_daily_pages_recognize_required_actions(monkeypatch, page, targets):
     from module.automation import auto
@@ -45,7 +51,7 @@ def test_real_ios_daily_pages_recognize_required_actions(monkeypatch, page, targ
         assert auto.find_element(target, model="normal", threshold=0.8), target
 
 
-@pytest.mark.parametrize("page,count", [("formation", (0, 12)), ("formation_selected", (12, 12))])
+@pytest.mark.parametrize("page,count", [("formation", (0, 12)), ("formation_selected", (12, 12)), ("mirror_formation_selected", (12, 12))])
 def test_real_ios_participant_count(monkeypatch, page, count):
     from module.automation import auto
     from tasks.teams.playcover import participant_count
@@ -53,6 +59,31 @@ def test_real_ios_participant_count(monkeypatch, page, count):
     monkeypatch.setattr(auto, "take_screenshot", lambda: None)
     monkeypatch.setattr(auto, "screenshot", Image.open(SOURCE_ROOT / f"tests/fixtures/playcover/{page}.png").convert("L"))
     assert participant_count() == count
+
+
+def test_feature_matching_blank_roi_is_a_normal_miss():
+    import numpy as np
+
+    from utils.image_utils import ImageUtils
+
+    blank = np.zeros((100, 100), dtype=np.uint8)
+    assert ImageUtils.feature_matching(blank, blank) == (False, 0)
+
+
+@pytest.mark.parametrize("page,floor", [("mirror_map", 1), ("mirror_map_floor2", 2),
+                                       ("mirror_map_floor3", 3), ("mirror_theme_pack", 1)])
+def test_real_ios_floor_header_without_touch(monkeypatch, page, floor):
+    from module.automation import auto
+    from module.config import cfg
+    from tasks.mirror.get_floor import get_floor
+
+    monkeypatch.setattr(cfg, "config", cfg.config.model_copy(update={"backend": "playcover"}))
+    monkeypatch.setattr(auto, "take_screenshot", lambda: None)
+    monkeypatch.setattr(auto, "screenshot", Image.open(SOURCE_ROOT / f"tests/fixtures/playcover/{page}.png"))
+    mouse = Mock()
+    monkeypatch.setattr(auto, "mouse_click", mouse)
+    assert get_floor() == floor
+    mouse.assert_not_called()
 
 
 def test_team_reset_waits_for_dialog_before_confirming(monkeypatch):

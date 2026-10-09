@@ -52,6 +52,7 @@ def test_reconnect_releases_old_contact_only_to_same_verified_process():
         session.capture()
         session.transport.touch(0, 4, 3)
         session.input.active_contacts[0] = (4, 3)
+        session.transport.query_version()  # Ensure the server observed the initial no-ACK down before closing.
         session.disconnect()
         session.connect()
         session.transport.query_version()  # Drain the server's observation of the no-ACK release.

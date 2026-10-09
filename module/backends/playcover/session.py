@@ -14,7 +14,8 @@ from .transport import CaptureUnavailable, PlayCoverTransport, ProtocolError
 
 
 class PlayCoverSession:
-    capabilities = BackendCapabilities(touch=True, lifecycle=True)
+    # Both pinch directions were confirmed on the 1.116.2 Mirror Dungeon map.
+    capabilities = BackendCapabilities(touch=True, zoom=True, lifecycle=True)
 
     def __init__(self, settings: dict[str, Any]):
         self.transport = PlayCoverTransport(settings["playcover_host"], settings["playcover_port"])

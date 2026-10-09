@@ -55,10 +55,21 @@ class GameActions:
             self.auto.key_press("esc")
             return True
         self.auto.take_screenshot()
-        if not self.auto.click_element("home/back_assets.png", offset=False):
+        target = "home/back_assets.png" if self.auto.find_element("home/back_assets.png") else "home/back_ios.png"
+        if not self.auto.click_element(target, offset=False):
             raise RuntimeError("Cannot recognize an iOS Back button on this page")
         self.auto.take_screenshot()
         return True
+
+    def zoom_map(self, zoom_out: bool = True) -> None:
+        if not self.capabilities.zoom:
+            raise NotImplementedError("This backend has no verified map zoom")
+        self.auto.take_screenshot()
+        if not self.auto.find_element("mirror/road_in_mir/legend_assets.png"):
+            raise RuntimeError("Map zoom requires a recognized Mirror Dungeon map")
+        distances = (600, 300) if zoom_out else (300, 600)
+        self.auto.mouse_pinch((960, 540), *distances, duration=0.5)
+        self.auto.take_screenshot()
 
     def return_home(self) -> bool:
         for _ in range(30):
@@ -126,7 +137,7 @@ def validate_task_capabilities(config) -> None:
     if config.backend != "playcover":
         return
     if config.mirror:
-        raise NotImplementedError("PlayCover Mirror Dungeon requires verified map zoom and page fixtures; currently disabled")
+        raise NotImplementedError("Full iOS Mirror automation is still under validation; use the explicit current-dungeon diagnostic")
     if config.daily_task and (config.set_thread_count or config.use_continuous_combat or config.daily_teams != 1 or config.targeted_teaming_EXP):
         raise NotImplementedError("First iOS daily validation requires EXP only, team #1, no continuous combat or targeted teams")
     if config.get_reward:

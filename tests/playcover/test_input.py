@@ -86,3 +86,21 @@ def test_unsupported_inputs_fail_explicitly():
     for action in (lambda: handler.key_press("enter"), lambda: handler.input_text("abc"), handler.mouse_scroll, handler.mouse_click_blank):
         with pytest.raises(NotImplementedError):
             action()
+
+
+def test_pinch_uses_two_stable_contacts_and_releases_both():
+    handler, recorder = make_input()
+    handler.pinch((960, 540), 400, 200, duration=0)
+    assert recorder.events == [(0, 1520, 1080, 0), (0, 2320, 1080, 1),
+                               (1, 1720, 1080, 0), (1, 2120, 1080, 1),
+                               (3, 1720, 1080, 0), (3, 2120, 1080, 1)]
+    assert not handler.active_contacts
+
+
+def test_cancelled_pinch_releases_both_contacts():
+    handler, recorder = make_input()
+    recorder.on_touch = lambda phase: handler.cancel.set() if phase == 1 else None
+    with pytest.raises(userStopError):
+        handler.pinch((960, 540), 400, 200, duration=0.2)
+    assert {(e[0], e[3]) for e in recorder.events[-2:]} == {(3, 0), (3, 1)}
+    assert not handler.active_contacts
