@@ -127,6 +127,8 @@ def to_get_reward():
 
 def init_game():
     log.debug("初始化游戏")
+    if not path_manager.pic_path:
+        path_manager.initialize_paths(reset_eliminations=False)
     if cfg.backend == "playcover":
         from module.backends.factory import get_playcover_session
 
@@ -383,6 +385,9 @@ def script_task() -> None | int:
     from tasks.common.game_actions import validate_task_capabilities
 
     validate_task_capabilities(cfg)
+    path_manager.initialize_paths()
+    auto.clear_img_cache()
+    log.debug(f"初始化图片路径: {path_manager.pic_path}")
     init_game()
     _warn_if_game_monitor_hdr_enabled()
 
@@ -394,9 +399,6 @@ def script_task() -> None | int:
         if cfg.set_win_size == 720:
             log.warning("当前游戏分辨率为1280*720, 可能会导致识别错误或卡死, 建议设置为更高分辨率")
 
-    path_manager.initialize_paths()
-    auto.clear_img_cache()
-    log.debug(f"初始化图片路径: {path_manager.pic_path}")
     retry_monitor.start()
 
     if cfg.resonate_with_Ahab:

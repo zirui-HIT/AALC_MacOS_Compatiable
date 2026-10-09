@@ -117,6 +117,8 @@ def test_refill_reaches_daily_target_instead_of_buying_extra(monkeypatch, used, 
     assert energy.refill_lunacy(auto, target) == spent
     assert auto.click_element.call_count == purchases
     assert state['used'] == max(used, target)
+    assert energy.refill_lunacy(auto, target) == 0
+    assert auto.click_element.call_count == purchases
     if target == 0:
         energy.open_panel.assert_not_called()
 
