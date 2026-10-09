@@ -129,6 +129,9 @@ def init_game():
         auto.init_input()
         get_playcover_session().start_game()
         auto.take_screenshot(False)
+        from tasks.base.retry import retry
+
+        retry()
         return
     if cfg.simulator:
         if cfg.simulator_type == 0:

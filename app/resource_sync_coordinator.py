@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import sys
 from functools import partial
 from typing import Any, Callable
 
@@ -169,6 +170,9 @@ class ResourceSyncCoordinator(QObject):
         返回:
             若允许继续执行资源同步则返回 True，否则返回 False。
         """
+        # macOS 软件更新仅提示，不能要求先安装上游 Windows 包才能更新图片。
+        if sys.platform == "darwin":
+            return True
         # 第一步：测试版不参与图片资源同步，直接放行启动链路。
         if getattr(update_thread, "is_prerelease", False):
             log.info(f"当前软件版本 {cfg.version} 为测试版本，跳过图片资源同步")

@@ -79,4 +79,3 @@ def test_unknown_floor_is_zero_without_guessing_or_touch(monkeypatch):
     monkeypatch.setattr(get_floor, "auto", automation)
     assert get_floor.get_floor(previous_floor=3) == 0
     automation.mouse_click.assert_not_called()
-

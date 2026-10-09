@@ -83,7 +83,7 @@ class GameActions:
                 self.auto.take_screenshot()
                 if self.auto.find_element("home/mail_assets.png", model="normal"):
                     return True
-            elif self.auto.find_element("home/back_assets.png"):
+            elif self.auto.find_element("home/back_assets.png") or self.auto.find_element("home/back_ios.png"):
                 self.back()
                 time.sleep(0.3)
             else:
@@ -137,7 +137,19 @@ def validate_task_capabilities(config) -> None:
     if config.backend != "playcover":
         return
     if config.mirror:
-        raise NotImplementedError("Full iOS Mirror automation is still under validation; use the explicit current-dungeon diagnostic")
+        if config.hard_mirror or config.auto_hard_mirror or config.floor_3_exit or config.save_rewards or config.re_claim_rewards:
+            raise NotImplementedError("iOS Mirror currently supports a complete normal five-floor run with ordinary reward claim")
+        if not config.fight_to_last_man:
+            raise NotImplementedError("Enable Fight to Last Man for the calibrated iOS Mirror battle flow")
+        selected = [index + 1 for index, enabled in enumerate(config.teams_be_select) if enabled]
+        if selected != [1]:
+            raise NotImplementedError("Select only team #1 for the calibrated iOS Mirror preset")
+        team = config.config.teams["1"]
+        if team.team_number != 1 or team.team_system != 1 or team.use_starlight or any(team.opening_bonus):
+            raise NotImplementedError("iOS Mirror requires preset #1, Bleed, and no opening Starlight upgrades")
+        if (team.normal_to_hard_floor or team.observe_ego_gift or team.opening_items or team.re_formation_each_floor
+                or team.avoid_skill_3 or team.prioritize_skill_3 or team.defense_first_round or team.defense_for_solo):
+            raise NotImplementedError("Disable unvalidated custom opening, formation, and battle strategies on iOS")
     if config.daily_task and (config.set_thread_count or config.use_continuous_combat or config.daily_teams != 1 or config.targeted_teaming_EXP):
         raise NotImplementedError("First iOS daily validation requires EXP only, team #1, no continuous combat or targeted teams")
     if config.get_reward:

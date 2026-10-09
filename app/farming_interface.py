@@ -491,8 +491,7 @@ class FarmingInterfaceLeft(QWidget):
             self.set_windows.setVisible(False)
             self.buy_enkephalin.setEnabled(False)
             self.buy_enkephalin.setToolTip("PlayCover purchases are disabled during initial validation")
-            self.mirror.setEnabled(False)
-            self.mirror.setToolTip("Full iOS Mirror automation is still under validation; current-dungeon diagnostics are available")
+            self.mirror.setToolTip("iOS normal Mirror: preset #1, Bleed/Wound Clerid, no opening upgrades; shops are skipped")
             self.get_reward.setEnabled(False)
             self.get_reward.setToolTip("iOS mail/pass rewards await separate validation")
         self.resonate_with_Ahab = CheckBoxWithButton(

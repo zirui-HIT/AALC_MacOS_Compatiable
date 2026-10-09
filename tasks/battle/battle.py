@@ -581,6 +581,9 @@ class Battle:
                 unknown_since = None
                 session.cancel.wait(0.5)
                 continue
+            if auto.find_element("battle/victory.png") and auto.find_element("battle/battle_finish_confirm_assets.png"):
+                auto.click_element("battle/battle_finish_confirm_assets.png", offset=False)
+                return None
             if any(auto.find_element(path) for path in (
                 "mirror/road_in_mir/select_encounter_reward_card_assets.png",
                 "mirror/road_in_mir/acquire_ego_gift_card.png",
@@ -589,9 +592,6 @@ class Battle:
                 "mirror/road_in_mir/legend_assets.png",
             )):
                 return None  # Mirror owns these pages, including its reward policy.
-            if auto.find_element("battle/victory.png") and auto.find_element("battle/battle_finish_confirm_assets.png"):
-                auto.click_element("battle/battle_finish_confirm_assets.png", offset=False)
-                return None
             if auto.find_element("battle/gear_start.png"):
                 get_game_actions().start_turn()
                 unknown_since = None

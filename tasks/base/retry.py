@@ -55,7 +55,17 @@ def click_title_screen_safely() -> None:
     """标题页点击入口，避开账号、清缓存和中间弹窗区域。"""
     global _last_title_screen_tap_time
     if cfg.backend == "playcover":
-        raise NotImplementedError("iOS title-screen recovery needs a verified safe tap fixture; enter the home page manually")
+        # The title label pulses. Observe several fresh frames at the normal
+        # threshold rather than matching its dim phase with a lower threshold.
+        for _ in range(25):
+            auto.take_screenshot()
+            if auto.find_element("base/sign_in_assets.png"):
+                raise RuntimeError("Limbus requires manual Google / Apple login before automation can continue")
+            if auto.find_element("base/touch_to_start_assets.png"):
+                auto.click_element("base/touch_to_start_assets.png", offset=False)
+                return
+            sleep(0.2)
+        raise RuntimeError("Cannot recognize iOS Touch to Start")
     if not cfg.simulator:
         auto.mouse_click_blank()
         return
@@ -166,6 +176,8 @@ def retry():
             return False
         if auto.take_screenshot() is None:
             continue
+        if cfg.backend == "playcover" and auto.find_element("base/sign_in_assets.png"):
+            raise RuntimeError("Limbus requires manual Google / Apple login before automation can continue")
         if auto.find_element("base/connecting_assets.png"):
             continue
         if position := auto.find_element("base/retry_countdown.png"):

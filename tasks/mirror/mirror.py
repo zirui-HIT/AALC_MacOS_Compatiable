@@ -48,8 +48,7 @@ def to_log_with_time(msg, elapsed_time):
 
 class Mirror:
     def __init__(self, team_setting: TeamSetting, team_num: int, *, allow_module_rewards: bool | None = None):
-        # A diagnostic run must opt in separately to spending modules on rewards.
-        self.allow_module_rewards = cfg.backend != "playcover" if allow_module_rewards is None else allow_module_rewards
+        self.allow_module_rewards = True if allow_module_rewards is None else allow_module_rewards
         team_setting = team_setting.model_copy(deep=True)  # 避免修改原始配置
         self.logger = log
         self.team_order = team_num
@@ -229,6 +228,11 @@ class Mirror:
         # 本次运行的开始时间
         run_start_time = time.time()
 
+        if cfg.backend == "playcover":
+            from tasks.mirror.playcover_entry import prepare_normal_mirror
+
+            prepare_normal_mirror(auto, self.team_number)
+
         if cfg.backend != "playcover" and (auto.click_element("home/drive_assets.png") or auto.find_element("home/window_assets.png")):
             sleep(0.5)
             make_enkephalin_module()
@@ -250,14 +254,18 @@ class Mirror:
                 or (auto.find_element("mirror/road_to_mir/enter_assets.png")
                     and auto.find_element("mirror/road_to_mir/infinity_mirror_enter_assets.png"))
             ):
-                raise RuntimeError("iOS validation only resumes the current dungeon; starting another run is disabled")
+                raise RuntimeError("iOS Mirror returned to its entrance before completion")
 
             if any(auto.find_element(path) for path in (
-                "mirror/claim_reward/battle_statistics_assets.png",
                 "mirror/claim_reward/complete_mirror_100%_assets.png",
                 "mirror/claim_reward/use_enkephalin_assets.png",
+                "mirror/claim_reward/reward_preview_assets.png",
+                "mirror/claim_reward/reward_confirm_prompt_assets.png",
+                "mirror/claim_reward/pass_level_up_assets.png",
             )):
                 self.require_module_rewards()
+                if cfg.backend == "playcover":
+                    break
 
             retry()
 
@@ -270,7 +278,10 @@ class Mirror:
                     continue
 
             # 镜牢结束领取奖励
-            if auto.find_element("mirror/claim_reward/battle_statistics_assets.png"):
+            if auto.find_element("mirror/claim_reward/battle_statistics_assets.png") and not auto.find_element("battle/victory.png"):
+                self.require_module_rewards()
+                if cfg.backend == "playcover":
+                    break
                 if auto.click_element("mirror/claim_reward/claim_rewards_assets.png") is False:
                     claim_rewards_bbox = ImageUtils.get_bbox(
                         ImageUtils.load_image("mirror/claim_reward/claim_rewards_assets.png")
@@ -571,13 +582,14 @@ class Mirror:
         msg = "开始进行镜牢奖励领取"
         log.info(msg)
 
-        if self.bequest_from_the_previous_game:
+        rewards_done = cfg.backend == "playcover"
+        if rewards_done or self.bequest_from_the_previous_game:
             self.get_reward_in_road()
 
         main_loop_count = 20
         auto.model = "clam"
-        failed = None
-        while not self.bequest_from_the_previous_game:
+        failed = False if rewards_done else None
+        while not (rewards_done or self.bequest_from_the_previous_game):
             # 自动截图
             if auto.take_screenshot() is None:
                 auto.mouse_to_blank()
@@ -1575,6 +1587,10 @@ class Mirror:
 
     def get_reward_in_road(self):
         self.require_module_rewards()
+        if cfg.backend == "playcover":
+            from tasks.mirror.playcover_rewards import claim_normal_mirror_rewards
+
+            return claim_normal_mirror_rewards(auto)
         main_loop_count = 20
         auto.model = "clam"
         while True:
