@@ -578,6 +578,22 @@ class Automation(metaclass=SingletonMeta):
             if my_crop:
                 crop_offset = (int(round(my_crop[0])), int(round(my_crop[1])))
                 screenshot = ImageUtils.crop(screenshot, my_crop)
+            elif (
+                sys.platform == "darwin" and cfg.game_profile == "ios_en" and min_dist == 10
+                and screenshot.shape[:2] in ((810, 1440), (1080, 1920))
+                and (threshold == 0.8 or (target == "luxcavation/exp_enter.png" and threshold == 0.85))
+            ):
+                # Only layouts covered by the non-OCR replay; coordinates use a 1080px baseline.
+                roi = {
+                    "mirror/theme_pack/theme_pack_features.png": (0, 220, 1920, 450),
+                    "luxcavation/exp_enter.png": (0, 550, 1920, 850),
+                    "teams/selected.png": (0, 200, 1920, 800),
+                    "pass/pass_coin.png": (0, 250, 1920, 1050),
+                }.get(target)
+                if roi:
+                    bounds = [int(round(value * screenshot.shape[0] / 1080)) for value in roi]
+                    crop_offset = (bounds[0], bounds[1])
+                    screenshot = ImageUtils.crop(screenshot, bounds)
             matches = ImageUtils.match_template_with_multiple_targets(
                 screenshot, template, threshold, min_dist=min_dist
             )

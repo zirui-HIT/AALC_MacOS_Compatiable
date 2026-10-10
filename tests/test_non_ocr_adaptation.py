@@ -80,6 +80,7 @@ def test_orb_cache_is_bounded_and_empty_descriptors_keep_negative_result(images)
         utils._orb_template_features(source.tobytes(), source.shape, source.dtype.str, size, ORB_PARAMETERS)
     assert utils._orb_template_features.cache_info().currsize == 32
 
+
 def detector(outputs, *, height=1080):
     tree = ast.parse((ROOT / "tasks/mirror/search_road.py").read_text())
     function = next(node for node in tree.body if isinstance(node, ast.FunctionDef) and node.name == "identify_nodes")
@@ -121,3 +122,64 @@ def test_node_all_filtered_keeps_empty_list(score):
     # OpenCV NMS rejects a score exactly equal to its threshold.
     expected = None if score == .4 else []
     assert detector(rows.T[None])(2000, image=Image.new("RGB", (1920, 1080))) == expected
+
+
+def multiple_finder(utils, cfg, platform="darwin"):
+    tree = ast.parse((ROOT / "module/automation/automation.py").read_text())
+    cls = next(node for node in tree.body if isinstance(node, ast.ClassDef) and node.name == "Automation")
+    cls.keywords = []
+    cls.body = [node for node in cls.body if isinstance(node, ast.FunctionDef) and node.name == "find_image_with_multiple_targets"]
+    namespace = {"np": np, "ImageUtils": utils, "cfg": cfg, "sys": SimpleNamespace(platform=platform),
+                 "List": list, "log": Mock()}
+    exec(compile(ast.Module(body=[cls], type_ignores=[]), "multiple_finder", "exec"), namespace)
+    return namespace["Automation"]()
+
+
+@pytest.mark.parametrize("height", [810, 1080])
+@pytest.mark.parametrize("shift", [-44, 0, 44])
+@pytest.mark.parametrize("page,target,count", [
+    ("mirror_theme_pack", "mirror/theme_pack/theme_pack_features.png", 3),
+    ("luxcavation", "luxcavation/exp_enter.png", 3),
+    ("formation_selected", "teams/selected.png", 7),
+    ("features_pass_missions", "pass/pass_coin.png", 5),
+])
+def test_roi_real_pages_keep_exact_coordinates_and_order(images, height, shift, page, target, count):
+    utils, cfg = images
+    cfg.game_profile = "ios_en"
+    cfg.set_win_size = height
+    paths = [ROOT / "assets" / profile / target for profile in ("ios_en/default", "images/default/en", "images/default/share")]
+    with Image.open(next(path for path in paths if path.exists())) as image:
+        rgb = np.array(image.convert("RGB"))
+    scaled = cv2.resize(rgb, None, fx=height / 1440, fy=height / 1440, interpolation=cv2.INTER_AREA)
+    loaded = cv2.cvtColor(scaled, cv2.COLOR_RGB2GRAY)
+    utils.load_image = staticmethod(lambda _: loaded)
+    screenshot = cv2.imread(str(ROOT / f"tests/fixtures/playcover/{page}.png"), cv2.IMREAD_GRAYSCALE)
+    screenshot = cv2.warpAffine(screenshot, np.float32([[1, 0, 0], [0, 1, shift]]), (1920, 1080))
+    screenshot = cv2.resize(screenshot, (height * 16 // 9, height), interpolation=cv2.INTER_AREA)
+    expected = utils.match_template_with_multiple_targets(screenshot, loaded, .8)
+    assert len(expected) == count
+    auto = multiple_finder(utils, cfg)
+    auto.screenshot = Image.fromarray(screenshot)
+    assert auto.find_image_with_multiple_targets(target, .8) == expected
+
+
+@pytest.mark.parametrize("platform,profile,height,target,threshold,min_dist,crop", [
+    ("win32", "ios_en", 1080, "teams/selected.png", .8, 10, None),
+    ("darwin", "auto", 1080, "teams/selected.png", .8, 10, None),
+    ("darwin", "ios_en", 1440, "teams/selected.png", .8, 10, None),
+    ("darwin", "ios_en", 1080, "unlisted.png", .8, 10, None),
+    ("darwin", "ios_en", 1080, "teams/selected.png", .75, 10, None),
+    ("darwin", "ios_en", 1080, "teams/selected.png", .8, 20, None),
+    ("darwin", "ios_en", 1080, "teams/selected.png", .8, 10, (100, 150, 900, 700)),
+])
+def test_unverified_calls_and_explicit_crop_keep_original_search(images, platform, profile, height, target, threshold, min_dist, crop):
+    utils, cfg = images
+    cfg.game_profile = profile
+    utils.load_image = Mock(return_value=np.zeros((20, 20), dtype=np.uint8))
+    match = Mock(return_value=[(20, 30)])
+    utils.match_template_with_multiple_targets = match
+    auto = multiple_finder(utils, cfg, platform)
+    auto.screenshot = Image.new("L", (height * 16 // 9, height))
+    expected = [(120, 180)] if crop else [(20, 30)]
+    assert auto.find_image_with_multiple_targets(target, threshold, my_crop=crop, min_dist=min_dist) == expected
+    assert match.call_args.args[0].shape == ((550, 800) if crop else (height, height * 16 // 9))
