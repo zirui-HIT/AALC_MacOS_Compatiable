@@ -1,5 +1,6 @@
 import json
 import os
+from functools import lru_cache
 from pathlib import Path
 from typing import TypeVar
 
@@ -378,17 +379,27 @@ class ImageUtils:
         return image_array.shape[::-1]
 
     @staticmethod
+    @lru_cache(maxsize=32)
+    def _orb_template_features(pixels, shape, dtype, win_size, parameters):
+        """Cache immutable template features by pixels, resolution and ORB settings."""
+        template = np.frombuffer(pixels, dtype=np.dtype(dtype)).reshape(shape)
+        template = cv2.resize(template, None, fx=2, fy=2, interpolation=cv2.INTER_LINEAR)
+        return cv2.ORB_create(**dict(parameters)).detectAndCompute(template, None)
+
+    @staticmethod
     def feature_matching(template_img, target_img, min_matches=8):
         # 读取图像并进行预处理
 
-        template = cv2.resize(template_img, None, fx=2, fy=2, interpolation=cv2.INTER_LINEAR)
         target = cv2.resize(target_img, None, fx=2, fy=2, interpolation=cv2.INTER_LINEAR)
 
         # 使用ORB特征检测器
-        orb = cv2.ORB_create(nfeatures=1000, scaleFactor=1.2, edgeThreshold=10)
+        parameters = (("nfeatures", 1000), ("scaleFactor", 1.2), ("edgeThreshold", 10))
+        orb = cv2.ORB_create(**dict(parameters))
 
         # 检测关键点和描述符
-        kp1, des1 = orb.detectAndCompute(template, None)
+        kp1, des1 = ImageUtils._orb_template_features(
+            template_img.tobytes(), template_img.shape, template_img.dtype.str, cfg.set_win_size, parameters
+        )
         kp2, des2 = orb.detectAndCompute(target, None)
         if des1 is None or des2 is None or len(des1) < 2 or len(des2) < 2:
             return False, 0
