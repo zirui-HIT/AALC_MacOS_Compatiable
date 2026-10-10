@@ -1,5 +1,6 @@
 """Host cancellation must not become an original Mirror Dungeon retry."""
 import os
+import threading
 from importlib import import_module
 from unittest.mock import Mock
 
@@ -73,3 +74,31 @@ def test_caffeinate_tracks_host_process_and_balances_nested_users(monkeypatch):
     host.keep_awake(False)
     child.terminate.assert_called_once()
     child.wait.assert_called_once_with(timeout=2)
+
+
+@pytest.mark.parametrize("main_running", [False, True])
+def test_screenshot_tool_only_resets_stop_at_new_independent_task(monkeypatch, main_running):
+    from module.backends import factory
+    from module.config import cfg
+
+    tool = import_module("tasks.tools.screenshot_module")
+    main = import_module("tasks.base.script_task_scheme")
+    monkeypatch.setattr(cfg, "config", cfg.config.model_copy(update={"backend": "playcover"}))
+    monkeypatch.setattr(tool.auto, "task_running", main_running)
+    session = Mock()
+    session.cancel = threading.Event()
+    session.cancel.set()
+    session.input.is_pause = True
+    monkeypatch.setattr(factory, "get_playcover_session", lambda: session)
+
+    def initialize():
+        if session.cancel.is_set():
+            raise BackendCancelled("stopping main task")
+
+    monkeypatch.setattr(main, "init_game", initialize)
+    capture = Mock(return_value=Mock())
+    monkeypatch.setattr(tool.auto, "take_screenshot", capture)
+    tool.ScreenshotGet().run()
+    assert session.cancel.is_set() == main_running
+    assert session.input.is_pause == main_running
+    assert capture.call_count == int(not main_running)

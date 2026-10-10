@@ -40,6 +40,31 @@ def test_only_verified_game_executable_is_terminated(tmp_path):
     target.kill.assert_not_called()
 
 
+def test_term_exit_during_identity_check_is_already_stopped(tmp_path):
+    import psutil
+
+    lifecycle = PlayCoverLifecycle(str(make_app(tmp_path)))
+    target = Mock()
+    target.exe.side_effect = psutil.NoSuchProcess(42)
+    with patch.object(lifecycle, "process", return_value=target):
+        lifecycle.stop_verified_process(terminate=False)
+    target.terminate.assert_not_called()
+    target.wait.assert_not_called()
+
+
+def test_term_wait_timeout_does_not_force_kill(tmp_path):
+    import psutil
+
+    lifecycle = PlayCoverLifecycle(str(make_app(tmp_path)))
+    target = Mock()
+    target.exe.return_value = str(lifecycle.identity.executable)
+    target.wait.side_effect = psutil.TimeoutExpired(5)
+    with patch.object(lifecycle, "process", return_value=target), pytest.raises(TimeoutError):
+        lifecycle.stop_verified_process(terminate=False)
+    target.terminate.assert_not_called()
+    target.kill.assert_not_called()
+
+
 def test_invalid_plist_executable_cannot_escape_app(tmp_path):
     app = make_app(tmp_path)
     (app / "Info.plist").write_bytes(plistlib.dumps({"CFBundleIdentifier": "company.test", "CFBundleExecutable": "../elsewhere"}))

@@ -4,6 +4,7 @@ import numpy as np
 
 from module.automation import auto
 from module.logger import log
+from utils.image_utils import ImageUtils
 
 # 楼层进度条横带 ROI
 FLOOR_BAND_ROI = (760, 495, 1860, 590)
@@ -43,7 +44,7 @@ def get_floor(previous_floor=0, setting_assets="mirror/road_in_mir/setting_asset
         sleep(1)  # 等待楼层设置面板展开
         if auto.find_element("mirror/road_in_mir/to_window_assets.png", threshold=0.75, take_screenshot=True):
             clear_regions = auto.find_regions_by_color(
-                FLOOR_BAND_ROI,
+                ImageUtils.layout("mirror.floor_band", FLOOR_BAND_ROI),
                 min_area=FLOOR_CLEAR_MIN_AREA,
                 min_dist=80,
                 mask_fn=clear_badge_mask,

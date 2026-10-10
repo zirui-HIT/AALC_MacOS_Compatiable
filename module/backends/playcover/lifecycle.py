@@ -69,17 +69,20 @@ class PlayCoverLifecycle:
                 continue
         return None
 
-    def stop_verified_process(self) -> None:
+    def stop_verified_process(self, *, terminate: bool = True) -> None:
         import psutil
 
         process = self.process()
         if process is None:
             return
-        # Recheck the executable immediately before termination (PID reuse).
-        if Path(process.exe()).resolve() != self.identity.executable:
-            raise RuntimeError("Game process identity changed")
-        process.terminate()
         try:
+            # Recheck the executable immediately before termination (PID reuse).
+            if Path(process.exe()).resolve() != self.identity.executable:
+                raise RuntimeError("Game process identity changed")
+            if terminate:
+                process.terminate()
             process.wait(timeout=5)
+        except psutil.NoSuchProcess:
+            return  # TERM may finish between process enumeration and verification.
         except psutil.TimeoutExpired:
             raise TimeoutError("Verified game process did not exit; no forced kill performed") from None

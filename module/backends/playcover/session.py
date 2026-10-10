@@ -108,6 +108,7 @@ class PlayCoverSession:
         if self.transport.connected and self.transport.bundle_id == self.lifecycle.bundle_id:
             self.input.release_contacts()
             self.transport.terminate()
+            self.lifecycle.stop_verified_process(terminate=False)
         else:
             self.lifecycle.stop_verified_process()
 

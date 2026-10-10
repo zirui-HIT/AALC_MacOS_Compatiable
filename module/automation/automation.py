@@ -73,7 +73,7 @@ class Automation(metaclass=SingletonMeta):
             from module.backends.factory import get_playcover_session
 
             self.input_handler = get_playcover_session().input
-            self.mouse_pinch = self.input_handler.pinch
+            self.mouse_pinch = self._run_business_interaction("pinch")
         elif cfg.simulator:
             if cfg.simulator_type == 0:
                 from .input_handlers.simulator.mumu_control import MumuControl

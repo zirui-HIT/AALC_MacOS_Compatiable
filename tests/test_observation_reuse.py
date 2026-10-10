@@ -134,6 +134,59 @@ def test_touch_only_hover_noop_does_not_discard_observation(observation):
     capture.assert_not_called()
 
 
+def test_pinch_reuses_business_gate_lock_and_frame_validation(observation):
+    import threading
+
+    from module.automation.input_handlers import AbstractInput
+
+    original, session, _, module = observation
+    handler = Mock(spec=AbstractInput)
+    handler.geometry_context = Mock(return_value=nullcontext())
+    handler.check_cancel = Mock()
+    entered, release, done, monitor_done = (threading.Event() for _ in range(4))
+
+    def pinch(*args):
+        assert automation._latest_screenshot_monotonic == 0
+        entered.set()
+        assert release.wait(2)
+
+    handler.pinch = Mock(side_effect=pinch)
+    session.input = handler
+    # An independent object exercises real init_input without mutating the singleton.
+    automation = object.__new__(module.Automation)
+    module.Automation.__init__(automation, "fixture")
+    automation._business_frame = original._business_frame
+    automation._monitor_frame = original._business_frame
+    automation._latest_screenshot_monotonic = 100
+    automation.suspend_interactions()
+    business = threading.Thread(target=lambda: (automation.mouse_pinch((960, 540), 600, 300), done.set()))
+    monitor = threading.Thread(target=lambda: (automation.monitor_mouse_click(5, 5), monitor_done.set()))
+    business.start()
+    try:
+        assert not entered.wait(0.15)
+        handler.pinch.assert_not_called()
+        automation.resume_interactions()
+        assert entered.wait(1)
+        monitor.start()
+        assert not monitor_done.wait(0.15)
+        handler.mouse_click.assert_not_called()
+        release.set()
+        assert done.wait(1) and monitor_done.wait(1)
+        handler.pinch.assert_called_once()
+        handler.mouse_click.assert_called_once()
+        assert automation._latest_screenshot_monotonic == 0
+        session.geometry.return_value.version = 2
+        with pytest.raises(RuntimeError, match="Geometry changed"):
+            automation.mouse_pinch((960, 540), 600, 300)
+        handler.pinch.assert_called_once()
+    finally:
+        automation.resume_interactions()
+        release.set()
+        business.join(2)
+        if monitor.ident is not None:
+            monitor.join(2)
+
+
 def test_cached_capture_still_obeys_stop(observation):
     auto, session, capture, _ = observation
     session.input.check_cancel.side_effect = BackendCancelled("stop")

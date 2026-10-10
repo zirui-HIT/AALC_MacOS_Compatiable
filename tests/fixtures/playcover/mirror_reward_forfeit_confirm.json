@@ -1,0 +1,23 @@
+{
+  "game_version": "1.116.2",
+  "language": "en",
+  "bundle_id": "com.ProjectMoon.LimbusCompany",
+  "protocol_version": 4,
+  "raw_size": [
+    3942,
+    2216
+  ],
+  "touch_size": [
+    5120,
+    2880
+  ],
+  "logical_size": [
+    1920,
+    1080
+  ],
+  "image_mode": "RGB",
+  "page": "mirror_reward_forfeit_confirm",
+  "captured_at": "2026-10-10 14:15:49+08:00",
+  "redactions": [],
+  "source": "Real MaaTools BGR normalized to logical RGB; no image edits"
+}

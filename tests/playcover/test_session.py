@@ -91,3 +91,25 @@ def test_unavailable_service_launches_registered_app_once_then_waits():
     capture.assert_called_once()
     start.assert_called_once()
     session.cancel.wait.assert_called_once_with(0.5)
+
+
+def test_term_waits_for_verified_exit_before_original_start_check(tmp_path):
+    from tests.playcover.test_lifecycle import make_app
+
+    options = settings(1717)
+    options["playcover_app_path"] = str(make_app(tmp_path))
+    session = PlayCoverSession(options)
+    process = Mock()
+    process.exe.return_value = str(session.lifecycle.identity.executable)
+    session.lifecycle.process = Mock(return_value=process)
+    process.wait.side_effect = lambda **kwargs: setattr(session.lifecycle.process, "return_value", None)
+    session.transport = Mock(connected=True, bundle_id="company.test")
+    session.stop_game()
+    session.transport.terminate.assert_called_once()
+    process.wait.assert_called_once_with(timeout=5)
+    process.terminate.assert_not_called()
+    process.kill.assert_not_called()
+    with patch.object(session.lifecycle, "start") as start, \
+            patch.object(session, "connect"), patch.object(session, "capture"):
+        session.start_game()
+    start.assert_called_once()

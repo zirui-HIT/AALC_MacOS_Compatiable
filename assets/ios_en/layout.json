@@ -16,5 +16,15 @@
   "image.battle/gear_right.png.anchor": [
     0,
     44
+  ],
+  "mirror.floor_band": [
+    760,
+    495,
+    1860,
+    660
+  ],
+  "image.mirror/claim_reward/claim_rewards_confirm_assets.png.anchor": [
+    232,
+    290
   ]
 }

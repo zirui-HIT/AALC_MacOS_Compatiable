@@ -3,6 +3,7 @@ import time
 from PySide6.QtCore import QThread, Signal
 
 from module.automation import auto
+from module.backends.base import BackendCancelled
 from module.config import cfg
 from module.game_and_screen import screen
 from module.logger import log
@@ -20,9 +21,15 @@ class ScreenshotGet(QThread):
         try:
             from tasks.base.script_task_scheme import init_game
 
+            if cfg.backend == "playcover" and not auto.task_running:
+                from module.backends.factory import get_playcover_session
+
+                session = get_playcover_session()
+                session.cancel.clear()
+                session.input.is_pause = False
             init_game()
             should_reset_window = cfg.set_windows and cfg.set_reduce_miscontact and cfg.backend == "windows"
-        except Exception as e:
+        except (Exception, BackendCancelled) as e:
             log.error(f"初始化游戏失败: {str(e)}")
             return
         try:
@@ -36,7 +43,7 @@ class ScreenshotGet(QThread):
                 self.on_saved_timestr.emit(timestr)
             else:
                 log.error("截图失败，请确认游戏是否处于启动状态")
-        except Exception as e:
+        except (Exception, BackendCancelled) as e:
             log.error(f"截图错误: {str(e)}")
             return
         finally:
