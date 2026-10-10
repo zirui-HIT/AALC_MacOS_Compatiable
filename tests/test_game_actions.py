@@ -24,7 +24,7 @@ def test_ios_clicks_buttons_and_confirms_battle():
     assert actions.select_win_rate()
     assert actions.start_turn()
     assert actions.back()
-    assert [call.args[0] for call in automation.click_element.call_args_list] == ["battle/win_rate_card.png", "battle/gear_start.png", "home/back_assets.png"]
+    assert [call.args[0] for call in automation.click_element.call_args_list] == ["battle/win_rate_card.png", "battle/gear_right.png", "home/back_assets.png"]
     automation.key_press.assert_not_called()
 
 
@@ -56,9 +56,10 @@ def test_ios_start_turn_leaves_retry_to_original_battle_loop():
 @pytest.mark.parametrize("page,ready", [
     ("battle_selected", True), ("flow_chain_start", True),
     ("thread_selected_small_capture", True),
-    ("mirror_battle_ready", False), ("reaccept_chain_ready", False),
+    ("mirror_battle_ready", True), ("reaccept_chain_ready", True),
+    ("battle_many_slots_selected", True), ("battle_many_slots_ready", True),
 ])
-def test_ios_start_turn_recognizes_selected_gear_across_capture_sizes(monkeypatch, page, ready):
+def test_ios_enter_uses_original_right_gear_fallback_across_capture_sizes(monkeypatch, page, ready):
     from PIL import Image
 
     from module.automation import auto

@@ -41,6 +41,21 @@
         "Mirror_task"
       ],
       "sha256": "9bb4a44c602b3c9b2ff035a4dcec70b07807fd826c54415cd7a7aa60448c68f2"
+    },
+    "tasks/mirror/in_shop.py": {
+      "sha256": "3f8fcfbced30be543796bd4038e0c5b9c0b2afe64ffdd435b5af03c100b856c9"
+    },
+    "tasks/mirror/reward_card.py": {
+      "sha256": "9b586caefd610ab37ffa31a4a77f79b63cb3549d8f3bac4284c9e9c183b5d76c"
+    },
+    "tasks/event/event_handling.py": {
+      "sha256": "26e742ffa7fec6aa27f475c0ff99d70c5a438dc7e17ecaf347ffc18f470da29e"
+    },
+    "app/base_tools.py": {
+      "sha256": "a181b6dc5722e0e7fa26c4dc302058b5dde2325355c647f0c1676d911a7daca8"
+    },
+    "app/team_setting_card.py": {
+      "sha256": "0f5b2c02a5c5eaa428ca2c10a1d808445b9927febb00f0153a7446e9abbff15e"
     }
   }
 }

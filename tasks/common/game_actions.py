@@ -22,9 +22,8 @@ class GameActions:
             self.auto.key_press("enter")
             return True
         self.auto.take_screenshot()
-        # The START lettering rotates and loses detail in smaller captures;
-        # the existing orange gear template identifies the selected state.
-        return bool(self.auto.click_element("battle/gear_start.png", offset=False))
+        # Reuse the original image fallback for Enter: click the right gear.
+        return bool(self.auto.click_element("battle/gear_right.png", offset=False))
 
     def select_defense(self, x: float, y: float) -> bool:
         if self.capabilities.native_keys:

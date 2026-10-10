@@ -5,6 +5,71 @@ from unittest.mock import Mock
 import pytest
 
 
+@pytest.mark.parametrize('avoid,prioritize,turns,first_defense,all_defense,expected', [
+    (False, False, None, False, False, 'win_rate'),
+    (False, False, 0, False, False, 'win_rate'),
+    (True, False, None, False, False, 'avoid'),
+    (False, True, None, False, False, 'prioritize'),
+    (True, True, None, False, False, 'avoid'),
+    (False, False, 5, False, False, 'defense'),
+    (False, False, None, True, False, 'defense'),
+    (False, False, None, False, True, 'defense'),
+])
+def test_original_battle_branch_obeys_flags_without_forcing_links(
+    monkeypatch, avoid, prioritize, turns, first_defense, all_defense, expected,
+):
+    task = import_module('tasks.battle.battle')
+    automation = Mock()
+    automation.find_element.return_value = True  # Gears visible; battle starts successfully.
+    actions = Mock()
+    monkeypatch.setattr(task, 'auto', automation)
+    monkeypatch.setattr(task, 'sleep', lambda _: None)
+    monkeypatch.setattr(task, 'get_game_actions', lambda: actions)
+    fighter = task.Battle()
+    fighter.defense_all_time = all_defense
+    fighter._chain_battle = Mock(return_value=True)
+    fighter._defense_this_round = Mock(return_value=True)
+    state = task.DefenseForSoloState(turns) if turns is not None else None
+    fighter._battle_operation(True, first_defense, avoid, prioritize, state)
+    if expected in {'avoid', 'prioritize'}:
+        fighter._chain_battle.assert_called_once_with(prioritize_skill_3=expected == 'prioritize')
+        fighter._defense_this_round.assert_not_called()
+    elif expected == 'defense':
+        fighter._defense_this_round.assert_called_once()
+        fighter._chain_battle.assert_not_called()
+        if turns:
+            assert state.remaining_turns == turns - 1
+    else:
+        actions.select_win_rate.assert_called_once()
+        actions.start_turn.assert_called_once()
+        fighter._chain_battle.assert_not_called()
+        fighter._defense_this_round.assert_not_called()
+
+
+@pytest.mark.parametrize('avoid,prioritize,defense', [
+    (False, False, False), (False, False, True), (True, False, False), (False, True, False),
+])
+def test_original_mirror_forwards_team_battle_flags(monkeypatch, avoid, prioritize, defense):
+    from module.config import cfg
+    from tasks.mirror import mirror
+
+    team = cfg.config.teams['1'].model_copy(update={
+        'avoid_skill_3': avoid, 'prioritize_skill_3': prioritize,
+        'defense_for_solo': defense, 'defense_for_solo_turns': 5, 'defense_first_round': False,
+    })
+    fighter = Mock()
+    monkeypatch.setattr(mirror, 'battle', fighter)
+    dungeon = mirror.Mirror(team, 1)
+    dungeon._fight()
+    args = fighter.fight.call_args.kwargs
+    assert args['avoid_skill_3'] is avoid
+    assert args['prioritize_skill_3'] is prioritize
+    assert args['defense_first_round'] is False
+    assert (args['defense_for_solo_state'] is not None) == defense
+    if defense:
+        assert args['defense_for_solo_state'].remaining_turns == 5
+
+
 @pytest.mark.parametrize("count", [1, 2, 5, 10])
 def test_original_exp_loop_sets_count_and_selects_highest_unlocked_stage(monkeypatch, count):
     from module.config import cfg

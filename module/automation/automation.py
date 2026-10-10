@@ -438,15 +438,6 @@ class Automation(metaclass=SingletonMeta):
                         self.screenshot = frame.image.convert("L") if gray else frame.image
                     self._latest_screenshot = self.screenshot
                     return self.screenshot
-            wait_time = max(interval - (time.time() - self.last_screenshot_time), 0)
-            if session.cancel.wait(wait_time):
-                session.input.check_cancel()
-            with self._screenshot_lock:
-                result = self._capture(gray)
-                self._remember_screenshot(result, self._business_frame)
-                self.screenshot = result
-                self.last_screenshot_time = time.time()
-                return result
         start_time = time.time()
         screenshot_interval_time = cfg.screenshot_interval if cfg.screenshot_interval else 0.85
         while True:
@@ -456,11 +447,15 @@ class Automation(metaclass=SingletonMeta):
                         screenshot_interval_time - (time.time() - self.last_screenshot_time),
                         0,
                     )
-                    time.sleep(wait_time)
+                    if cfg.backend == "playcover":
+                        session.cancel.wait(wait_time)
+                        session.input.check_cancel()
+                    else:
+                        time.sleep(wait_time)
 
                 with self._screenshot_lock:
                     result = self._capture(gray)
-                    self._remember_screenshot(result)
+                    self._remember_screenshot(result, self._business_frame if cfg.backend == "playcover" else None)
                 if result:
                     self.screenshot = result
                     self.last_screenshot_time = time.time()
@@ -469,20 +464,27 @@ class Automation(metaclass=SingletonMeta):
                     return None
             except Exception as e:
                 log.error(f"截图失败:{e}")
-            time.sleep(1)
+            if cfg.backend == "playcover":
+                session.cancel.wait(1)
+                session.input.check_cancel()
+            else:
+                time.sleep(1)
             if time.time() - start_time > 60:
                 log.error("截图超时，尝试重启游戏")
-                import os
+                if cfg.backend == "playcover":
+                    session.stop_game()
+                else:
+                    import os
 
-                import win32process
+                    import win32process
 
-                from module.game_and_screen import screen
+                    from module.game_and_screen import screen
 
-                try:
-                    _, pid = win32process.GetWindowThreadProcessId(screen.handle.hwnd)
-                    os.system(f"taskkill /F /PID {pid}")
-                except:
-                    pass
+                    try:
+                        _, pid = win32process.GetWindowThreadProcessId(screen.handle.hwnd)
+                        os.system(f"taskkill /F /PID {pid}")
+                    except:  # noqa: E722 - Preserve the original Windows recovery handler.
+                        pass
                 from tasks.base.script_task_scheme import init_game
 
                 init_game()
@@ -943,6 +945,8 @@ class Automation(metaclass=SingletonMeta):
                 if template is None:
                     continue
                 center, matchVal = ImageUtils.match_template(screenshot, template, bbox, model)
+                if loaded_path.endswith("/ios_en"):
+                    center = tuple(round(v) for v in ImageUtils.layout_point(f"image.{target}.anchor", center, cfg.set_win_size / 1440))
                 matched = self._is_valid_match(matchVal, threshold)
                 if 0.70 < matchVal < 0.90 and int(matchVal * 1000 + 1e-9) % 10 >= 5:
                     match_fmt = ".3f"

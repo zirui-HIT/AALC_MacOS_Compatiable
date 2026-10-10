@@ -204,3 +204,28 @@ def test_retry_reuses_only_initial_observation_then_refreshes_while_connecting(m
         {"max_age": 0.85}, {"max_age": 0.0}, {"max_age": 0.0},
     ]
     auto.mouse_click.assert_not_called()
+
+
+def test_playcover_uses_original_capture_retry_before_returning_to_task(observation):
+    auto, session, capture, _ = observation
+    image = auto.screenshot
+    capture.side_effect = [ConnectionRefusedError('service starting'), image]
+    assert auto.take_screenshot() is image
+    assert capture.call_count == 2
+    session.cancel.wait.assert_called_once_with(1)
+    session.stop_game.assert_not_called()
+
+
+def test_playcover_uses_original_sixty_second_recovery_entry(observation, monkeypatch):
+    task = import_module('tasks.base.script_task_scheme')
+    auto, session, capture, module = observation
+    image = auto.screenshot
+    capture.side_effect = [ConnectionRefusedError('lost service'), image]
+    clock = iter([100., 100., 161., 161., 161., 161.])
+    monkeypatch.setattr(module.time, 'time', lambda: next(clock))
+    init = Mock()
+    monkeypatch.setattr(task, 'init_game', init)
+    assert auto.take_screenshot() is image
+    session.stop_game.assert_called_once()
+    init.assert_called_once()
+    session.cancel.wait.assert_called_once_with(1)
