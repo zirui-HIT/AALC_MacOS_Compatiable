@@ -80,3 +80,44 @@ def test_orb_cache_is_bounded_and_empty_descriptors_keep_negative_result(images)
         utils._orb_template_features(source.tobytes(), source.shape, source.dtype.str, size, ORB_PARAMETERS)
     assert utils._orb_template_features.cache_info().currsize == 32
 
+def detector(outputs, *, height=1080):
+    tree = ast.parse((ROOT / "tasks/mirror/search_road.py").read_text())
+    function = next(node for node in tree.body if isinstance(node, ast.FunctionDef) and node.name == "identify_nodes")
+    session = SimpleNamespace(run=Mock(return_value=[outputs]), get_inputs=lambda: [SimpleNamespace(name="images")])
+    namespace = {"cv2": cv2, "np": np, "cfg": SimpleNamespace(set_win_size=height),
+                 "ROAD_COLUMN_GAP": 520, "_node_detection_session": lambda: session}
+    exec(compile(ast.Module(body=[function], type_ignores=[]), "identify_nodes", "exec"), namespace)
+    return namespace["identify_nodes"]
+
+
+@pytest.mark.parametrize("dtype", [np.float32, np.float64])
+def test_node_threshold_ties_nms_order_and_bus_filter(dtype):
+    rows = np.zeros((5, 11), dtype=dtype)
+    rows[:, :4] = [[500, 100, 40, 40], [300, 200, 40, 40], [700, 300, 40, 40],
+                   [500, 100, 40, 40], [850, 400, 40, 40]]
+    rows[0, 4:6] = .9  # First class wins ties; overlapping lower score must be suppressed.
+    rows[1, 9] = .8
+    rows[2, 6] = .7
+    rows[3, 5] = .6
+    rows[4, 4] = np.nextafter(dtype(.4), dtype(0))
+    identify = detector(rows.T[None])
+    image = Image.new("RGB", (1920, 1080))
+    assert identify(0, image=image) == [["battle", (1000, 196)], ["shop", (600, 396)], ["event", (1400, 596)]]
+    assert identify(800, image=image) == [["battle", (1000, 196)], ["event", (1400, 596)]]
+
+
+def test_node_no_nms_result_keeps_none():
+    rows = np.zeros((3, 11), dtype=np.float32)
+    rows[:, :4] = [500, 100, 40, 40]
+    rows[:, 4:] = .3
+    assert detector(rows.T[None])(0, image=Image.new("RGB", (1920, 1080))) is None
+
+
+@pytest.mark.parametrize("score", [.4, .9])
+def test_node_all_filtered_keeps_empty_list(score):
+    rows = np.zeros((1, 11), dtype=np.float32)
+    rows[0, :4] = [500, 100, 40, 40]
+    rows[0, 4] = score
+    # OpenCV NMS rejects a score exactly equal to its threshold.
+    expected = None if score == .4 else []
+    assert detector(rows.T[None])(2000, image=Image.new("RGB", (1920, 1080))) == expected

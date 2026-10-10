@@ -380,17 +380,15 @@ def identify_nodes(bus_x, *, image=None):
 
     outputs = session.run(None, {session.get_inputs()[0].name: blob})[0]
     outputs = cv2.transpose(outputs[0])
-    boxes = []
-    scores = []
-    class_ids = []
     # 收集超过置信度阈值的候选框，供 NMS 去除重叠检测。
-    for output in outputs:
-        _, max_score, _, (_, class_id) = cv2.minMaxLoc(output[4:])
-        if max_score < confidence_threshold:
-            continue
-        boxes.append([output[0] - output[2] / 2, output[1] - output[3] / 2, output[2], output[3]])
-        scores.append(float(max_score))
-        class_ids.append(class_id)
+    class_ids = np.argmax(outputs[:, 4:], axis=1)
+    scores = outputs[np.arange(len(outputs)), class_ids + 4]
+    keep = scores >= confidence_threshold
+    boxes = outputs[keep, :4].copy()
+    boxes[:, :2] -= boxes[:, 2:] / 2
+    boxes = boxes.tolist()
+    scores = scores[keep].tolist()
+    class_ids = class_ids[keep].tolist()
 
     result_boxes = cv2.dnn.NMSBoxes(
         boxes,
