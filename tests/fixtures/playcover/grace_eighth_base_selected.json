@@ -1,0 +1,24 @@
+{
+  "time": "2026-10-10 07:57:57",
+  "scores": {
+    "observe": 0.4659382402896881,
+    "grace": 0.9477736949920654,
+    "deploy": 0.455340176820755
+  },
+  "raw_size": [
+    1816,
+    1022
+  ],
+  "touch_size": [
+    5120,
+    2880
+  ],
+  "logical_size": [
+    1920,
+    1080
+  ],
+  "game_version": "1.116.2",
+  "language": "en",
+  "page": "Eighth base grace selected, Starlight Guidance; remaining available budget 20",
+  "source": "Real MaaTools BGR capture, full acceptance Mirror 2"
+}

@@ -1,0 +1,24 @@
+{
+  "time": "2026-10-10 07:58:09",
+  "scores": {
+    "observe": 0.987532377243042,
+    "grace": 0.2953048050403595,
+    "deploy": 0.48634111881256104
+  },
+  "raw_size": [
+    1816,
+    1022
+  ],
+  "touch_size": [
+    5120,
+    2880
+  ],
+  "logical_size": [
+    1920,
+    1080
+  ],
+  "game_version": "1.116.2",
+  "language": "en",
+  "page": "General tier III row 4 column 8 selected, Select 1/3; Spiderweb Entangled in Red, 70 Starlight confirmation",
+  "source": "Real MaaTools BGR capture, full acceptance Mirror 2"
+}

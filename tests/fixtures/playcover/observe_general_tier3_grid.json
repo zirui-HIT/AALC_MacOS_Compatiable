@@ -1,0 +1,24 @@
+{
+  "time": "2026-10-10 07:58:08",
+  "scores": {
+    "observe": 0.9886124730110168,
+    "grace": 0.28528422117233276,
+    "deploy": 0.4865742623806
+  },
+  "raw_size": [
+    1816,
+    1022
+  ],
+  "touch_size": [
+    5120,
+    2880
+  ],
+  "logical_size": [
+    1920,
+    1080
+  ],
+  "game_version": "1.116.2",
+  "language": "en",
+  "page": "General/Keywordless tier III, unselected; eight columns",
+  "source": "Real MaaTools BGR capture, full acceptance Mirror 2"
+}

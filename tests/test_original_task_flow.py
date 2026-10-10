@@ -98,3 +98,40 @@ def test_original_refill_price_loop_obeys_today_target(monkeypatch, used, target
     purchases = [call for call in automation.click_element.call_args_list
                  if call.args[0].endswith("enkephalin_confirm_assets.png")]
     assert len(purchases) == max(0, target - used)
+
+
+def test_original_observation_hits_configured_general_cell_on_real_ios_grid(monkeypatch):
+    from PIL import Image
+
+    from module.automation import auto
+    from module.config import cfg
+    from tasks.mirror.mirror import Mirror
+    from utils.path_manager import path_manager
+    from utils.runtime_paths import SOURCE_ROOT
+
+    monkeypatch.setattr(cfg, 'config', cfg.config.model_copy(update={
+        'backend': 'playcover', 'game_profile': 'ios_en', 'set_win_size': 1080,
+    }))
+    path_manager.initialize_paths()
+    auto.clear_img_cache()
+    monkeypatch.setattr(auto, 'screenshot', Image.open(
+        SOURCE_ROOT / 'tests/fixtures/playcover/observe_general_tier3_grid.png').convert('L'))
+    monkeypatch.setattr(auto, 'take_screenshot', Mock())
+    clicks = Mock(return_value=True)
+    monkeypatch.setattr(auto, 'mouse_click', clicks)
+    monkeypatch.setattr(auto, 'mouse_drag', Mock())
+    monkeypatch.setattr(auto, 'click_element', Mock(return_value=True))
+    monkeypatch.setattr(auto, 'find_language_text', lambda zh, en, *args: (1, 1) if en == 'select' else None)
+    task = import_module('tasks.mirror.mirror')
+    monkeypatch.setattr(task, 'sleep', lambda _: None)
+    team = cfg.config.teams['1'].model_copy(update={
+        'observe_ego_gift_selected': ['general_3_4_8'],
+    })
+    Mirror(team, 1).select_observe_ego_gift()
+    # Third tab click selects General, then the original row/column calculation
+    # hits the actual Spiderweb cell captured with a gold selection border.
+    tab_x, tab_y = clicks.call_args_list[2].args
+    assert 953 <= tab_x <= 1026 and 249 <= tab_y <= 323
+    x, y = clicks.call_args_list[3].args
+    assert 1010 <= x <= 1128 and 768 <= y <= 875
+    auto.mouse_drag.assert_not_called()
