@@ -1,4 +1,4 @@
-"""Verify original task decisions, allowing platform and approved frame-reuse hints."""
+"""Verify original decisions with explicit platform/optimization exceptions."""
 import ast
 import hashlib
 import json
@@ -9,6 +9,30 @@ from utils.runtime_paths import SOURCE_ROOT
 
 
 class PlatformCalls(ast.NodeTransformer):
+    # 2026-10-10: user explicitly requested deleting White Gossypium checks.
+    @staticmethod
+    def is_gossypium_filter(node):
+        return isinstance(node, ast.If) and any(
+            (isinstance(part, ast.Attribute) and part.attr == "not_skip_whitegossypium")
+            or (isinstance(part, ast.Constant) and part.value == "white_gossypium")
+            for part in ast.walk(node.test)
+        )
+
+    def visit_If(self, node):
+        return None if self.is_gossypium_filter(node) else self.generic_visit(node)
+
+    def visit_For(self, node):
+        had_filter = any(self.is_gossypium_filter(stmt) for stmt in node.body)
+        node = self.generic_visit(node)
+        if had_filter and not any(
+            isinstance(part, ast.Name) and part.id == "bbox" and isinstance(part.ctx, ast.Load)
+            for stmt in node.body for part in ast.walk(stmt)
+        ):
+            node.body = [stmt for stmt in node.body if not (
+                isinstance(stmt, ast.Assign) and len(stmt.targets) == 1
+                and isinstance(stmt.targets[0], ast.Name) and stmt.targets[0].id == "bbox")]
+        return node
+
     def visit_Import(self, node):
         return None
 

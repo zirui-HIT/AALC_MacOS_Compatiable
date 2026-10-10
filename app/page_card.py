@@ -481,12 +481,6 @@ class PageMirror(PageCard):
             QT_TRANSLATE_NOOP("BaseCheckBox", "再次领取奖励"),
             center=False,
         )
-        self.not_skip_whitegossypium = BaseCheckBox(
-            "not_skip_whitegossypium",
-            None,
-            QT_TRANSLATE_NOOP("BaseCheckBox", "不跳过白棉花"),
-            center=False,
-        )
         self.fight_to_last_man = BaseCheckBox(
             "fight_to_last_man",
             None,
@@ -531,7 +525,6 @@ class PageMirror(PageCard):
         self.vbox_advanced.addWidget(self.select_event_pack)
         self.vbox_advanced.addWidget(self.skip_event_pack)
         self.vbox_advanced.addWidget(self.re_claim_rewards)
-        self.vbox_advanced.addWidget(self.not_skip_whitegossypium)
         self.vbox_advanced.addWidget(self.fight_to_last_man)
         self.vbox_advanced.addWidget(self.mirror_keyboard_navigation)
         self.vbox_advanced.addWidget(self.mirror_keyboard_simple_pathfinding)
@@ -808,7 +801,6 @@ class PageMirror(PageCard):
         self.select_event_pack.retranslateUi()
         self.skip_event_pack.retranslateUi()
         self.re_claim_rewards.retranslateUi()
-        self.not_skip_whitegossypium.retranslateUi()
         self.fight_to_last_man.retranslateUi()
         self.mirror_keyboard_navigation.retranslateUi()
         self.mirror_keyboard_simple_pathfinding.retranslateUi()

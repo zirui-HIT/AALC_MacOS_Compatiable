@@ -557,9 +557,6 @@ class ConfigModel(BaseModel):
     re_claim_rewards: bool
     """再次执行领取奖励任务"""
 
-    not_skip_whitegossypium: bool
-    """不跳过白棉花"""
-
     fight_to_last_man: bool
     """战斗直到全灭"""
 

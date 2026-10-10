@@ -17,7 +17,7 @@
       "sha256": "01e29d9fd84a080774c56c9a5268fea5d3ca6c59d5302be60409cb9c3f93088d"
     },
     "tasks/mirror/mirror.py": {
-      "sha256": "654de0c61005debc45284801ad9daeffb237258e23e687fbbead7a418c16bb73"
+      "sha256": "650656db8bf3b077573651a5cb41e6bb8d410b00574687ba0d52c80816388303"
     },
     "tasks/mirror/get_floor.py": {
       "sha256": "4b610a83f69c88f0aa33ef077dd173a5ea349045935073233624f777b4519a83"
@@ -43,7 +43,7 @@
       "sha256": "9bb4a44c602b3c9b2ff035a4dcec70b07807fd826c54415cd7a7aa60448c68f2"
     },
     "tasks/mirror/in_shop.py": {
-      "sha256": "3f8fcfbced30be543796bd4038e0c5b9c0b2afe64ffdd435b5af03c100b856c9"
+      "sha256": "731b788fad657cc71ea23c58bcf393462e406b400c95a0844a6801f123a03f8d"
     },
     "tasks/mirror/reward_card.py": {
       "sha256": "9b586caefd610ab37ffa31a4a77f79b63cb3549d8f3bac4284c9e9c183b5d76c"
@@ -57,5 +57,8 @@
     "app/team_setting_card.py": {
       "sha256": "0f5b2c02a5c5eaa428ca2c10a1d808445b9927febb00f0153a7446e9abbff15e"
     }
-  }
+  },
+  "authorized_changes": [
+    "2026-10-10: remove White Gossypium reward/shop/fusion filters and unused single-gift crop"
+  ]
 }

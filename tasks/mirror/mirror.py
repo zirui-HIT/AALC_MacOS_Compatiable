@@ -1377,11 +1377,6 @@ class Mirror:
                             button[0] + 450 * my_scale,
                             button[1] + 350 * my_scale,
                         )
-                        if not cfg.not_skip_whitegossypium:
-                            ocr_result = auto.find_language_text("白棉花", ["white", "gossypium"], bbox)
-                            if isinstance(ocr_result, list):
-                                if len(ocr_result) >= 2:
-                                    continue
                         is_owned = bool(auto.find_language_text("已持有", "Owned", bbox))
                         gift_candidates.append((is_owned, button))
 
@@ -1399,30 +1394,6 @@ class Mirror:
                         return
                 elif len(acquire_card) == 1:
                     for button in acquire_card:
-                        bbox = (
-                            button[0] - 50 * my_scale,
-                            button[1] - 300 * my_scale,
-                            button[0] + 450 * my_scale,
-                            button[1] + 350 * my_scale,
-                        )
-                        if not cfg.not_skip_whitegossypium:
-                            ocr_result = auto.find_language_text("白棉花", ["white", "gossypium"], bbox)
-                            if isinstance(ocr_result, list):
-                                if len(ocr_result) >= 2:
-                                    time.sleep(1)
-                                    auto.click_element(
-                                        "mirror/road_in_mir/refuse_gift_assets.png",
-                                        take_screenshot=True,
-                                    )
-                                    sleep(1)
-                                    auto.click_element(
-                                        "mirror/road_in_mir/refuse_gift_confirm_assets.png",
-                                        take_screenshot=True,
-                                    )
-                                    time.sleep(2)
-                                    if retry() is False:
-                                        return False
-                                    return
                         auto.mouse_click(button[0], button[1])
                         time.sleep(1)
                         auto.click_element(
@@ -1442,10 +1413,6 @@ class Mirror:
                             button[0] + 450 * my_scale,
                             button[1] + 350 * my_scale,
                         )
-                        if not cfg.not_skip_whitegossypium:
-                            ocr_result = auto.find_language_text("白棉花", ["white", "gossypium"], bbox)
-                            if ocr_result:
-                                continue
                         is_owned = bool(auto.find_language_text("已持有", "Owned", bbox))
                         gift_candidate = (is_owned, button)
                         if auto.find_element(

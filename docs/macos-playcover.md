@@ -142,3 +142,9 @@ macOS 图片同步独立于软件版本门禁，不要求安装上游 Windows �
 [普通截图](https://github.com/hguandl/PlayTools/blob/0c09900de12106091ead308642a8b2d1434982ef/AKPlugin.swift)、
 [Metal 限制](https://github.com/hguandl/PlayTools/blob/0c09900de12106091ead308642a8b2d1434982ef/PlayTools/Captures/ArknightsMetalCapture.swift)。
 换装 PlayCover/PlayTools 后重新运行 VERN/BNDL 和截图诊断，不能根据窗口标题推测兼容。
+
+## 白棉花设置变更（2026-10-10）
+
+白棉花专用名称识别与跳过/保护判断已移除，按现有通用饰品规则处理。
+镜牢高级设置不再显示“不跳过白棉花”；旧配置中的该字段由现有加载器忽略。
+更新源码或本地 `.app` 后重新打开 AALC，界面与执行行为一并生效。

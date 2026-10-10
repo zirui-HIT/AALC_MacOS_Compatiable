@@ -233,10 +233,6 @@ class Shop:
                     sleep(1)
                     while auto.take_screenshot() is None:
                         continue
-                    if self.system == "bleed" and not cfg.not_skip_whitegossypium:
-                        if auto.find_language_text("白棉花", ["white", "gossypium"], all_text=True):
-                            auto.mouse_click_blank(times=2)
-                        sleep(1)
                     if auto.click_element("mirror/shop/purchase_assets.png", take_screenshot=True):
                         sleep(1)
                         auto.click_element(
@@ -267,10 +263,6 @@ class Shop:
                         sleep(1)
                         while auto.take_screenshot() is None:
                             continue
-                        if self.system == "bleed" and not cfg.not_skip_whitegossypium:
-                            if auto.find_language_text("白棉花", ["white", "gossypium"], all_text=True):
-                                auto.mouse_click_blank(times=2)
-                            sleep(1)
                         if auto.click_element("mirror/shop/purchase_assets.png", take_screenshot=True):
                             sleep(1)
                             auto.click_element(
@@ -563,8 +555,6 @@ class Shop:
             # 获取无用饰品列表
             for commodity in must_be_abandoned:
                 item = auto.find_element(commodity, find_type="image_with_multiple_targets")
-                if "white_gossypium" in commodity and "bleed" in self.shop_sell_list:
-                    continue
                 if item:
                     if isinstance(item, list):
                         gift_list.extend(list(g) for g in item)
