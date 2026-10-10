@@ -2,6 +2,8 @@ import gc
 import inspect
 import math
 import random
+import re
+import sys
 import threading
 import time
 from ast import List
@@ -17,7 +19,7 @@ from utils.image_utils import ImageUtils
 from utils.path_manager import path_manager
 from utils.singletonmeta import SingletonMeta
 
-from ..config import cfg
+from ..config import cfg, theme_list
 from ..logger import log
 from ..ocr import ocr
 from .input_handlers import AbstractInput
@@ -48,6 +50,7 @@ class Automation(metaclass=SingletonMeta):
         self.screenshot = None
         self._ocr_image = None
         self._ocr_regions = {}
+        self._ocr_lock = threading.RLock()
         self.input_handler = AbstractInput()
         self._screenshot_lock = threading.RLock()
         self._latest_screenshot = None
@@ -629,8 +632,10 @@ class Automation(metaclass=SingletonMeta):
                 return ocr_dict[text]
         return False
 
-    def _run_ocr_for_text(self, my_crop=None, only_text=False, additional_stack=0):
-        ocr_result = self._ocr_screenshot(my_crop)
+    def _run_ocr_for_text(
+        self, my_crop=None, only_text=False, additional_stack=0, target=None, zh_target=None, all_text=False
+    ):
+        ocr_result = self._ocr_for_target(target, my_crop, zh_target, all_text) if not only_text else self._ocr_screenshot(my_crop)
 
         if not ocr_result.txts:
             return False if only_text else {}
@@ -649,18 +654,79 @@ class Automation(metaclass=SingletonMeta):
         log.debug(f"识别到文本及其坐标：{ocr_dict}", stacklevel=additional_stack + 3)
         return ocr_dict
 
-    def _ocr_screenshot(self, my_crop=None):
-        """同一图像、同一裁剪复用推理；关键词匹配和返回值仍由原代码处理。"""
-        image = self.screenshot
-        if self._ocr_image is not image:
-            self._ocr_image = image
-            self._ocr_regions.clear()
-        region = tuple(my_crop) if my_crop is not None else None
-        if region not in self._ocr_regions:
-            if len(self._ocr_regions) >= 32:
+    def _ocr_for_target(self, target, my_crop, zh_target=None, all_text=False):
+        """Choose only validated English OCR profiles; matching stays unchanged."""
+        profile = None
+        if sys.platform == "darwin" and cfg.game_profile == "ios_en" and path_manager.current_language == "en":
+            if isinstance(target, str):
+                pair = (zh_target, target.lower())
+                if pair == ("已持有", "owned") and my_crop is not None:
+                    profile = "owned"
+                elif pair in (("拒绝饰品", "refuse"), ("选择", "select"), ("胜率", "rate"), ("判定", "check")):
+                    profile = "buttons"
+            elif isinstance(target, list) and my_crop is not None:
+                if tuple(target) in (
+                    ("0/1", "01", "1/1", "11", "1/2", "12", "/1"),
+                    ("0/2", "02", "2/2", "22", "/2"),
+                ):
+                    profile = "count"
+                elif tuple(target) in (
+                    ("continue", "proceed", "commence", "choices", "confirm", "行判", "始战", "继续"),
+                    ("conti", "proc", "comme", "choices", "confirm", "行判", "始战", "继续"),
+                ):
+                    profile = "buttons"
+            elif isinstance(target, dict) and my_crop is not None and "unknown" in target:
+                pack_keys = set(theme_list.config.get("theme_pack_list", {})) | set(
+                    theme_list.config.get("theme_pack_list_hard", {})
+                )
+                if len(target) > 1 and set(target) <= pack_keys:
+                    profile = "pack"
+        if profile is None:
+            return self._ocr_screenshot(my_crop)
+
+        region = my_crop
+        if profile == "owned":
+            x1, y1, x2, y2 = my_crop
+            region = (x1, y1, x2, y1 + round((y2 - y1) * 0.16))
+        with self._ocr_lock:
+            image = self.screenshot
+            result = self._ocr_screenshot(region, engine="vision", image=image)
+            valid = result is not None
+            texts = (result.txts or ()) if valid else ()
+            if profile == "count":
+                counts = [
+                    match.groups() for text in texts
+                    for match in re.finditer(r"(?<![\w/])([0-2])/([12])(?![\w/])", re.sub(r"\s*/\s*", "/", text))
+                ]
+                valid = len(counts) == 1 and int(counts[0][0]) <= int(counts[0][1])
+            elif profile in {"pack", "buttons"}:
+                keys = [target] if isinstance(target, str) else [key for key in target if key != "unknown"]
+                hits = [
+                    any(str(key).replace(" ", "").lower() in text.replace(" ", "").lower() for text in texts)
+                    for key in keys
+                ]
+                valid = valid and (all(hits) if all_text else any(hits))
+            if not valid:
+                result = self._ocr_screenshot(region, image=image)
+            return result
+
+    def _ocr_screenshot(self, my_crop=None, engine="rapid", image=None):
+        """同一图像、裁剪及引擎复用推理；关键词匹配和返回值仍由原代码处理。"""
+        image = self.screenshot if image is None else image
+        with self._ocr_lock:
+            if self._ocr_image is not image:
+                self._ocr_image = image
                 self._ocr_regions.clear()
-            self._ocr_regions[region] = ocr.run(image.crop(my_crop) if my_crop is not None else image)
-        return self._ocr_regions[region]
+            region = (tuple(my_crop) if my_crop is not None else None, engine)
+            if region not in self._ocr_regions:
+                if len(self._ocr_regions) >= 32:
+                    self._ocr_regions.clear()
+                pixels = image.crop(my_crop) if my_crop is not None else image
+                result = ocr.run_vision(pixels) if engine == "vision" else ocr.run(pixels)
+                if result is None:  # Warming up/busy: retry Vision on a later request.
+                    return None
+                self._ocr_regions[region] = result
+            return self._ocr_regions[region]
 
     def _find_target_in_ocr_dict(self, target, ocr_dict, all_text=False):
         if ocr_dict == {}:
@@ -695,7 +761,7 @@ class Automation(metaclass=SingletonMeta):
         """
         按当前语言状态查找中英文文本，并在语言未知时用命中结果同步语言。
 
-        该方法只执行一次 OCR，然后在同一份 OCR 结果中匹配文本：
+        该方法复用同一份 OCR 结果匹配文本，必要时在识别层回退引擎：
         - 当前语言为 zh_cn 时，只匹配 zh_text。
         - 当前语言为 en 时，只匹配 en_text。
         - 当前语言未知时，先匹配 zh_text；中文命中则同步语言为 zh_cn。
@@ -711,7 +777,9 @@ class Automation(metaclass=SingletonMeta):
         Returns:
             文本命中结果，返回格式同 find_text_element；未命中返回 False。
         """
-        ocr_dict = self._run_ocr_for_text(my_crop=my_crop, additional_stack=additional_stack)
+        ocr_dict = self._run_ocr_for_text(
+            my_crop=my_crop, additional_stack=additional_stack, target=en_text, zh_target=zh_text, all_text=all_text
+        )
         if ocr_dict == {}:
             return False
 
@@ -740,7 +808,9 @@ class Automation(metaclass=SingletonMeta):
 
         str/list 目标返回坐标；dict 目标返回 TextMatchResult。
         """
-        ocr_result = self._run_ocr_for_text(my_crop=my_crop, only_text=only_text, additional_stack=additional_stack)
+        ocr_result = self._run_ocr_for_text(
+            my_crop=my_crop, only_text=only_text, additional_stack=additional_stack, target=target, all_text=all_text
+        )
         if only_text:
             return ocr_result
         return self._find_target_in_ocr_dict(target, ocr_result, all_text=all_text)

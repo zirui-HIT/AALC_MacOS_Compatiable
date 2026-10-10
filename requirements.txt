@@ -37,6 +37,7 @@ pydantic==2.12.5
 pydantic-core==2.41.5
 pygetwindow==0.0.9
 pymsgbox==2.0.1
+pyobjc-framework-Vision==11.1 ; sys_platform == 'darwin'
 pynput==1.8.1
 pyperclip==1.10.0
 pyreadline3==3.5.4 ; sys_platform == 'win32'

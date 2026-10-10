@@ -1,4 +1,5 @@
 import logging
+import sys
 from pathlib import Path
 from threading import RLock
 
@@ -18,6 +19,14 @@ class OCR(metaclass=SingletonMeta):
     def __init__(self, logger: logging.Logger):
         self.logger = logger
         self._inference_lock = RLock()
+        self._vision = None
+        if sys.platform == "darwin":
+            from module.config import cfg
+
+            if cfg.game_profile == "ios_en":
+                from .vision import VisionOCR
+
+                self._vision = VisionOCR(logger)
         models = Path(rapidocr.__file__).resolve().parent / "models"
         self.engine = RapidOCR(
             params={
@@ -78,6 +87,19 @@ class OCR(metaclass=SingletonMeta):
         except Exception as e:
             self.logger.error(e)
             return RapidOCROutput()
+
+    def run_vision(self, image: Image.Image) -> RapidOCROutput | None:
+        """Optional fast recognition; None asks the caller to use RapidOCR."""
+        if self._vision is None and sys.platform == "darwin":
+            from .vision import VisionOCR
+
+            with self._inference_lock:
+                if self._vision is None:
+                    self._vision = VisionOCR(self.logger)
+        result = self._vision.run(image) if self._vision is not None else None
+        if result is not None:
+            self.log_results(result)
+        return result
 
     def run_line(self, image: Image.Image) -> str | None:
         """Recognize a known single-line ROI, including isolated floor digits.
