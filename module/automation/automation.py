@@ -6,7 +6,6 @@ import re
 import sys
 import threading
 import time
-from ast import List
 from dataclasses import dataclass
 from typing import Any
 
@@ -28,6 +27,7 @@ from .screenshot import ScreenShot
 # ponytail: 交互门最长关闭时间。监控线程卡在持久弹窗上时,超时放行业务输入,
 # 恢复 retry() 等流程的卡死看门狗(kill_game/restart_game)。
 GATE_WAIT_TIMEOUT = 30.0
+_FRAME_CACHE_MISS = object()
 
 
 @dataclass(frozen=True)
@@ -48,6 +48,7 @@ class Automation(metaclass=SingletonMeta):
         self._monitor_frame = None
         self.windows_title = windows_title
         self.screenshot = None
+        self._reset_frame_cache()
         self._ocr_image = None
         self._ocr_regions = {}
         self._ocr_lock = threading.RLock()
@@ -115,17 +116,6 @@ class Automation(metaclass=SingletonMeta):
         assert isinstance(self.input_handler, AbstractInput), "输入处理器必须是AbstractInput的实例"
         self.set_pause = self.input_handler.set_pause
         self.wait_pause = self.input_handler.wait_pause
-
-        self.mouse_click = self.input_handler.mouse_click
-        self.mouse_click_blank = self.input_handler.mouse_click_blank
-        self.mouse_drag = self.input_handler.mouse_drag
-        self.mouse_swipe_for_scroll = self.input_handler.mouse_swipe_for_scroll
-        self.mouse_drag_down = self.input_handler.mouse_drag_down
-        self.mouse_scroll = self.input_handler.mouse_scroll
-        self.mouse_to_blank = self.input_handler.mouse_to_blank
-        self.mouse_drag_link = self.input_handler.mouse_drag_link
-        self.key_press = self.input_handler.key_press
-        self.input_text = self.input_handler.input_text
 
         methods = inspect.getmembers(AbstractInput, predicate=inspect.isfunction)
         for name, method in methods:
@@ -208,7 +198,11 @@ class Automation(metaclass=SingletonMeta):
                     return method(*args, **kwargs)
                 finally:
                     self.invalidate_screenshot_cache()
-        return method(*args, **kwargs)
+        self._reset_frame_cache()
+        try:
+            return method(*args, **kwargs)
+        finally:
+            self._reset_frame_cache()
 
     def _capture(self, gray, monitor=False):
         if cfg.backend != "playcover":
@@ -246,6 +240,7 @@ class Automation(metaclass=SingletonMeta):
         """让监控线程在下一轮检查时获取新截图。"""
         with self._screenshot_lock:
             self._latest_screenshot_monotonic = 0.0
+            self._reset_frame_cache()
 
     def take_monitor_screenshot(self, gray: bool = True, max_age: float = 0.0) -> Image | None:
         """获取监控截图，优先复用业务线程的最近帧且不覆盖业务截图。"""
@@ -338,7 +333,7 @@ class Automation(metaclass=SingletonMeta):
         """
         # TODO:后续适配无需窗口设置模式
         x, y = coordinates
-        screenshot = np.array(self.screenshot)
+        screenshot = self.get_screenshot_array()
         if offset:
             x = max(0, min(screenshot.shape[1], x + random.randint(-10, 10)))
             y = max(0, min(screenshot.shape[0], y + random.randint(-10, 10)))
@@ -499,6 +494,43 @@ class Automation(metaclass=SingletonMeta):
                 init_game()
                 start_time = time.time()
 
+    def _reset_frame_cache(self) -> None:
+        """仅缓存当前截图的派生数据，不延长截图的复用时间。"""
+        self._screenshot_array_source = None
+        self._screenshot_array = None
+        self._frame_match_cache = {}
+
+    def get_screenshot_array(self):
+        """复用同一截图的 NumPy 视图，兼容直接替换 screenshot 的调用。"""
+        with self._screenshot_lock:
+            if getattr(self, "_screenshot_array_source", None) is not self.screenshot:
+                self._reset_frame_cache()
+                self._screenshot_array_source = self.screenshot
+            if self.screenshot is None:
+                log.error("尚未截图，无法识别图片（请先执行 take_screenshot）")
+                return None
+            if self._screenshot_array is None:
+                self._screenshot_array = np.asarray(self.screenshot)
+            screenshot = self._screenshot_array
+            if screenshot.ndim not in (2, 3) or screenshot.size == 0:
+                log.error(f"无效的截图维度: {screenshot.shape}")
+                return None
+            return screenshot
+
+    def _image_match_cache_key(self, target, threshold, model, my_crop):
+        return (
+            target, threshold, model, tuple(my_crop) if my_crop is not None else None,
+            cfg.set_win_size, cfg.game_profile, path_manager.version,
+            path_manager.current_theme, path_manager.current_language, tuple(path_manager.pic_path),
+        )
+
+    @staticmethod
+    def _cache_frame_match(cache, key, value):
+        if key is not None:
+            if len(cache) >= 128:
+                cache.clear()
+            cache[key] = value
+
     def find_element(
         self,
         target,
@@ -571,18 +603,25 @@ class Automation(metaclass=SingletonMeta):
 
     def find_image_with_multiple_targets(
         self, target: str, threshold, my_crop=None, min_dist=10, additional_stack=0
-    ) -> List:
+    ) -> list:
         """
         在当前截图中查找多个目标图像的位置
         """
         try:
+            screenshot = self.get_screenshot_array()
+            if screenshot is None:
+                return []
+            cache = self._frame_match_cache
+            cache_key = ("multiple", min_dist, self._image_match_cache_key(target, threshold, None, my_crop)) if self._path_state_is_known() else None
+            cached = cache.get(cache_key, _FRAME_CACHE_MISS)
+            if cached is not _FRAME_CACHE_MISS:
+                return list(cached)
             template = ImageUtils.load_image(target)
             if target.endswith("assets.png"):
                 bbox = ImageUtils.get_bbox(template)
                 template = ImageUtils.crop(template, bbox)
             if template is None:
                 raise ValueError("读取图片失败")
-            screenshot = np.array(self.screenshot)
             crop_offset = (0, 0)
             if my_crop:
                 crop_offset = (int(round(my_crop[0])), int(round(my_crop[1])))
@@ -608,6 +647,7 @@ class Automation(metaclass=SingletonMeta):
             )
             if crop_offset != (0, 0):
                 matches = [(x + crop_offset[0], y + crop_offset[1]) for x, y in matches]
+            self._cache_frame_match(cache, cache_key, tuple(matches))
             if len(matches) == 0:
                 log.debug(f"未找到任何目标图像{target}", stacklevel=additional_stack + 3)
                 return []
@@ -922,7 +962,9 @@ class Automation(metaclass=SingletonMeta):
 
             if self.screenshot is None:
                 return None
-            screenshot = np.array(self.screenshot)
+            screenshot = self.get_screenshot_array()
+            if screenshot is None:
+                return None
             if screenshot.size == 0 or screenshot.ndim < 2 or 0 in screenshot.shape[:2]:
                 return None
             if cfg.set_win_size < 1440:
@@ -966,6 +1008,7 @@ class Automation(metaclass=SingletonMeta):
     def clear_img_cache(self) -> None:
         """清除图片缓存"""
         self.img_cache.clear()
+        self._reset_frame_cache()
         self._ocr_image = None
         self._ocr_regions.clear()
         self._unavailable_feature_templates.clear()
@@ -1075,13 +1118,21 @@ class Automation(metaclass=SingletonMeta):
                     log.debug(f"当前系统内存总占用率: {current_percent}%，释放图片缓存")
                     self.clear_img_cache()
 
+            screenshot = self.get_screenshot_array()
+            if screenshot is None:
+                return None
+            cache = self._frame_match_cache
+            cache_key = self._image_match_cache_key(target, threshold, model, my_crop) if cacheable and self._path_state_is_known() else None
+            cached = cache.get(cache_key, _FRAME_CACHE_MISS)
+            if cached is not _FRAME_CACHE_MISS:
+                return cached
+
             existing_paths = ImageUtils.existing_image_paths(target)
             if not existing_paths:
                 log.error(f"未找到图片： {target} ")
                 log.debug(f"无法加载图片: {target}", stacklevel=additional_stack + 3)
                 return None
 
-            screenshot = np.array(self.screenshot)
             if my_crop:
                 screenshot = ImageUtils.crop(screenshot, my_crop)
 
@@ -1111,6 +1162,7 @@ class Automation(metaclass=SingletonMeta):
                     }
                 )
                 if matched and self._path_state_is_known():
+                    self._cache_frame_match(cache, cache_key, center)
                     return center
 
             if not results:
@@ -1121,6 +1173,7 @@ class Automation(metaclass=SingletonMeta):
             for result in results:
                 if result["matched"]:
                     return result["center"]
+            self._cache_frame_match(cache, cache_key, None)
         except Exception as e:
             log.error(f"寻找图片失败:{e}")
         return None
@@ -1130,7 +1183,7 @@ class Automation(metaclass=SingletonMeta):
         获取指定区域的彩色截图
         """
         self.take_screenshot(False)
-        screenshot = np.array(self.screenshot)
+        screenshot = self.get_screenshot_array()
         screenshot = screenshot[:, :, ::-1]
         screenshot = ImageUtils.crop(screenshot, crop)
-        return screenshot
+        return screenshot.copy()

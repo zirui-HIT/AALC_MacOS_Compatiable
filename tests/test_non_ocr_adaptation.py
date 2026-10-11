@@ -1,6 +1,7 @@
 """Offline recognition checks: extract methods without initializing the application."""
 
 import ast
+import threading
 from functools import lru_cache
 from pathlib import Path
 from types import SimpleNamespace
@@ -128,11 +129,17 @@ def multiple_finder(utils, cfg, platform="darwin"):
     tree = ast.parse((ROOT / "module/automation/automation.py").read_text())
     cls = next(node for node in tree.body if isinstance(node, ast.ClassDef) and node.name == "Automation")
     cls.keywords = []
-    cls.body = [node for node in cls.body if isinstance(node, ast.FunctionDef) and node.name == "find_image_with_multiple_targets"]
+    cls.body = [node for node in cls.body if isinstance(node, ast.FunctionDef) and node.name in {
+        "find_image_with_multiple_targets", "get_screenshot_array", "_reset_frame_cache",
+        "_image_match_cache_key", "_cache_frame_match", "_path_state_is_known",
+    }]
     namespace = {"np": np, "ImageUtils": utils, "cfg": cfg, "sys": SimpleNamespace(platform=platform),
-                 "List": list, "log": Mock()}
+                 "log": Mock(), "_FRAME_CACHE_MISS": object(),
+                 "path_manager": SimpleNamespace(current_theme=None, current_language=None)}
     exec(compile(ast.Module(body=[cls], type_ignores=[]), "multiple_finder", "exec"), namespace)
-    return namespace["Automation"]()
+    auto = namespace["Automation"]()
+    auto._screenshot_lock = threading.RLock()
+    return auto
 
 
 @pytest.mark.parametrize("height", [810, 1080])
