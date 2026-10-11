@@ -11,7 +11,8 @@ def normalize_capture(raw: RawCapture, geometry: Geometry) -> CapturedFrame:
         raise ValueError("Frame does not match its geometry snapshot")
     image = Image.frombytes("RGB", geometry.raw_size, raw.pixels, "raw", raw.mode)
     x, y, width, height = geometry.content_rect
-    image = image.crop((x, y, x + width, y + height))
+    if geometry.content_rect != (0, 0, *geometry.raw_size):
+        image = image.crop((x, y, x + width, y + height))
     if image.size != geometry.logical_size:
         scale, offset_x, offset_y = geometry.logical_transform()
         if abs(offset_x) < 1e-9 and abs(offset_y) < 1e-9:
