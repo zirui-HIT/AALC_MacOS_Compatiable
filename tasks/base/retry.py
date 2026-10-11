@@ -64,6 +64,10 @@ def click_title_screen_safely() -> None:
             if auto.find_element("base/touch_to_start_assets.png"):
                 auto.click_element("base/touch_to_start_assets.png", offset=False)
                 return
+            # A previous tap can finish loading between the caller's title
+            # check and this fresh frame. Let the original retry loop continue.
+            if not auto.find_element("base/clear_all_caches_assets.png", model="clam"):
+                return
             sleep(0.2)
         raise RuntimeError("Cannot recognize iOS Touch to Start")
     if not cfg.simulator:

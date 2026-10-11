@@ -35,6 +35,7 @@
     "沉沦泛": ["沈淪泛"]
   },
   "reuse_ios_en": [
+    "default/base/sign_in_assets.png",
     "default/base/touch_to_start_assets.png",
     "default/home/back_assets.png",
     "default/home/back_ios.png",

@@ -83,6 +83,15 @@ def test_retry_specific_path_uses_chinese_overlay_without_monitor_changes(chines
     assert "ios_zh_cn" not in str(images.resolve_path("default/en", "base/retry.png"))
 
 
+def test_chinese_profile_reuses_ios_google_login_marker_without_title_false_positive(chinese, monkeypatch):
+    from module.automation import auto
+
+    auto.clear_img_cache()
+    for page, expected in (("sign_in", True), ("title", False)):
+        monkeypatch.setattr(auto, "screenshot", Image.open(SOURCE_ROOT / f"tests/fixtures/playcover/{page}.png").convert("L"))
+        assert bool(auto.find_element("base/sign_in_assets.png")) == expected
+
+
 def test_dark_theme_keeps_ios_geometry_and_language(chinese):
     _, images, paths = chinese
     paths.set_theme("dark")

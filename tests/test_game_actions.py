@@ -138,12 +138,27 @@ def test_ios_title_waits_for_pulsing_label_then_taps_it(monkeypatch):
     monkeypatch.setattr(cfg, "config", cfg.config.model_copy(update={"backend": "playcover"}))
     automation = Mock()
     frames = iter([False, True, True])
-    automation.find_element.side_effect = lambda path: next(frames) if path.endswith("touch_to_start_assets.png") else False
+    automation.find_element.side_effect = lambda path, **kwargs: next(frames) if path.endswith("touch_to_start_assets.png") else path.endswith("clear_all_caches_assets.png")
     monkeypatch.setattr(recovery, "auto", automation)
     monkeypatch.setattr(recovery, "sleep", lambda _: None)
     recovery.click_title_screen_safely()
     assert automation.take_screenshot.call_count == 2
     automation.click_element.assert_called_once_with("base/touch_to_start_assets.png", offset=False)
+
+
+def test_ios_title_returns_to_original_retry_if_fresh_frame_has_left_title(monkeypatch):
+    from importlib import import_module
+
+    from module.config import cfg
+
+    recovery = import_module("tasks.base.retry")
+    monkeypatch.setattr(cfg, "config", cfg.config.model_copy(update={"backend": "playcover"}))
+    automation = Mock()
+    automation.find_element.return_value = False
+    monkeypatch.setattr(recovery, "auto", automation)
+    recovery.click_title_screen_safely()
+    automation.take_screenshot.assert_called_once()
+    automation.click_element.assert_not_called()
 
 
 def test_ios_login_page_requests_manual_login_without_input(monkeypatch):
