@@ -1,4 +1,4 @@
-"""Isolated English Vision OCR; no game actions or task decisions."""
+"""Isolated iOS Vision OCR; no game actions or task decisions."""
 
 import logging
 from threading import Event, RLock, Thread
@@ -11,8 +11,9 @@ from rapidocr.utils.output import RapidOCROutput
 
 
 class VisionOCR:
-    def __init__(self, logger: logging.Logger):
+    def __init__(self, logger: logging.Logger, languages=("en-US",)):
         self.logger = logger
+        self.languages = tuple(languages)
         self.ready = Event()
         self._lock = RLock()
         self._failed = False
@@ -68,7 +69,7 @@ class VisionOCR:
             if self._request is None:
                 self._request = Vision.VNRecognizeTextRequest.alloc().init()
                 self._request.setRecognitionLevel_(Vision.VNRequestTextRecognitionLevelAccurate)
-                self._request.setRecognitionLanguages_(["en-US"])
+                self._request.setRecognitionLanguages_(list(self.languages))
                 self._request.setUsesLanguageCorrection_(False)
                 self._request.setMinimumTextHeight_(0)
             handler = Vision.VNImageRequestHandler.alloc().initWithCGImage_options_(cg_image, NSDictionary.dictionary())

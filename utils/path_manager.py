@@ -44,6 +44,11 @@ class PathManager(metaclass=SingletonMeta):
             self.current_language = "en"
             self.is_zh_cn_eliminated = True
             self.active_paths = ["dark/ios_en", "dark/en", "dark/share", "default/ios_en", "default/en", "default/share"]
+        elif cfg.game_profile == "ios_zh_cn":
+            self.current_language = "zh_cn"
+            self.is_zh_cn_eliminated = False
+            self.active_paths = ["dark/ios_zh_cn", "dark/zh_cn", "dark/share",
+                                 "default/ios_zh_cn", "default/zh_cn", "default/share"]
         if self.is_dark_eliminated:
             self.active_paths = [path for path in self.active_paths if not path.startswith("dark/")]
         if self.is_zh_cn_eliminated:
@@ -113,7 +118,7 @@ class PathManager(metaclass=SingletonMeta):
 
     @staticmethod
     def is_path_zh_cn(path: str) -> bool:
-        return path.endswith("/zh_cn")
+        return path.endswith(("/zh_cn", "/ios_zh_cn"))
 
     @staticmethod
     def is_path_en_or_share(path: str) -> bool:

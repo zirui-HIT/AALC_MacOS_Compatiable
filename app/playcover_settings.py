@@ -50,7 +50,12 @@ class PlayCoverSettings(QWidget):
         super().__init__(parent)
         self.worker = None
         layout = QFormLayout(self)
-        layout.addRow(QLabel("PlayCover / MaaTools · English · 1920×1080"))
+        layout.addRow(QLabel("PlayCover / MaaTools · 1920×1080"))
+        self.profile = QComboBox()
+        self.profile.addItem("English", "ios_en")
+        self.profile.addItem("中文（日文字库汉化）", "ios_zh_cn")
+        self.profile.setCurrentIndex(max(0, self.profile.findData(cfg.game_profile)))
+        layout.addRow("Game image language", self.profile)
         self.host = QLineEdit(cfg.playcover_host)
         self.port = QSpinBox()
         self.port.setRange(1, 65535)
@@ -89,6 +94,7 @@ class PlayCoverSettings(QWidget):
 
     def settings(self):
         return {
+            "game_profile": self.profile.currentData(),
             "playcover_host": self.host.text().strip(), "playcover_port": self.port.value(),
             "playcover_app_path": self.path.text().strip(), "playcover_bundle_id": self.bundle.text().strip(),
             "playcover_capture_method": self.method.currentText(),

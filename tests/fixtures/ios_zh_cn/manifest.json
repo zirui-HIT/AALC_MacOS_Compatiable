@@ -1,0 +1,1021 @@
+{
+  "game_version": "1.116.2",
+  "localization_release": "v1.116.2-alpha",
+  "language": "zh_cn",
+  "font": "Japanese glyph set",
+  "logical_size": [
+    1920,
+    1080
+  ],
+  "template_base_height": 1440,
+  "preprocessing": "Original pixels retained inside menu ROIs; account ID and custom team names excluded. Other areas black. Full captures remain in ignored artifacts.",
+  "pages": {
+    "full_mirror_claim_confirm": {
+      "retained_rois": [
+        [
+          495,
+          250,
+          1430,
+          855
+        ]
+      ],
+      "targets": {
+        "mirror/claim_reward/claim_rewards_confirm_assets.png": [
+          990,
+          710,
+          1305,
+          780
+        ]
+      },
+      "absent": [
+        "battle/normal_to_battle_assets.png",
+        "event/very_high.png",
+        "event/very_low.png",
+        "mirror/claim_reward/use_enkephalin_assets.png"
+      ]
+    },
+    "full_mirror_claim": {
+      "retained_rois": [
+        [
+          330,
+          140,
+          1595,
+          935
+        ]
+      ],
+      "targets": {
+        "mirror/claim_reward/use_enkephalin_assets.png": [
+          1160,
+          780,
+          1505,
+          855
+        ],
+        "mirror/claim_reward/clear_assets.png": [
+          460,
+          500,
+          590,
+          620
+        ],
+        "mirror/claim_reward/coins.png": [
+          1390,
+          580,
+          1435,
+          630
+        ]
+      },
+      "absent": [
+        "battle/normal_to_battle_assets.png",
+        "event/very_high.png",
+        "event/very_low.png"
+      ]
+    },
+    "full_event_check": {
+      "retained_rois": [
+        [
+          1020,
+          190,
+          1820,
+          790
+        ],
+        [
+          35,
+          910,
+          1880,
+          1065
+        ]
+      ],
+      "targets": {
+        "event/commence_assets.png": [
+          1560,
+          910,
+          1840,
+          1030
+        ],
+        "event/very_high.png": [
+          400,
+          910,
+          465,
+          945
+        ],
+        "event/very_low.png": [
+          500,
+          910,
+          1300,
+          945
+        ]
+      },
+      "absent": [
+        "battle/normal_to_battle_assets.png",
+        "mirror/claim_reward/use_enkephalin_assets.png"
+      ]
+    },
+    "full_battle_solo_ready": {
+      "retained_rois": [
+        [
+          1170,
+          760,
+          1480,
+          925
+        ],
+        [
+          5,
+          25,
+          170,
+          147
+        ]
+      ],
+      "targets": {
+        "battle/win_rate_card.png": [
+          1340,
+          790,
+          1465,
+          845
+        ]
+      },
+      "absent": [
+        "battle/normal_to_battle_assets.png",
+        "event/very_high.png",
+        "event/very_low.png",
+        "mirror/claim_reward/use_enkephalin_assets.png"
+      ]
+    },
+    "full_gift_choice": {
+      "retained_rois": [
+        [
+          370,
+          225,
+          1550,
+          850
+        ],
+        [
+          1290,
+          815,
+          1840,
+          930
+        ]
+      ],
+      "targets": {
+        "mirror/road_in_mir/acquire_ego_gift_select_assets.png": [
+          1600,
+          825,
+          1740,
+          910
+        ],
+        "mirror/road_in_mir/acquire_ego_gift_refuse_assets.png": [
+          1340,
+          830,
+          1500,
+          910
+        ]
+      },
+      "absent": [
+        "battle/normal_to_battle_assets.png",
+        "event/very_high.png",
+        "event/very_low.png",
+        "mirror/claim_reward/use_enkephalin_assets.png"
+      ]
+    },
+    "full_reward_card": {
+      "retained_rois": [
+        [
+          380,
+          150,
+          1590,
+          710
+        ],
+        [
+          570,
+          745,
+          1405,
+          835
+        ]
+      ],
+      "targets": {
+        "mirror/road_in_mir/select_encounter_reward_card_assets.png": [
+          585,
+          165,
+          1030,
+          240
+        ],
+        "mirror/get_reward_card/get_reward_card_confirm_assets.png": [
+          1020,
+          750,
+          1400,
+          835
+        ],
+        "mirror/get_reward_card/gain_cost.png": [
+          720,
+          345,
+          930,
+          485
+        ],
+        "mirror/get_reward_card/gain_starlight.png": [
+          1030,
+          345,
+          1230,
+          485
+        ]
+      },
+      "absent": [
+        "battle/normal_to_battle_assets.png",
+        "event/very_high.png",
+        "event/very_low.png",
+        "mirror/claim_reward/use_enkephalin_assets.png"
+      ]
+    },
+    "full_title": {
+      "retained_rois": [
+        [
+          700,
+          785,
+          1200,
+          870
+        ]
+      ],
+      "targets": {
+        "base/touch_to_start_assets.png": [
+          840,
+          800,
+          1080,
+          865
+        ]
+      },
+      "absent": [
+        "battle/normal_to_battle_assets.png",
+        "event/very_high.png",
+        "event/very_low.png",
+        "mirror/claim_reward/use_enkephalin_assets.png"
+      ]
+    },
+    "full_shop_leave_preview": {
+      "retained_rois": [
+        [
+          500,
+          245,
+          1425,
+          850
+        ]
+      ],
+      "targets": {
+        "mirror/shop/leave_shop_confirm_assets.png": [
+          990,
+          700,
+          1305,
+          790
+        ]
+      },
+      "absent": [
+        "battle/normal_to_battle_assets.png",
+        "event/very_high.png",
+        "event/very_low.png",
+        "mirror/claim_reward/use_enkephalin_assets.png"
+      ]
+    },
+    "full_shop": {
+      "retained_rois": [
+        [
+          150,
+          540,
+          675,
+          780
+        ],
+        [
+          1370,
+          135,
+          1825,
+          250
+        ],
+        [
+          1520,
+          910,
+          1865,
+          1040
+        ]
+      ],
+      "targets": {
+        "mirror/shop/leave_assets.png": [
+          1560,
+          915,
+          1845,
+          1035
+        ]
+      },
+      "absent": [
+        "battle/normal_to_battle_assets.png",
+        "event/very_high.png",
+        "event/very_low.png",
+        "mirror/claim_reward/use_enkephalin_assets.png"
+      ]
+    },
+    "full_theme_pack": {
+      "retained_rois": [
+        [
+          180,
+          30,
+          1855,
+          950
+        ]
+      ],
+      "targets": {
+        "mirror/theme_pack/theme_pack_features.png": [
+          700,
+          295,
+          1390,
+          365
+        ],
+        "mirror/theme_pack/refresh_assets.png": [
+          1500,
+          40,
+          1745,
+          95
+        ]
+      },
+      "absent": [
+        "battle/normal_to_battle_assets.png",
+        "event/very_high.png",
+        "event/very_low.png",
+        "mirror/claim_reward/use_enkephalin_assets.png"
+      ]
+    },
+    "full_init_gift": {
+      "retained_rois": [
+        [
+          200,
+          205,
+          1100,
+          855
+        ],
+        [
+          1145,
+          205,
+          1785,
+          940
+        ]
+      ],
+      "targets": {
+        "mirror/road_to_mir/select_init_ego_gifts_confirm_assets.png": [
+          1500,
+          835,
+          1645,
+          925
+        ],
+        "mirror/road_to_mir/poise_gift_assets.png": [
+          505,
+          535,
+          580,
+          585
+        ]
+      },
+      "absent": [
+        "battle/normal_to_battle_assets.png",
+        "event/very_high.png",
+        "event/very_low.png",
+        "mirror/claim_reward/use_enkephalin_assets.png"
+      ]
+    },
+    "full_battle_ready": {
+      "retained_rois": [
+        [
+          5,
+          25,
+          170,
+          147
+        ],
+        [
+          1240,
+          760,
+          1535,
+          910
+        ],
+        [
+          1560,
+          20,
+          1910,
+          185
+        ]
+      ],
+      "targets": {
+        "battle/win_rate_card.png": [
+          1380,
+          790,
+          1460,
+          875
+        ],
+        "battle/gear_right.png": [
+          1250,
+          765,
+          1390,
+          900
+        ],
+        "battle/turn_assets.png": [
+          5,
+          70,
+          85,
+          145
+        ]
+      },
+      "absent": [
+        "battle/normal_to_battle_assets.png",
+        "event/very_high.png",
+        "event/very_low.png",
+        "mirror/claim_reward/use_enkephalin_assets.png"
+      ]
+    },
+    "full_mirror_stars": {
+      "retained_rois": [
+        [
+          1595,
+          775,
+          1845,
+          945
+        ]
+      ],
+      "targets": {
+        "mirror/road_to_mir/select_team_confirm_assets.png": [
+          1620,
+          825,
+          1820,
+          935
+        ]
+      },
+      "absent": [
+        "battle/normal_to_battle_assets.png",
+        "event/very_high.png",
+        "event/very_low.png",
+        "mirror/claim_reward/use_enkephalin_assets.png"
+      ]
+    },
+    "full_exp_result": {
+      "retained_rois": [
+        [
+          1280,
+          95,
+          1840,
+          410
+        ],
+        [
+          1020,
+          755,
+          1840,
+          935
+        ]
+      ],
+      "targets": {
+        "battle/battle_finish_confirm_assets.png": [
+          1660,
+          815,
+          1810,
+          895
+        ]
+      },
+      "absent": [
+        "battle/normal_to_battle_assets.png",
+        "event/very_high.png",
+        "event/very_low.png",
+        "mirror/claim_reward/use_enkephalin_assets.png"
+      ]
+    },
+    "full_reset_preview": {
+      "retained_rois": [
+        [
+          600,
+          300,
+          1330,
+          800
+        ]
+      ],
+      "targets": {
+        "teams/clear_selection_confirm_assets.png": [
+          1000,
+          700,
+          1330,
+          790
+        ]
+      },
+      "absent": [
+        "battle/normal_to_battle_assets.png",
+        "event/very_high.png",
+        "event/very_low.png",
+        "mirror/claim_reward/use_enkephalin_assets.png"
+      ]
+    },
+    "home_energy": {
+      "retained_rois": [
+        [
+          440,
+          940,
+          715,
+          1040
+        ]
+      ],
+      "targets": {
+        "home/enkephalin_box_assets.png": [
+          445,
+          935,
+          595,
+          1000
+        ]
+      },
+      "absent": [
+        "battle/normal_to_battle_assets.png",
+        "event/very_high.png",
+        "event/very_low.png",
+        "mirror/claim_reward/use_enkephalin_assets.png"
+      ]
+    },
+    "drive": {
+      "retained_rois": [
+        [
+          460,
+          170,
+          1030,
+          850
+        ],
+        [
+          1230,
+          145,
+          1835,
+          320
+        ],
+        [
+          1410,
+          920,
+          1550,
+          1035
+        ]
+      ],
+      "targets": {
+        "home/drive_assets.png": [
+          1420,
+          920,
+          1530,
+          1000
+        ],
+        "home/inferno_bus_assets.png": [
+          1230,
+          180,
+          1740,
+          265
+        ],
+        "home/luxcavation_assets.png": [
+          480,
+          230,
+          890,
+          350
+        ],
+        "home/mirror_dungeons_assets.png": [
+          480,
+          425,
+          890,
+          550
+        ]
+      },
+      "absent": [
+        "battle/normal_to_battle_assets.png",
+        "event/very_high.png",
+        "event/very_low.png",
+        "mirror/claim_reward/use_enkephalin_assets.png"
+      ]
+    },
+    "luxcavation": {
+      "retained_rois": [
+        [
+          70,
+          275,
+          270,
+          700
+        ],
+        [
+          360,
+          245,
+          1855,
+          865
+        ]
+      ],
+      "targets": {
+        "luxcavation/exp_enter.png": [
+          490,
+          680,
+          625,
+          750
+        ],
+        "luxcavation/thread_assets.png": [
+          75,
+          455,
+          255,
+          550
+        ]
+      },
+      "absent": [
+        "battle/normal_to_battle_assets.png",
+        "event/very_high.png",
+        "event/very_low.png",
+        "mirror/claim_reward/use_enkephalin_assets.png"
+      ]
+    },
+    "thread": {
+      "retained_rois": [
+        [
+          350,
+          270,
+          1300,
+          875
+        ]
+      ],
+      "targets": {
+        "luxcavation/thread_enter_up80_assets.png": [
+          480,
+          320,
+          580,
+          355
+        ],
+        "luxcavation/thread_continuous_combat_show_box.png": [
+          693,
+          310,
+          742,
+          365
+        ]
+      },
+      "absent": [
+        "battle/normal_to_battle_assets.png",
+        "event/very_high.png",
+        "event/very_low.png",
+        "mirror/claim_reward/use_enkephalin_assets.png"
+      ]
+    },
+    "thread_stages": {
+      "retained_rois": [
+        [
+          550,
+          265,
+          1380,
+          790
+        ]
+      ],
+      "targets": {
+        "luxcavation/thread_consume.png": [
+          1180,
+          675,
+          1280,
+          730
+        ]
+      },
+      "absent": [
+        "battle/normal_to_battle_assets.png",
+        "event/very_high.png",
+        "event/very_low.png",
+        "mirror/claim_reward/use_enkephalin_assets.png"
+      ]
+    },
+    "exp_formation": {
+      "retained_rois": [
+        [
+          350,
+          220,
+          1845,
+          945
+        ]
+      ],
+      "targets": {
+        "teams/identify_assets.png": [
+          1780,
+          230,
+          1830,
+          300
+        ],
+        "teams/clear_selection.png": [
+          1605,
+          695,
+          1840,
+          745
+        ],
+        "battle/normal_to_battle_assets.png": [
+          1605,
+          835,
+          1840,
+          925
+        ],
+        "battle/chaim_to_battle_assets.png": [
+          1605,
+          835,
+          1840,
+          925
+        ]
+      },
+      "absent": [
+        "mail/close_assets.png",
+        "event/very_high.png",
+        "event/very_low.png",
+        "mirror/claim_reward/use_enkephalin_assets.png"
+      ]
+    },
+    "pass_overview": {
+      "retained_rois": [
+        [
+          400,
+          40,
+          1000,
+          165
+        ]
+      ],
+      "targets": {
+        "pass/pass_missions_assets.png": [
+          470,
+          55,
+          650,
+          120
+        ]
+      },
+      "absent": [
+        "battle/normal_to_battle_assets.png",
+        "event/very_high.png",
+        "event/very_low.png",
+        "mirror/claim_reward/use_enkephalin_assets.png"
+      ]
+    },
+    "pass_missions": {
+      "retained_rois": [
+        [
+          345,
+          270,
+          1570,
+          980
+        ]
+      ],
+      "targets": {
+        "pass/weekly_assets.png": [
+          380,
+          530,
+          440,
+          665
+        ],
+        "pass/daily_ios_assets.png": [
+          380,
+          320,
+          440,
+          455
+        ]
+      },
+      "absent": [
+        "battle/normal_to_battle_assets.png",
+        "event/very_high.png",
+        "event/very_low.png",
+        "mirror/claim_reward/use_enkephalin_assets.png"
+      ]
+    },
+    "mail": {
+      "retained_rois": [
+        [
+          355,
+          230,
+          1570,
+          870
+        ]
+      ],
+      "targets": {
+        "mail/claim_all_assets.png": [
+          1390,
+          800,
+          1520,
+          860
+        ],
+        "mail/close_assets.png": [
+          1130,
+          800,
+          1205,
+          860
+        ]
+      },
+      "absent": [
+        "battle/normal_to_battle_assets.png",
+        "event/very_high.png",
+        "event/very_low.png",
+        "mirror/claim_reward/use_enkephalin_assets.png"
+      ]
+    },
+    "mirror_landing_clean": {
+      "retained_rois": [
+        [
+          1460,
+          480,
+          1850,
+          895
+        ]
+      ],
+      "targets": {
+        "mirror/road_to_mir/enter_assets.png": [
+          1600,
+          715,
+          1720,
+          775
+        ]
+      },
+      "absent": [
+        "battle/normal_to_battle_assets.png",
+        "event/very_high.png",
+        "event/very_low.png",
+        "mirror/claim_reward/use_enkephalin_assets.png"
+      ]
+    },
+    "mirror_entry": {
+      "retained_rois": [
+        [
+          600,
+          380,
+          1320,
+          780
+        ]
+      ],
+      "targets": {
+        "mirror/road_to_mir/enter_mirror_assets.png": [
+          1080,
+          700,
+          1220,
+          755
+        ]
+      },
+      "absent": [
+        "battle/normal_to_battle_assets.png",
+        "event/very_high.png",
+        "event/very_low.png",
+        "mirror/claim_reward/use_enkephalin_assets.png"
+      ]
+    },
+    "energy": {
+      "retained_rois": [
+        [
+          550,
+          285,
+          1340,
+          875
+        ]
+      ],
+      "targets": {
+        "enkephalin/use_lunacy_assets.png": [
+          900,
+          315,
+          1015,
+          365
+        ],
+        "enkephalin/enkephalin_cancel_assets.png": [
+          615,
+          770,
+          942,
+          834
+        ],
+        "enkephalin/enkephalin_confirm_assets.png": [
+          975,
+          770,
+          1310,
+          834
+        ],
+        "enkephalin/all_in_assets.png": [
+          1178,
+          465,
+          1240,
+          528
+        ]
+      },
+      "absent": [
+        "battle/normal_to_battle_assets.png",
+        "event/very_high.png",
+        "event/very_low.png",
+        "mirror/claim_reward/use_enkephalin_assets.png"
+      ]
+    },
+    "energy_lunacy": {
+      "retained_rois": [
+        [
+          550,
+          285,
+          1340,
+          875
+        ]
+      ],
+      "targets": {
+        "enkephalin/lunacy_spend_78_assets.png": [
+          888,
+          408,
+          946,
+          472
+        ],
+        "enkephalin/lunacy_assets.png": [
+          785,
+          408,
+          865,
+          472
+        ],
+        "enkephalin/enkephalin_cancel_assets.png": [
+          615,
+          770,
+          942,
+          834
+        ],
+        "enkephalin/enkephalin_confirm_assets.png": [
+          975,
+          770,
+          1310,
+          834
+        ]
+      },
+      "absent": [
+        "battle/normal_to_battle_assets.png",
+        "event/very_high.png",
+        "event/very_low.png",
+        "mirror/claim_reward/use_enkephalin_assets.png"
+      ]
+    }
+  },
+  "ocr": [
+    {
+      "page": "full_mirror_claim",
+      "crop": [
+        1196,
+        785,
+        1340,
+        850
+      ],
+      "target": "领取"
+    },
+    {
+      "page": "full_event_check",
+      "crop": [
+        398,
+        912,
+        470,
+        946
+      ],
+      "target": "极高"
+    },
+    {
+      "page": "full_theme_pack",
+      "crop": [
+        510,
+        280,
+        790,
+        755
+      ],
+      "target": "遗忘"
+    },
+    {
+      "page": "full_theme_pack",
+      "crop": [
+        820,
+        280,
+        1100,
+        755
+      ],
+      "target": "无归属"
+    },
+    {
+      "page": "full_theme_pack",
+      "crop": [
+        1135,
+        280,
+        1420,
+        755
+      ],
+      "target": "自动"
+    },
+    {
+      "page": "exp_formation",
+      "crop": [
+        1620,
+        690,
+        1825,
+        740
+      ],
+      "target": "重置选择"
+    },
+    {
+      "page": "exp_formation",
+      "crop": [
+        1620,
+        845,
+        1830,
+        915
+      ],
+      "target": "开始战斗"
+    },
+    {
+      "page": "mail",
+      "crop": [
+        1028,
+        797,
+        1305,
+        860
+      ],
+      "target": "关闭"
+    },
+    {
+      "page": "thread",
+      "crop": [
+        480,
+        317,
+        584,
+        358
+      ],
+      "target": "连续进行"
+    }
+  ]
+}

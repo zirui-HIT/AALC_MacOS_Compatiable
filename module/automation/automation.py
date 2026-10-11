@@ -647,14 +647,20 @@ class Automation(metaclass=SingletonMeta):
         """
         返回目标文本的坐标
         """
-        for text in ocr_dict.keys():
-            if target.lower() in text.lower():
-                log.debug(f"识别到目标：{text},坐标为：{ocr_dict[text]}")
-                return ocr_dict[text]
-            # 去除空格后再匹配，解决OCR识别结果带空格的问题（如 "HongLu" vs "Hong Lu"）
-            if target.replace(" ", "").lower() in text.replace(" ", "").lower():
-                log.debug(f"识别到目标（去空格匹配）：{text},坐标为：{ocr_dict[text]}")
-                return ocr_dict[text]
+        targets = [target]
+        if cfg.game_profile == "ios_zh_cn":
+            targets += ImageUtils.ios_zh_cn_profile().get("text_aliases", {}).get(target, [])
+        targets = [ImageUtils.normalize_ocr_text(value) for value in targets]
+        for raw_text in ocr_dict.keys():
+            text = ImageUtils.normalize_ocr_text(raw_text)
+            for target in targets:
+                if target.lower() in text.lower():
+                    log.debug(f"识别到目标：{raw_text},坐标为：{ocr_dict[raw_text]}")
+                    return ocr_dict[raw_text]
+                # 去除空格后再匹配，解决OCR识别结果带空格的问题（如 "HongLu" vs "Hong Lu"）
+                if target.replace(" ", "").lower() in text.replace(" ", "").lower():
+                    log.debug(f"识别到目标（去空格匹配）：{raw_text},坐标为：{ocr_dict[raw_text]}")
+                    return ocr_dict[raw_text]
         return False
 
     def _run_ocr_for_text(
@@ -742,7 +748,7 @@ class Automation(metaclass=SingletonMeta):
             if self._ocr_image is not image:
                 self._ocr_image = image
                 self._ocr_regions.clear()
-            region = (tuple(my_crop) if my_crop is not None else None, engine)
+            region = (tuple(my_crop) if my_crop is not None else None, engine, cfg.game_profile)
             if region not in self._ocr_regions:
                 if len(self._ocr_regions) >= 32:
                     self._ocr_regions.clear()
@@ -1080,7 +1086,7 @@ class Automation(metaclass=SingletonMeta):
                 if template is None:
                     continue
                 center, matchVal = ImageUtils.match_template(screenshot, template, bbox, model)
-                if loaded_path.endswith("/ios_en"):
+                if loaded_path.endswith(("/ios_en", "/ios_zh_cn")):
                     center = tuple(round(v) for v in ImageUtils.layout_point(f"image.{target}.anchor", center, cfg.set_win_size / 1440))
                 matched = self._is_valid_match(matchVal, threshold)
                 if 0.70 < matchVal < 0.90 and int(matchVal * 1000 + 1e-9) % 10 >= 5:

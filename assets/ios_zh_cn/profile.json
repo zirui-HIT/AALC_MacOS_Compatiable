@@ -1,0 +1,52 @@
+{
+  "localization_release": "v1.116.2-alpha",
+  "font": "iOS Japanese glyph set",
+  "characters": {
+    "選": "选", "擇": "择", "勝": "胜", "継": "继", "繼": "继", "續": "续",
+    "陣": "阵", "絶": "绝", "絕": "绝", "飾": "饰", "殘": "残", "獲": "获",
+    "燒": "烧", "焼": "烧", "傷": "伤", "顫": "颤", "淪": "沦",
+    "斬": "斩", "撃": "击", "擊": "击", "遺": "遗", "賭": "赌", "釘": "钉",
+    "錘": "锤", "対": "对", "對": "对", "淚": "泪", "帰": "归", "歸": "归",
+    "屬": "属", "動": "动", "愛": "爱", "圧": "压", "壓": "压", "連": "连",
+    "貫": "贯", "呑": "吞", "懶": "懒", "飢": "饥", "憂": "忧", "評": "评",
+    "轉": "转", "檢": "检", "掃": "扫", "張": "张", "勢": "势", "鳳": "凤",
+    "羅": "罗", "蘭": "兰", "絞": "绞", "絲": "丝", "經": "经", "験": "验",
+    "驗": "验", "憶": "忆", "滲": "渗", "繚": "缭", "嘆": "叹", "電": "电",
+    "閃": "闪", "鳴": "鸣", "鴻": "鸿", "實": "实", "尓": "尔", "爾": "尔",
+    "黙": "默", "奧": "奥", "訶": "诃", "徳": "德", "編": "编", "隊": "队",
+    "戰": "战", "戦": "战", "進": "进", "確": "确", "認": "认", "關": "关",
+    "関": "关", "閉": "闭", "領": "领", "奨": "奖", "獎": "奖", "勵": "励",
+    "奮": "奋", "強": "强", "換": "换", "廢": "废", "丟": "丢", "棄": "弃",
+    "開": "开", "獄": "狱", "鶏": "鸡", "辺": "边", "間": "间",
+    "殺": "杀", "謀": "谋", "変": "变", "義": "义", "為": "为",
+    "綫": "线", "縛": "缚", "揺": "摇", "環": "环", "終": "终", "観": "观", "時": "时", "極": "极"
+  },
+  "text_aliases": {
+    "沉迷的": ["沈迷的"],
+    "沉溺者": ["沈溺者"],
+    "沉于": ["沈于"],
+    "沉沦": ["沈淪"],
+    "沉溺的": ["沈溺的"],
+    "沉沦泛": ["沈淪泛"]
+  },
+  "reuse_ios_en": [
+    "default/base/touch_to_start_assets.png",
+    "default/home/back_assets.png",
+    "default/home/back_ios.png",
+    "default/home/season_assets.png",
+    "default/battle/gear_right.png",
+    "default/battle/gear_start.png",
+    "default/battle/turn_assets.png",
+    "default/enkephalin/all_in_assets.png",
+    "default/luxcavation/thread_scroll_bar.png",
+    "default/mirror/entry/convert_checked_assets.png",
+    "default/mirror/entry/grace_back_assets.png",
+    "default/mirror/entry/wound_clerid_assets.png",
+    "default/mirror/mybus_default_distance.png",
+    "default/mirror/road_in_mir/to_window_assets.png",
+    "dark/mirror/road_in_mir/to_window_assets.png",
+    "default/mirror/road_to_mir/dreaming_star/coins_assets.png",
+    "default/teams/tutorial_next.png"
+  ],
+  "layout": {"image.battle/win_rate_card.png.anchor": [-44, 24]}
+}

@@ -19,11 +19,29 @@ LayoutValue = TypeVar("LayoutValue", int, float, tuple, list)
 
 class ImageUtils:
     @staticmethod
+    @lru_cache(maxsize=4)
+    def _read_ios_zh_cn_profile(path: Path):
+        return json.loads(path.read_text(encoding="utf-8")) if path.exists() else {}
+
+    @staticmethod
+    def ios_zh_cn_profile():
+        return ImageUtils._read_ios_zh_cn_profile(resource_path("assets/ios_zh_cn/profile.json"))
+
+    @staticmethod
+    def normalize_ocr_text(text):
+        """Compare the Japanese-font Chinese glyphs; preserve raw OCR output."""
+        if cfg.game_profile != "ios_zh_cn":
+            return text
+        return text.translate(str.maketrans(ImageUtils.ios_zh_cn_profile().get("characters", {})))
+
+    @staticmethod
     def layout(name: str, original: LayoutValue) -> LayoutValue:
         """Read iOS image-anchor geometry; other profiles keep original values."""
-        if cfg.game_profile != "ios_en":
+        if cfg.game_profile not in {"ios_en", "ios_zh_cn"}:
             return original
         coordinates = json.loads(resource_path("assets/ios_en/layout.json").read_text())
+        if cfg.game_profile == "ios_zh_cn":
+            coordinates.update(ImageUtils.ios_zh_cn_profile().get("layout", {}))
         return coordinates.get(name, original)
 
     @staticmethod
@@ -35,10 +53,23 @@ class ImageUtils:
     def resolve_path(profile, image_path):
         if ".." in Path(image_path).parts or Path(image_path).is_absolute():
             raise ValueError("Template path must stay inside the resource tree")
-        if profile.endswith("/ios_en"):
-            theme = profile.split("/")[0]
-            custom = data_path(f"templates/ios_en/{theme}/{image_path}")
-            return custom if custom.exists() else resource_path(f"assets/ios_en/{theme}/{image_path}")
+        if profile.endswith(("/ios_en", "/ios_zh_cn")):
+            theme, image_profile = profile.split("/")
+            custom = data_path(f"templates/{image_profile}/{theme}/{image_path}")
+            bundled = resource_path(f"assets/{image_profile}/{theme}/{image_path}")
+            if custom.exists():
+                return custom
+            if bundled.exists() or image_profile == "ios_en":
+                return bundled
+            if f"{theme}/{image_path}" in ImageUtils.ios_zh_cn_profile().get("reuse_ios_en", []):
+                return resource_path(f"assets/ios_en/{theme}/{image_path}")
+            return bundled
+        # RetryMonitor explicitly asks for this desktop path. Only substitute
+        # its Chinese image; polling, cooldown and interaction gates stay intact.
+        if cfg.game_profile == "ios_zh_cn" and profile == "default/zh_cn" and image_path == "base/retry.png":
+            overlay = ImageUtils.resolve_path("default/ios_zh_cn", image_path)
+            if overlay.exists():
+                return overlay
         updated = data_path(f"resources/images/{profile}/{image_path}")
         return updated if updated.exists() else resource_path(f"assets/images/{profile}/{image_path}")
 
@@ -54,7 +85,7 @@ class ImageUtils:
         try:
             img_path = None
             selected_path = None
-            candidate_paths = ImageUtils.existing_image_paths(image_path) if cfg.game_profile == "ios_en" else path_manager.pic_path
+            candidate_paths = ImageUtils.existing_image_paths(image_path) if cfg.game_profile in {"ios_en", "ios_zh_cn"} else path_manager.pic_path
             for path in candidate_paths:
                 img_path = os.path.join(str(ImageUtils.resolve_path(path, image_path)))
                 if os.path.exists(img_path):
@@ -101,9 +132,10 @@ class ImageUtils:
         if path_manager.current_theme == "dark":
             dark_paths = [path for path in paths if path_manager.is_path_dark(path)]
             if dark_paths:
-                if cfg.game_profile == "ios_en" and not any(path.endswith("/ios_en") for path in dark_paths):
+                overlay_suffix = f"/{cfg.game_profile}"
+                if cfg.game_profile in {"ios_en", "ios_zh_cn"} and not any(path.endswith(overlay_suffix) for path in dark_paths):
                     # iOS overlays also cover unchanged UI in a dark-theme game.
-                    dark_paths = [path for path in paths if path.endswith("/ios_en")] + dark_paths
+                    dark_paths = [path for path in paths if path.endswith(overlay_suffix)] + dark_paths
                 paths = dark_paths
         elif path_manager.current_theme == "default":
             paths = [path for path in paths if path_manager.is_path_default(path)]

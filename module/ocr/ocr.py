@@ -20,6 +20,7 @@ class OCR(metaclass=SingletonMeta):
         self.logger = logger
         self._inference_lock = RLock()
         self._vision = None
+        self._vision_zh_cn = None
         if sys.platform == "darwin":
             from module.config import cfg
 
@@ -27,6 +28,10 @@ class OCR(metaclass=SingletonMeta):
                 from .vision import VisionOCR
 
                 self._vision = VisionOCR(logger)
+            elif cfg.game_profile == "ios_zh_cn":
+                from .vision import VisionOCR
+
+                self._vision_zh_cn = VisionOCR(logger, languages=("zh-Hant", "en-US"))
         models = Path(rapidocr.__file__).resolve().parent / "models"
         self.engine = RapidOCR(
             params={
@@ -50,6 +55,26 @@ class OCR(metaclass=SingletonMeta):
     def run(self, image: Image.Image | np.ndarray | str) -> RapidOCROutput:
         """执行OCR识别，支持Image对象、文件路径和np.ndarray对象"""
         try:
+            if sys.platform == "darwin":
+                from module.config import cfg
+
+                # Original tasks pass preprocessed grayscale arrays for digits.
+                # Keep their RapidOCR path; native Chinese OCR handles UI frames.
+                if cfg.game_profile == "ios_zh_cn" and not (isinstance(image, np.ndarray) and image.ndim == 2):
+                    if self._vision_zh_cn is None:
+                        from .vision import VisionOCR
+
+                        with self._inference_lock:
+                            if self._vision_zh_cn is None:
+                                self._vision_zh_cn = VisionOCR(self.logger, languages=("zh-Hant", "en-US"))
+                    if isinstance(image, str):
+                        with Image.open(image) as image_file:
+                            result = self._vision_zh_cn.run(image_file)
+                    else:
+                        result = self._vision_zh_cn.run(image)
+                    if result is not None and result.txts:
+                        self.log_results(result)
+                        return result
             if isinstance(image, str):
                 with Image.open(image) as image_file:
                     image_array = np.array(image_file)

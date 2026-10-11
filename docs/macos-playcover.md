@@ -3,6 +3,7 @@
 面向 Apple Silicon、原生 arm64 Python 3.13.6、英文 Limbus Company 和
 `hguandl/PlayCover` MaaTools 分支。保留 PySide6、OpenCV、RapidOCR 和 ONNX Runtime。
 当前实现和验收进度见 [迁移记录](macos-migration-status.md)。
+日文字库汉化的独立图像配置见 [iOS 中文适配](ios-zh-cn.md)，其中说明已验证范围与待验收场景。
 
 ## 在本工作目录运行
 
