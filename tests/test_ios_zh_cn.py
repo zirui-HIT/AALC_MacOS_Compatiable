@@ -218,6 +218,69 @@ def test_chinese_ocr_can_initialize_after_profile_switch(profile_ocr, monkeypatc
 FIXTURES = SOURCE_ROOT / "tests/fixtures/ios_zh_cn"
 
 
+@pytest.mark.parametrize("original_text,title_text,expected_title_read", [
+    ("梦之終焉", "unused", False),
+    ("N", "梦之終焉", True),
+    ("N", "unrecognized", True),
+    (None, None, True),
+])
+def test_pack_title_retry_preserves_keywords_boxes_and_unknown(chinese, monkeypatch, original_text,
+                                                              title_text, expected_title_read):
+    from module.automation import Automation
+    from module.config import theme_list
+
+    target = {"终焉": -5, "未知": -5}
+    monkeypatch.setattr(theme_list, "config", {"theme_pack_list_cn": target})
+    boxes = np.array([[[10, 20], [110, 20], [110, 40], [10, 40]]], dtype=np.float32)
+    original = RapidOCROutput(txts=(original_text,), boxes=boxes.copy()) if original_text else RapidOCROutput()
+    title = RapidOCROutput(txts=(title_text,), boxes=boxes.copy()) if title_text else RapidOCROutput()
+    automation = object.__new__(Automation)
+    read = Mock(side_effect=[original, title])
+    monkeypatch.setattr(automation, "_ocr_screenshot", read)
+    result = automation._ocr_for_target({}, (1130, 280, 1400, 730), zh_target=target)
+    assert read.call_count == 1 + expected_title_read
+    if original_text == "N" and title_text == "梦之終焉":
+        assert result.txts == (title_text,)
+        np.testing.assert_array_equal(result.boxes, boxes + [0, 338])
+        np.testing.assert_array_equal(title.boxes, boxes)  # Cached OCR remains local to its ROI.
+    else:
+        assert result is original
+    if original_text:
+        np.testing.assert_array_equal(original.boxes, boxes)
+    assert target == {"终焉": -5, "未知": -5}
+
+
+@pytest.mark.parametrize("page,target,bounds", [
+    ("full_event_advantage_choice", "event/advantage_check.png", (1210, 500, 1310, 535)),
+    ("full_event_direct_choice", "event/select_to_gain_ego.png", (1095, 330, 1250, 370)),
+])
+def test_event_priority_targets_keep_real_option_positions(chinese, monkeypatch, page, target, bounds):
+    from module.automation import auto
+
+    auto.clear_img_cache()
+    monkeypatch.setattr(auto, "screenshot", Image.open(FIXTURES / f"{page}.png").convert("L"))
+    points = auto.find_element(target, find_type="image_with_multiple_targets", threshold=0.75)
+    assert len(points) == 1
+    x1, y1, x2, y2 = bounds
+    assert x1 <= points[0][0] <= x2 and y1 <= points[0][1] <= y2
+
+
+@pytest.mark.parametrize("profile,target", [
+    ("ios_en", {"终焉": -5, "未知": -5}),
+    ("ios_zh_cn", {"选择": 1, "未知": -5}),
+])
+def test_title_retry_is_limited_to_chinese_theme_pack_names(chinese, monkeypatch, profile, target):
+    from module.automation import Automation
+
+    monkeypatch.setattr(chinese[0], "config", chinese[0].config.model_copy(update={"game_profile": profile}))
+    automation = object.__new__(Automation)
+    original = RapidOCROutput()
+    read = Mock(return_value=original)
+    monkeypatch.setattr(automation, "_ocr_screenshot", read)
+    assert automation._ocr_for_target({}, (1130, 280, 1400, 730), zh_target=target) is original
+    read.assert_called_once_with((1130, 280, 1400, 730))
+
+
 @pytest.mark.parametrize("state", ["available", "exhausted"])
 @pytest.mark.parametrize("height", [810, 1080])
 @pytest.mark.parametrize("model", ["clam", "normal"])
@@ -242,6 +305,55 @@ def test_theme_refresh_rejects_exhausted_button(chinese, monkeypatch, state, hei
         scale = height / 1080
         assert 1500 * scale <= point[0] <= 1748 * scale
         assert 35 * scale <= point[1] <= 105 * scale
+
+
+@pytest.mark.parametrize("outcome", ["recommended", "ordinary", "forbidden"])
+def test_original_selector_uses_real_refresh_button_and_exhaustion(chinese, monkeypatch, outcome):
+    """Replay actual button pixels through the task; only OCR and input are simulated."""
+    from module.automation import TextMatchResult, auto
+    from module.backends.base import BackendCancelled
+    from module.config import theme_list
+    from ruamel.yaml import YAML
+
+    task = import_module("tasks.mirror.select_theme_pack")
+    weights = YAML(typ="safe").load((SOURCE_ROOT / "assets/config/theme_pack_list.speedrun.yaml").read_text())
+    weights["preferred_thresholds"] = 9
+    weights["theme_pack_list_cn"]["工坊"] = 10
+    monkeypatch.setattr(theme_list, "config", weights)
+    available = Image.open(FIXTURES / "full_theme_pack_five_cards.png").convert("L")
+    exhausted = available.copy()
+    exhausted.paste(Image.open(FIXTURES / "theme_refresh_exhausted.png"), (1200, 0))
+    refreshes = []
+
+    def capture(*args, **kwargs):
+        auto.screenshot = available if len(refreshes) < 3 else exhausted
+        return auto.screenshot
+
+    def recognize(target, english, crop):
+        key = "赌徒"
+        if outcome == "recommended" and refreshes:
+            key = "工坊"
+        elif outcome == "forbidden" and len(refreshes) == 3:
+            key = "自动"
+        return TextMatchResult(target[key], key, [100, 400])
+
+    monkeypatch.setattr(auto, "take_screenshot", capture)
+    monkeypatch.setattr(auto, "find_language_text", recognize)
+    monkeypatch.setattr(auto, "mouse_action_with_pos", lambda point, *args, **kwargs: refreshes.append(point) or True)
+    monkeypatch.setattr(auto, "mouse_to_blank", Mock())
+    drag = Mock()
+    monkeypatch.setattr(auto, "mouse_drag_down", drag)
+    monkeypatch.setattr(task, "sleep", lambda _: None)
+    auto.clear_img_cache()
+    if outcome == "forbidden":
+        with pytest.raises(BackendCancelled, match="剩余卡包均为禁选"):
+            task.select_theme_pack(False, 2, None, False)
+        drag.assert_not_called()
+    else:
+        task.select_theme_pack(False, 2, None, False)
+        drag.assert_called_once()
+    assert len(refreshes) == (1 if outcome == "recommended" else 3)
+    assert all(1510 <= x <= 1570 and 45 <= y <= 95 for x, y in refreshes)
 
 
 @pytest.mark.skipif(sys.platform != "darwin" or os.environ.get("AALC_NATIVE_VISION_TEST") != "1",
@@ -281,6 +393,24 @@ def test_native_chinese_ocr_replay(chinese, monkeypatch):
     reward = profile_engine.run(ImageUtils.crop(claim, bounds))
     # Original reward parsing takes the number after x from the grayscale ROI.
     assert int("".join(reward.txts).lower().split("x")[-1]) == 30
+
+    # Exercise the actual selector's card bounds, keyword dictionary and native
+    # title retry. The artwork previously hid this forbidden pack as unknown.
+    from module.config import theme_list
+    from ruamel.yaml import YAML
+    from module.automation import TextMatchResult
+
+    weights = YAML(typ="safe").load((SOURCE_ROOT / "assets/config/theme_pack_list.speedrun.yaml").read_text())
+    monkeypatch.setattr(theme_list, "config", weights)
+    monkeypatch.setattr(auto, "screenshot", Image.open(FIXTURES / "full_theme_pack_dream_ending.png").convert("L"))
+    auto.clear_img_cache()
+    packs = auto.find_element("mirror/theme_pack/theme_pack_features.png", find_type="image_with_multiple_targets")
+    assert len(packs) == 3
+    x, y = max(packs)
+    targets = theme_list.get_effective_theme_pack_list(True, "zh_cn", None, False)
+    result = auto.find_language_text(targets, {}, (x - 210, y - 60, x + 60, y + 390))
+    assert isinstance(result, TextMatchResult) and result.text == "终焉", result
+    assert "终焉" in theme_list.get_forbidden_theme_packs(True, 5, None, False)
 
 
 @pytest.mark.parametrize("model", ["normal", "clam"])

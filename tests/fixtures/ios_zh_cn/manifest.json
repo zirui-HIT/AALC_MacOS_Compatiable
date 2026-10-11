@@ -31,7 +31,9 @@
         "battle/normal_to_battle_assets.png",
         "event/very_high.png",
         "event/very_low.png",
-        "mirror/claim_reward/use_enkephalin_assets.png"
+        "mirror/claim_reward/use_enkephalin_assets.png",
+        "mirror/claim_reward/claim_forfeit_assets.png",
+        "mirror/shop/return_assets.png"
       ]
     },
     "full_mirror_claim": {
@@ -61,12 +63,19 @@
           580,
           1435,
           630
+        ],
+        "mirror/claim_reward/claim_forfeit_assets.png": [
+          500,
+          795,
+          545,
+          845
         ]
       },
       "absent": [
         "battle/normal_to_battle_assets.png",
         "event/very_high.png",
-        "event/very_low.png"
+        "event/very_low.png",
+        "mirror/shop/return_assets.png"
       ]
     },
     "full_event_check": {
@@ -106,7 +115,9 @@
       },
       "absent": [
         "battle/normal_to_battle_assets.png",
-        "mirror/claim_reward/use_enkephalin_assets.png"
+        "mirror/claim_reward/use_enkephalin_assets.png",
+        "mirror/claim_reward/claim_forfeit_assets.png",
+        "mirror/shop/return_assets.png"
       ]
     },
     "full_battle_solo_ready": {
@@ -136,7 +147,9 @@
         "battle/normal_to_battle_assets.png",
         "event/very_high.png",
         "event/very_low.png",
-        "mirror/claim_reward/use_enkephalin_assets.png"
+        "mirror/claim_reward/use_enkephalin_assets.png",
+        "mirror/claim_reward/claim_forfeit_assets.png",
+        "mirror/shop/return_assets.png"
       ]
     },
     "full_gift_choice": {
@@ -172,7 +185,9 @@
         "battle/normal_to_battle_assets.png",
         "event/very_high.png",
         "event/very_low.png",
-        "mirror/claim_reward/use_enkephalin_assets.png"
+        "mirror/claim_reward/use_enkephalin_assets.png",
+        "mirror/claim_reward/claim_forfeit_assets.png",
+        "mirror/shop/return_assets.png"
       ]
     },
     "full_reward_card": {
@@ -220,7 +235,9 @@
         "battle/normal_to_battle_assets.png",
         "event/very_high.png",
         "event/very_low.png",
-        "mirror/claim_reward/use_enkephalin_assets.png"
+        "mirror/claim_reward/use_enkephalin_assets.png",
+        "mirror/claim_reward/claim_forfeit_assets.png",
+        "mirror/shop/return_assets.png"
       ]
     },
     "full_title": {
@@ -244,7 +261,9 @@
         "battle/normal_to_battle_assets.png",
         "event/very_high.png",
         "event/very_low.png",
-        "mirror/claim_reward/use_enkephalin_assets.png"
+        "mirror/claim_reward/use_enkephalin_assets.png",
+        "mirror/claim_reward/claim_forfeit_assets.png",
+        "mirror/shop/return_assets.png"
       ]
     },
     "full_shop_leave_preview": {
@@ -268,7 +287,9 @@
         "battle/normal_to_battle_assets.png",
         "event/very_high.png",
         "event/very_low.png",
-        "mirror/claim_reward/use_enkephalin_assets.png"
+        "mirror/claim_reward/use_enkephalin_assets.png",
+        "mirror/claim_reward/claim_forfeit_assets.png",
+        "mirror/shop/return_assets.png"
       ]
     },
     "full_shop": {
@@ -304,7 +325,10 @@
         "battle/normal_to_battle_assets.png",
         "event/very_high.png",
         "event/very_low.png",
-        "mirror/claim_reward/use_enkephalin_assets.png"
+        "mirror/claim_reward/use_enkephalin_assets.png",
+        "mirror/claim_reward/claim_forfeit_assets.png",
+        "mirror/shop/return_assets.png",
+        "mirror/shop/return_assets.png"
       ]
     },
     "full_theme_pack": {
@@ -334,7 +358,9 @@
         "battle/normal_to_battle_assets.png",
         "event/very_high.png",
         "event/very_low.png",
-        "mirror/claim_reward/use_enkephalin_assets.png"
+        "mirror/claim_reward/use_enkephalin_assets.png",
+        "mirror/claim_reward/claim_forfeit_assets.png",
+        "mirror/shop/return_assets.png"
       ]
     },
     "full_init_gift": {
@@ -370,7 +396,9 @@
         "battle/normal_to_battle_assets.png",
         "event/very_high.png",
         "event/very_low.png",
-        "mirror/claim_reward/use_enkephalin_assets.png"
+        "mirror/claim_reward/use_enkephalin_assets.png",
+        "mirror/claim_reward/claim_forfeit_assets.png",
+        "mirror/shop/return_assets.png"
       ]
     },
     "full_battle_ready": {
@@ -418,7 +446,9 @@
         "battle/normal_to_battle_assets.png",
         "event/very_high.png",
         "event/very_low.png",
-        "mirror/claim_reward/use_enkephalin_assets.png"
+        "mirror/claim_reward/use_enkephalin_assets.png",
+        "mirror/claim_reward/claim_forfeit_assets.png",
+        "mirror/shop/return_assets.png"
       ]
     },
     "full_mirror_stars": {
@@ -442,7 +472,9 @@
         "battle/normal_to_battle_assets.png",
         "event/very_high.png",
         "event/very_low.png",
-        "mirror/claim_reward/use_enkephalin_assets.png"
+        "mirror/claim_reward/use_enkephalin_assets.png",
+        "mirror/claim_reward/claim_forfeit_assets.png",
+        "mirror/shop/return_assets.png"
       ]
     },
     "full_exp_result": {
@@ -472,7 +504,9 @@
         "battle/normal_to_battle_assets.png",
         "event/very_high.png",
         "event/very_low.png",
-        "mirror/claim_reward/use_enkephalin_assets.png"
+        "mirror/claim_reward/use_enkephalin_assets.png",
+        "mirror/claim_reward/claim_forfeit_assets.png",
+        "mirror/shop/return_assets.png"
       ]
     },
     "full_reset_preview": {
@@ -496,7 +530,9 @@
         "battle/normal_to_battle_assets.png",
         "event/very_high.png",
         "event/very_low.png",
-        "mirror/claim_reward/use_enkephalin_assets.png"
+        "mirror/claim_reward/use_enkephalin_assets.png",
+        "mirror/claim_reward/claim_forfeit_assets.png",
+        "mirror/shop/return_assets.png"
       ]
     },
     "home_energy": {
@@ -520,7 +556,9 @@
         "battle/normal_to_battle_assets.png",
         "event/very_high.png",
         "event/very_low.png",
-        "mirror/claim_reward/use_enkephalin_assets.png"
+        "mirror/claim_reward/use_enkephalin_assets.png",
+        "mirror/claim_reward/claim_forfeit_assets.png",
+        "mirror/shop/return_assets.png"
       ]
     },
     "drive": {
@@ -574,7 +612,9 @@
         "battle/normal_to_battle_assets.png",
         "event/very_high.png",
         "event/very_low.png",
-        "mirror/claim_reward/use_enkephalin_assets.png"
+        "mirror/claim_reward/use_enkephalin_assets.png",
+        "mirror/claim_reward/claim_forfeit_assets.png",
+        "mirror/shop/return_assets.png"
       ]
     },
     "luxcavation": {
@@ -610,7 +650,9 @@
         "battle/normal_to_battle_assets.png",
         "event/very_high.png",
         "event/very_low.png",
-        "mirror/claim_reward/use_enkephalin_assets.png"
+        "mirror/claim_reward/use_enkephalin_assets.png",
+        "mirror/claim_reward/claim_forfeit_assets.png",
+        "mirror/shop/return_assets.png"
       ]
     },
     "thread": {
@@ -640,7 +682,9 @@
         "battle/normal_to_battle_assets.png",
         "event/very_high.png",
         "event/very_low.png",
-        "mirror/claim_reward/use_enkephalin_assets.png"
+        "mirror/claim_reward/use_enkephalin_assets.png",
+        "mirror/claim_reward/claim_forfeit_assets.png",
+        "mirror/shop/return_assets.png"
       ]
     },
     "thread_stages": {
@@ -664,7 +708,9 @@
         "battle/normal_to_battle_assets.png",
         "event/very_high.png",
         "event/very_low.png",
-        "mirror/claim_reward/use_enkephalin_assets.png"
+        "mirror/claim_reward/use_enkephalin_assets.png",
+        "mirror/claim_reward/claim_forfeit_assets.png",
+        "mirror/shop/return_assets.png"
       ]
     },
     "exp_formation": {
@@ -706,7 +752,9 @@
         "mail/close_assets.png",
         "event/very_high.png",
         "event/very_low.png",
-        "mirror/claim_reward/use_enkephalin_assets.png"
+        "mirror/claim_reward/use_enkephalin_assets.png",
+        "mirror/claim_reward/claim_forfeit_assets.png",
+        "mirror/shop/return_assets.png"
       ]
     },
     "pass_overview": {
@@ -730,7 +778,9 @@
         "battle/normal_to_battle_assets.png",
         "event/very_high.png",
         "event/very_low.png",
-        "mirror/claim_reward/use_enkephalin_assets.png"
+        "mirror/claim_reward/use_enkephalin_assets.png",
+        "mirror/claim_reward/claim_forfeit_assets.png",
+        "mirror/shop/return_assets.png"
       ]
     },
     "pass_missions": {
@@ -760,7 +810,9 @@
         "battle/normal_to_battle_assets.png",
         "event/very_high.png",
         "event/very_low.png",
-        "mirror/claim_reward/use_enkephalin_assets.png"
+        "mirror/claim_reward/use_enkephalin_assets.png",
+        "mirror/claim_reward/claim_forfeit_assets.png",
+        "mirror/shop/return_assets.png"
       ]
     },
     "mail": {
@@ -790,7 +842,9 @@
         "battle/normal_to_battle_assets.png",
         "event/very_high.png",
         "event/very_low.png",
-        "mirror/claim_reward/use_enkephalin_assets.png"
+        "mirror/claim_reward/use_enkephalin_assets.png",
+        "mirror/claim_reward/claim_forfeit_assets.png",
+        "mirror/shop/return_assets.png"
       ]
     },
     "mirror_landing_clean": {
@@ -814,7 +868,9 @@
         "battle/normal_to_battle_assets.png",
         "event/very_high.png",
         "event/very_low.png",
-        "mirror/claim_reward/use_enkephalin_assets.png"
+        "mirror/claim_reward/use_enkephalin_assets.png",
+        "mirror/claim_reward/claim_forfeit_assets.png",
+        "mirror/shop/return_assets.png"
       ]
     },
     "mirror_entry": {
@@ -838,7 +894,9 @@
         "battle/normal_to_battle_assets.png",
         "event/very_high.png",
         "event/very_low.png",
-        "mirror/claim_reward/use_enkephalin_assets.png"
+        "mirror/claim_reward/use_enkephalin_assets.png",
+        "mirror/claim_reward/claim_forfeit_assets.png",
+        "mirror/shop/return_assets.png"
       ]
     },
     "energy": {
@@ -880,7 +938,9 @@
         "battle/normal_to_battle_assets.png",
         "event/very_high.png",
         "event/very_low.png",
-        "mirror/claim_reward/use_enkephalin_assets.png"
+        "mirror/claim_reward/use_enkephalin_assets.png",
+        "mirror/claim_reward/claim_forfeit_assets.png",
+        "mirror/shop/return_assets.png"
       ]
     },
     "energy_lunacy": {
@@ -922,7 +982,9 @@
         "battle/normal_to_battle_assets.png",
         "event/very_high.png",
         "event/very_low.png",
-        "mirror/claim_reward/use_enkephalin_assets.png"
+        "mirror/claim_reward/use_enkephalin_assets.png",
+        "mirror/claim_reward/claim_forfeit_assets.png",
+        "mirror/shop/return_assets.png"
       ]
     },
     "full_event_result": {
@@ -945,7 +1007,188 @@
       "absent": [
         "battle/normal_to_battle_assets.png",
         "event/commence_assets.png",
-        "mirror/claim_reward/use_enkephalin_assets.png"
+        "mirror/claim_reward/use_enkephalin_assets.png",
+        "mirror/claim_reward/claim_forfeit_assets.png",
+        "mirror/shop/return_assets.png"
+      ]
+    },
+    "full_event_advantage_choice": {
+      "retained_rois": [
+        [
+          1020,
+          150,
+          1785,
+          575
+        ]
+      ],
+      "targets": {
+        "event/advantage_check.png": [
+          1210,
+          500,
+          1310,
+          535
+        ]
+      },
+      "absent": [
+        "event/select_to_gain_ego.png",
+        "event/continue_assets.png",
+        "mirror/theme_pack/refresh_assets.png",
+        "mirror/claim_reward/claim_forfeit_assets.png",
+        "mirror/shop/return_assets.png"
+      ]
+    },
+    "full_event_direct_choice": {
+      "retained_rois": [
+        [
+          1020,
+          150,
+          1785,
+          745
+        ]
+      ],
+      "targets": {
+        "event/select_to_gain_ego.png": [
+          1095,
+          330,
+          1250,
+          370
+        ]
+      },
+      "absent": [
+        "event/advantage_check.png",
+        "event/continue_assets.png",
+        "mirror/theme_pack/refresh_assets.png",
+        "mirror/claim_reward/claim_forfeit_assets.png",
+        "mirror/shop/return_assets.png"
+      ]
+    },
+    "full_theme_pack_dream_ending": {
+      "retained_rois": [
+        [
+          480,
+          235,
+          1420,
+          800
+        ],
+        [
+          1200,
+          20,
+          1760,
+          110
+        ]
+      ],
+      "targets": {},
+      "absent": [
+        "event/advantage_check.png",
+        "event/select_to_gain_ego.png",
+        "mirror/theme_pack/refresh_assets.png",
+        "mirror/claim_reward/claim_forfeit_assets.png",
+        "mirror/shop/return_assets.png"
+      ]
+    },
+    "full_theme_pack_five_cards": {
+      "retained_rois": [
+        [
+          180,
+          235,
+          1735,
+          800
+        ],
+        [
+          1200,
+          20,
+          1760,
+          110
+        ]
+      ],
+      "targets": {
+        "mirror/theme_pack/refresh_assets.png": [
+          1510,
+          45,
+          1570,
+          95
+        ]
+      },
+      "absent": [
+        "event/advantage_check.png",
+        "event/select_to_gain_ego.png",
+        "mirror/claim_reward/claim_forfeit_assets.png",
+        "mirror/shop/return_assets.png"
+      ]
+    },
+    "full_shop_enhance_preview": {
+      "retained_rois": [
+        [
+          120,
+          105,
+          1800,
+          930
+        ]
+      ],
+      "targets": {
+        "mirror/shop/return_assets.png": [
+          680,
+          855,
+          805,
+          905
+        ]
+      },
+      "absent": [
+        "mirror/shop/leave_assets.png",
+        "mirror/claim_reward/claim_forfeit_assets.png",
+        "event/advantage_check.png",
+        "event/select_to_gain_ego.png",
+        "mirror/theme_pack/refresh_assets.png"
+      ]
+    },
+    "full_shop_fusion_preview": {
+      "retained_rois": [
+        [
+          120,
+          105,
+          1800,
+          930
+        ]
+      ],
+      "targets": {
+        "mirror/shop/return_assets.png": [
+          680,
+          855,
+          805,
+          905
+        ]
+      },
+      "absent": [
+        "mirror/shop/leave_assets.png",
+        "mirror/claim_reward/claim_forfeit_assets.png",
+        "event/advantage_check.png",
+        "event/select_to_gain_ego.png",
+        "mirror/theme_pack/refresh_assets.png"
+      ]
+    },
+    "full_shop_sell_preview": {
+      "retained_rois": [
+        [
+          120,
+          105,
+          1800,
+          930
+        ]
+      ],
+      "targets": {
+        "mirror/shop/return_assets.png": [
+          680,
+          855,
+          805,
+          905
+        ]
+      },
+      "absent": [
+        "mirror/shop/leave_assets.png",
+        "mirror/claim_reward/claim_forfeit_assets.png",
+        "event/advantage_check.png",
+        "event/select_to_gain_ego.png",
+        "mirror/theme_pack/refresh_assets.png"
       ]
     }
   },

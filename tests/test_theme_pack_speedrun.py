@@ -15,6 +15,7 @@ def preset():
 
 
 @pytest.mark.parametrize("language,texts,expected", [
+    ("zh_cn", ["身无分文的徒"], "赌徒"),
     ("zh_cn", ["去・海物辺"], "海边"),
     ("zh_cn", ["肉斬音断"], "骨断"),
     ("zh_cn", ["肉斬音断", "復刻"], "骨断&&复刻"),

@@ -23,6 +23,7 @@
     "復": "复", "號": "号", "區": "区", "跡": "迹", "點": "点", "瘋": "疯"
   },
   "text_aliases": {
+    "赌徒": ["身无分文的"],
     "海边": ["海物辺"],
     "骨断": ["音断"],
     "疯狂": ["madness", "mapness"],
@@ -54,5 +55,9 @@
     "default/mirror/road_to_mir/dreaming_star/coins_assets.png",
     "default/teams/tutorial_next.png"
   ],
-  "layout": {"image.battle/win_rate_card.png.anchor": [-44, 24]}
+  "layout": {
+    "image.battle/win_rate_card.png.anchor": [-44, 24],
+    "ocr.theme_pack.title_fraction": 0.75,
+    "image.mirror/theme_pack/refresh_assets.png.min_luma": 120
+  }
 }

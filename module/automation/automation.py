@@ -6,7 +6,7 @@ import re
 import sys
 import threading
 import time
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from typing import Any
 
 import cv2
@@ -731,7 +731,30 @@ class Automation(metaclass=SingletonMeta):
         return ocr_dict
 
     def _ocr_for_target(self, target, my_crop, zh_target=None, all_text=False):
-        """Choose only validated English OCR profiles; matching stays unchanged."""
+        """Adapt validated iOS text regions; keep original keyword matching."""
+        chinese_target = zh_target if isinstance(zh_target, dict) else target
+        if (sys.platform == "darwin" and cfg.game_profile == "ios_zh_cn"
+                and isinstance(chinese_target, dict) and my_crop is not None):
+            pack_keys = set(theme_list.config.get("theme_pack_list_cn", {})) | set(
+                theme_list.config.get("theme_pack_list_hard_cn", {})
+            )
+            if len(chinese_target) > 1 and "未知" in chinese_target and set(chinese_target) <= pack_keys:
+                original = self._ocr_screenshot(my_crop)
+                known = {key: value for key, value in chinese_target.items() if key != "未知"}
+                words = {text: list((box[0] + box[2]) / 2) for text, box in
+                         zip(original.txts, original.boxes)} if original is not None and original.txts else {}
+                if self._find_target_in_ocr_dict(known, words):
+                    return original
+                # Card artwork overwhelms native OCR, especially Dream Ending.
+                # Keep the original card bounds/coordinates; recognize its title band.
+                x1, y1, x2, y2 = my_crop
+                title_y = y1 + round((y2 - y1) * ImageUtils.layout("ocr.theme_pack.title_fraction", 0.75))
+                result = self._ocr_screenshot((x1, title_y, x2, y2))
+                if result is not None and result.txts:
+                    words = {text: list((box[0] + box[2]) / 2) for text, box in zip(result.txts, result.boxes)}
+                    if self._find_target_in_ocr_dict(known, words):
+                        return replace(result, boxes=result.boxes + np.array([0, title_y - y1]))
+                return original
         profile = None
         if sys.platform == "darwin" and cfg.game_profile == "ios_en" and path_manager.current_language == "en":
             if isinstance(target, str):
@@ -1141,6 +1164,16 @@ class Automation(metaclass=SingletonMeta):
                 if loaded_path.endswith(("/ios_en", "/ios_zh_cn")):
                     center = tuple(round(v) for v in ImageUtils.layout_point(f"image.{target}.anchor", center, cfg.set_win_size / 1440))
                 matched = self._is_valid_match(matchVal, threshold)
+                if (matched and cfg.game_profile == "ios_zh_cn"
+                        and target == "mirror/theme_pack/refresh_assets.png"):
+                    # NCC ignores uniform dimming: the disabled button has the
+                    # same shape. Verify actual brightness inside this button.
+                    height, width = template.shape[:2]
+                    x, y = center
+                    button = screenshot[max(0, y - height // 2):y + (height + 1) // 2,
+                                        max(0, x - width // 2):x + (width + 1) // 2]
+                    matched = bool(button.size and np.percentile(button, 99) >= ImageUtils.layout(
+                        "image.mirror/theme_pack/refresh_assets.png.min_luma", 120))
                 if 0.70 < matchVal < 0.90 and int(matchVal * 1000 + 1e-9) % 10 >= 5:
                     match_fmt = ".3f"
                 else:
