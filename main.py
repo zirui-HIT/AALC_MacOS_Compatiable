@@ -124,9 +124,12 @@ if __name__ == "__main__":
         # 处理新参数的逻辑
         args.insert(0, "aalc")
         ui.command_start(args)
-        ui.showNormal()
-        ui.activateWindow()
-        ui.raise_()
+        if sys.platform == "darwin":
+            ui.restore_window()
+        else:
+            ui.showNormal()
+            ui.activateWindow()
+            ui.raise_()
         # 如果需要，可以在这里调用 ui.open_file(args[0]) 等
 
     signaler.arguments_received.connect(handle_args)

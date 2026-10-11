@@ -18,6 +18,7 @@ from PySide6.QtWidgets import (
     QApplication,
     QHBoxLayout,
     QLabel,
+    QMenu,
     QStackedWidget,
     QSystemTrayIcon,
     QVBoxLayout,
@@ -38,6 +39,7 @@ from qframelesswindow.titlebar.title_bar_buttons import TitleBarButtonState
 from app import AnnouncementStatus, mediator
 from app.announcement_board import AnnouncementBoard, AnnouncementThread
 from app.card.messagebox_custom import MessageBoxConfirm, MessageBoxWarning
+from app.common.icons import application_icon
 from app.common.ui_config import apply_font_config, get_main_window_style, get_title_bar_style
 from app.custom_pivot import FullWidthPivot
 from app.farming_interface import FarmingInterface
@@ -48,7 +50,7 @@ from app.setting_interface import SettingInterface
 from app.team_setting_card import TeamSettingCard
 from app.tools_interface import ToolsInterface
 from app.widget.dev_watermark import DevWatermark
-from app.window_base import ApplicationWindow
+from app.window_base import ApplicationWindow, set_dock_visible
 from module.after_completion_types import (
     LEGACY_AFTER_COMPLETION_TO_CONFIG,
     POWER_ACTION_NONE,
@@ -90,12 +92,17 @@ class MainWindow(ApplicationWindow):
         self._pending_start_commands: list[list[str]] = []
         self._scheduled_start_pending = False
         self._scheduled_start_command: list[str] | None = None
+        self._quit_requested = False
+        self._quit_confirmed = False
+        self._close_deferred = False
 
         # 应用全局字体配置
         apply_font_config()
 
         self.setTitleBar(StandardTitleBar(self))
-        self.setWindowIcon(QIcon(str(resource_path("./assets/logo/my_icon_256X256.ico"))))
+        self.setWindowIcon(application_icon())
+        if sys.platform == "darwin":
+            QApplication.instance().setWindowIcon(self.windowIcon())
         self.setWindowTitle(f"Ahab Assistant Limbus Company - {cfg.version}")
         self.setObjectName("MainWindow")
         setThemeColor("#9c080b")
@@ -208,6 +215,10 @@ class MainWindow(ApplicationWindow):
         self.connect_mediator()
 
         if sys.platform == "darwin":
+            QApplication.instance().setQuitOnLastWindowClosed(False)
+            QApplication.instance().installEventFilter(self)
+            # 菜单栏入口必须在启动检查前可用，后续初始化仍复用原入口。
+            self.init_system_tray()
             available = self.screen().availableGeometry()
             self.resize(min(self.width(), available.width()), min(self.height(), available.height()))
             self.move(
@@ -256,11 +267,21 @@ class MainWindow(ApplicationWindow):
 
     def init_system_tray(self):
         """初始化系统托盘图标与点击事件。"""
+        if hasattr(self, "tray_icon"):
+            return
         # 创建系统托盘对象，并绑定主窗口的激活处理逻辑。
         self.tray_menu = None
         self.tray_icon = QSystemTrayIcon(self)
-        self.tray_icon.setIcon(QIcon(str(resource_path("./assets/logo/my_icon_256X256.ico"))))
-        self.tray_icon.activated.connect(self.on_tray_icon_activated)
+        if sys.platform == "darwin":
+            self.tray_icon.setIcon(QIcon(str(resource_path("assets/logo/aalc_tray.png"))))
+            self.tray_menu = QMenu(self)
+            self.tray_menu.addAction(self.tr("打开主窗口"), self.restore_window)
+            self.tray_menu.addAction(self.tr("退出") + " AALC", self.on_tray_quit)
+            self.tray_icon.setContextMenu(self.tray_menu)
+            self.tray_icon.setToolTip("AALC")
+        else:
+            self.tray_icon.setIcon(application_icon())
+            self.tray_icon.activated.connect(self.on_tray_icon_activated)
         self.tray_icon.show()
 
     def _continue_main_startup_sequence(self, argv: list[str]) -> None:
@@ -284,6 +305,7 @@ class MainWindow(ApplicationWindow):
 
     def restore_window(self):
         """Restore window from minimized/hidden state and reset title bar button states"""
+        set_dock_visible(True)
         # 避免最小化按钮处于focus状态
         for btn in [self.titleBar.minBtn, self.titleBar.closeBtn, self.titleBar.maxBtn]:
             btn.setState(TitleBarButtonState.NORMAL)
@@ -298,6 +320,25 @@ class MainWindow(ApplicationWindow):
 
         self.raise_()
         self.activateWindow()
+
+    def hide_to_tray(self):
+        """Keep tasks alive while hiding the macOS window and Dock entry."""
+        self.init_system_tray()
+        if not QSystemTrayIcon.isSystemTrayAvailable():
+            # 没有恢复入口时保持窗口可见（例如 offscreen 测试平台）。
+            return
+        self.tray_icon.show()
+        self.hide()
+        set_dock_visible(False)
+
+    def eventFilter(self, watched, event):
+        # macOS 的 ⌘Q、Dock 退出以及原有 app.quit() 都需要绕过关闭到菜单栏。
+        if (sys.platform == "darwin" and watched is QApplication.instance()
+                and event.type() == QEvent.Quit and not self._quit_confirmed):
+            event.ignore()
+            self.on_tray_quit()
+            return True
+        return super().eventFilter(watched, event)
 
     def on_tray_icon_activated(self, reason):
         if reason == QSystemTrayIcon.ActivationReason.Trigger or reason == QSystemTrayIcon.ActivationReason.DoubleClick:
@@ -332,6 +373,10 @@ class MainWindow(ApplicationWindow):
 
     def on_tray_quit(self):
         """托盘退出入口，统一走 close() 让 closeEvent() 处理确认与收尾"""
+        if sys.platform == "darwin":
+            if self._quit_requested:
+                return
+            self._quit_requested = True
         # close() 对隐藏窗口不生效，需先确保窗口可见
         if not self.isVisible():
             self.restore_window()
@@ -503,8 +548,27 @@ class MainWindow(ApplicationWindow):
 
     def closeEvent(self, e):
         if sys.platform == "darwin":
+            if not self._quit_requested:
+                cfg.set_value("window_position_x", self.x())
+                cfg.set_value("window_position_y", self.y())
+                self.hide_to_tray()
+                e.ignore()
+                return
+            self._close_deferred = False
+        self._close_for_exit(e)
+        if sys.platform == "darwin":
+            if e.isAccepted():
+                self._quit_confirmed = True
+                QTimer.singleShot(0, QApplication.instance().quit)
+            elif not self._close_deferred:
+                self._quit_requested = False
+
+    def _close_for_exit(self, e):
+        """Original exit confirmation and cleanup, shared by explicit quit entries."""
+        if sys.platform == "darwin":
             worker = self.setting_interface.playcover_settings.worker
             if worker is not None and worker.isRunning():
+                self._close_deferred = True
                 worker.finished.connect(self.close)
                 e.ignore()
                 return
@@ -531,6 +595,7 @@ class MainWindow(ApplicationWindow):
                 worker = self.farming_interface.interface_left.my_script
                 worker.terminate()
                 if cfg.backend == "playcover":
+                    self._close_deferred = True
                     e.ignore()
                     worker.finished.connect(self.close)
                     return
@@ -572,7 +637,7 @@ class MainWindow(ApplicationWindow):
                 # 检查是否启用了“最小化到托盘”选项
                 if cfg.get_value("minimize_to_tray", False):
                     # 为了确保最小化到托盘的效果，延迟调用 hide()
-                    QTimer.singleShot(0, self.hide)
+                    QTimer.singleShot(0, self.hide_to_tray if sys.platform == "darwin" else self.hide)
                     self.tray_icon.show()
         super().changeEvent(event)
 
@@ -739,6 +804,9 @@ class MainWindow(ApplicationWindow):
         self.pivot.setItemText("help_interface", self.tr("帮助"))
         self.pivot.setItemText("tools_interface", self.tr("小工具"))
         self.pivot.setItemText("setting_interface", self.tr("设置"))
+        if sys.platform == "darwin" and hasattr(self, "tray_menu"):
+            self.tray_menu.actions()[0].setText(self.tr("打开主窗口"))
+            self.tray_menu.actions()[1].setText(self.tr("退出") + " AALC")
 
         if "team_setting" in list(self.pivot.items.keys()):
             self.pivot.setItemText("team_setting", self.tr("队伍设置"))

@@ -7,7 +7,7 @@ NSViews, so that native operation must never be used on the offscreen plugin.
 import os
 import sys
 
-from PySide6.QtWidgets import QWidget
+from PySide6.QtWidgets import QApplication, QWidget
 from qfluentwidgets.components.widgets.frameless_window import FramelessWindow
 
 
@@ -25,3 +25,13 @@ class OffscreenWindow(QWidget):
 
 
 ApplicationWindow = OffscreenWindow if sys.platform == "darwin" and os.environ.get("QT_QPA_PLATFORM") == "offscreen" else FramelessWindow
+
+
+def set_dock_visible(visible: bool) -> None:
+    """Switch only native macOS UI between a Dock app and a menu bar app."""
+    if sys.platform != "darwin" or QApplication.platformName() != "cocoa":
+        return
+    from AppKit import NSApplication, NSApplicationActivationPolicyAccessory, NSApplicationActivationPolicyRegular
+
+    policy = NSApplicationActivationPolicyRegular if visible else NSApplicationActivationPolicyAccessory
+    NSApplication.sharedApplication().setActivationPolicy_(policy)

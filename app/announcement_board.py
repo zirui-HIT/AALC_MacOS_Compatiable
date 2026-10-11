@@ -2,7 +2,7 @@ import time
 
 import requests
 from PySide6.QtCore import Qt, QThread, Signal, Slot
-from PySide6.QtGui import QFont, QIcon
+from PySide6.QtGui import QFont
 from PySide6.QtWidgets import (
     QFrame,
     QHBoxLayout,
@@ -21,6 +21,7 @@ from qfluentwidgets import (
 from qframelesswindow import FramelessDialog, StandardTitleBar
 
 from app import AnnouncementStatus
+from app.common.icons import application_icon
 from app.common.ui_config import (
     get_announcement_content_qss,
     get_announcement_footer_qss,
@@ -156,7 +157,7 @@ class AnnouncementBoard(FramelessDialog):
         self.resize(800, 580)
         self.setMinimumSize(700, 500)
         self.setFont(QFont("Microsoft YaHei", 13))
-        self.setWindowIcon(QIcon(str(resource_path("./assets/logo/my_icon_256X256.ico"))))
+        self.setWindowIcon(application_icon())
         self.setWindowTitle(self.tr("公告"))
 
         # ========== 左侧侧边栏 ==========

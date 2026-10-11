@@ -1,8 +1,15 @@
+import sys
 from enum import Enum
 
+from PySide6.QtGui import QIcon
 from qfluentwidgets import FluentIconBase, Theme, getIconColor, isDarkTheme
 
 from utils.runtime_paths import resource_path
+
+
+def application_icon() -> QIcon:
+    filename = "aalc.png" if sys.platform == "darwin" else "my_icon_256X256.ico"
+    return QIcon(str(resource_path(f"assets/logo/{filename}")))
 
 
 class OverflowIcons(FluentIconBase, Enum):

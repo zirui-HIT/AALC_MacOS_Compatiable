@@ -135,6 +135,13 @@ macOS 结束后操作目前只开放退出游戏/AALC，其余电源动作待验
 
 ## 测试与本地构建
 
+macOS 应用图标和菜单栏图标来自仓库根目录的 `icon.png`，随包提供 PNG 与多尺寸 ICNS。
+点击主窗口关闭按钮会隐藏窗口并移除 Dock 图标，仅保留右上角菜单栏入口；后台任务继续运行。
+菜单栏“打开主窗口”恢复窗口及 Dock 图标，“退出 AALC”、⌘Q 和 Dock 退出沿用原有确认与清理。
+任务完成后的“退出 AALC”仍按原有完成流程退出。“最小化到托盘”开启时也使用菜单栏常驻模式。
+原生验证：`AALC_NATIVE_UI_TEST=1 .venv/bin/python -m pytest tests/test_macos_tray.py -q`，
+需要 WindowServer 访问；普通回归使用 offscreen 与隔离配置，不连接游戏。
+
 ```sh
 .venv/bin/python -m pytest tests/playcover -q --basetemp .runtime/tmp/pytest-playcover
 .venv/bin/python -m pytest -q --basetemp .runtime/tmp/pytest-all

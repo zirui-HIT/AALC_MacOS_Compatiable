@@ -29,6 +29,7 @@ exe = EXE(
 coll = COLLECT(exe, a.binaries, a.datas, name="AALC", strip=False, upx=False)
 app = BUNDLE(
     coll, name="AALC.app", bundle_identifier="io.aalc.PlayCover",
+    icon=str(project_root / "assets/logo/aalc.icns"),
     info_plist={"CFBundleDisplayName": "AALC", "NSHighResolutionCapable": True,
                 "NSInputMonitoringUsageDescription": "Optional global pause and stop hotkeys."},
 )
