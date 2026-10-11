@@ -1,6 +1,7 @@
 """Real iOS images exercise the original geometry and skill-selection algorithm."""
 import json
 from importlib import import_module
+from pathlib import Path
 from unittest.mock import Mock
 
 import cv2
@@ -19,6 +20,30 @@ def test_layout_only_changes_image_geometry_for_ios(monkeypatch, profile, offset
     monkeypatch.setattr(cfg, "config", cfg.config.model_copy(update={"game_profile": profile}))
     assert ImageUtils.layout("luxcavation.exp_count_x", 300) == offset
     assert ImageUtils.layout("unmodified_coordinate", 123) == 123
+
+
+def test_layout_reads_each_file_once_without_leaking_chinese_overrides(tmp_path, monkeypatch):
+    from module.config import cfg
+    from utils import image_utils
+
+    for name, content in {"ios_en/layout.json": {"anchor": [1, 2]},
+                          "ios_zh_cn/profile.json": {"layout": {"anchor": [3, 4]}}}.items():
+        path = tmp_path / "assets" / name
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text(json.dumps(content))
+    monkeypatch.setattr(image_utils, "resource_path", lambda name: tmp_path / name)
+    original_read = Path.read_text
+    reads = []
+    def read(path, *args, **kwargs):
+        reads.append(path)
+        return original_read(path, *args, **kwargs)
+    monkeypatch.setattr(Path, "read_text", read)
+    for profile, expected in [("ios_zh_cn", [3, 4]), ("ios_en", [1, 2]), ("ios_zh_cn", [3, 4])]:
+        monkeypatch.setattr(cfg, "config", cfg.config.model_copy(update={"game_profile": profile}))
+        for _ in range(3):
+            assert image_utils.ImageUtils.layout("anchor", (0, 0)) == expected
+            assert image_utils.ImageUtils.layout("absent", 123) == 123
+    assert len(reads) == 2
 
 
 @pytest.mark.parametrize("prioritize,lower", [(False, {2}), (True, {1, 3, 4, 5})])

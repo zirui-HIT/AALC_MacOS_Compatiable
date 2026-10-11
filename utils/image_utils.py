@@ -20,12 +20,12 @@ LayoutValue = TypeVar("LayoutValue", int, float, tuple, list)
 class ImageUtils:
     @staticmethod
     @lru_cache(maxsize=4)
-    def _read_ios_zh_cn_profile(path: Path):
-        return json.loads(path.read_text(encoding="utf-8")) if path.exists() else {}
+    def _read_ios_json(path: Path, optional=False):
+        return json.loads(path.read_text(encoding="utf-8")) if not optional or path.exists() else {}
 
     @staticmethod
     def ios_zh_cn_profile():
-        return ImageUtils._read_ios_zh_cn_profile(resource_path("assets/ios_zh_cn/profile.json"))
+        return ImageUtils._read_ios_json(resource_path("assets/ios_zh_cn/profile.json"), optional=True)
 
     @staticmethod
     def normalize_ocr_text(text):
@@ -39,9 +39,9 @@ class ImageUtils:
         """Read iOS image-anchor geometry; other profiles keep original values."""
         if cfg.game_profile not in {"ios_en", "ios_zh_cn"}:
             return original
-        coordinates = json.loads(resource_path("assets/ios_en/layout.json").read_text())
+        coordinates = ImageUtils._read_ios_json(resource_path("assets/ios_en/layout.json"))
         if cfg.game_profile == "ios_zh_cn":
-            coordinates.update(ImageUtils.ios_zh_cn_profile().get("layout", {}))
+            return ImageUtils.ios_zh_cn_profile().get("layout", {}).get(name, coordinates.get(name, original))
         return coordinates.get(name, original)
 
     @staticmethod

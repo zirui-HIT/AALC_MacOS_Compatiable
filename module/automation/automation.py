@@ -960,12 +960,8 @@ class Automation(metaclass=SingletonMeta):
                 unavailable_templates.add(target)
                 return None
 
-            if self.screenshot is None:
-                return None
             screenshot = self.get_screenshot_array()
             if screenshot is None:
-                return None
-            if screenshot.size == 0 or screenshot.ndim < 2 or 0 in screenshot.shape[:2]:
                 return None
             if cfg.set_win_size < 1440:
                 screenshot = cv2.resize(
