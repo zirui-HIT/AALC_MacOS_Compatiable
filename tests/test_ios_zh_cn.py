@@ -301,6 +301,40 @@ def test_real_chinese_menu_replay_and_confusers(chinese, monkeypatch, model):
             assert auto.find_element(target, model=model) is None, (page, target)
 
 
+@pytest.mark.parametrize("page", ["full_shop", "full_shop_leave_preview", "full_battle_ready", "full_mirror_claim", "full_theme_pack", "full_title"])
+def test_event_continue_does_not_match_other_red_menu_buttons(chinese, monkeypatch, page):
+    from module.automation import auto
+
+    auto.clear_img_cache()
+    monkeypatch.setattr(auto, "screenshot", Image.open(FIXTURES / f"{page}.png").convert("L"))
+    assert auto.find_element("event/continue_assets.png") is None
+
+
+def test_original_event_loop_clicks_ios_result_then_returns_to_map(chinese, monkeypatch):
+    from module.automation import auto
+
+    module = import_module("tasks.mirror.mirror")
+    frames = iter([Image.open(FIXTURES / "full_event_result.png").convert("L"),
+                   Image.open(SOURCE_ROOT / "tests/fixtures/playcover/mirror_map_floor3.png").convert("L")])
+    def capture(*args, **kwargs):
+        auto.screenshot = next(frames)
+        return auto.screenshot
+    monkeypatch.setattr(auto, "take_screenshot", capture)
+    monkeypatch.setattr(module, "retry", Mock())
+    gesture = Mock(return_value=True)
+    monkeypatch.setattr(auto, "mouse_action_with_pos", gesture)
+    monkeypatch.setattr(auto, "mouse_click", Mock(side_effect=AssertionError("Unexpected event input")))
+    auto.clear_img_cache()
+    mirror = object.__new__(module.Mirror)
+    mirror.event_total_time = 0
+    mirror.event_times = 0
+    mirror.event_handling()
+    assert gesture.call_count == 1
+    x, y = gesture.call_args.args[0]
+    assert 1640 <= x <= 1760 and 942 <= y <= 1004
+    assert mirror.event_times == 1
+
+
 @pytest.mark.parametrize("page,target,bounds", [
     ("full_theme_pack", "mirror/theme_pack/theme_pack_features.png", [(700, 300, 760, 365), (1000, 300, 1070, 365), (1320, 300, 1390, 365)]),
     ("full_event_check", "event/very_low.png", [(500, 910, 565, 945), (1230, 910, 1300, 945)]),

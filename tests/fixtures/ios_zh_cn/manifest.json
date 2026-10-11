@@ -924,6 +924,29 @@
         "event/very_low.png",
         "mirror/claim_reward/use_enkephalin_assets.png"
       ]
+    },
+    "full_event_result": {
+      "retained_rois": [
+        [
+          1545,
+          908,
+          1895,
+          1038
+        ]
+      ],
+      "targets": {
+        "event/continue_assets.png": [
+          1640,
+          942,
+          1760,
+          1004
+        ]
+      },
+      "absent": [
+        "battle/normal_to_battle_assets.png",
+        "event/commence_assets.png",
+        "mirror/claim_reward/use_enkephalin_assets.png"
+      ]
     }
   },
   "ocr": [
