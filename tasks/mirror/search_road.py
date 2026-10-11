@@ -41,17 +41,6 @@ class MirrorMap:
         return self.floor_map.pop(0)
 
     def enter_next_node(self, next_step):
-        if cfg.mirror_keyboard_navigation:
-            log.debug(f"通过键盘按键寻路: {next_step}")
-            if next_step == "U":
-                auto.key_press("up")
-            elif next_step == "D":
-                auto.key_press("down")
-            elif next_step == "M":
-                auto.key_press("right")
-            sleep(1)
-            return _keyboard_enter_succeeded()
-
         next_position = self._next_position[:] or self._get_next_position(next_step)
         self._next_position.clear()
         if next_position:
@@ -119,41 +108,6 @@ def get_node_weight(x, y):
     elif auto.find_feature_element("mirror/road_in_mir/focused_encounter.png", road_node_bbox):
         return 0
     return -5
-
-
-def _keyboard_enter_succeeded() -> bool:
-    """检测键盘寻路按键后是否成功进入下一节点。
-
-    成功条件：点击到"进入"按钮。
-    """
-    if auto.click_element("mirror/road_in_mir/enter_assets.png", take_screenshot=True):
-        return True
-    return False
-
-
-# 简单键盘寻路：始终按↑选择第一个节点，完全避免鼠标拖动
-def search_road_simple_keyboard():
-    """最简单寻路策略：不进行路线规划/相机对齐/节点识别，仅按↑键选择第一个节点。
-
-    适用于 Steam 环境下鼠标拖动地图导致卡死的场景，依赖 mirror_keyboard_navigation。
-    """
-    if not cfg.mirror_keyboard_navigation:
-        log.warning("简单键盘寻路需要启用键盘寻路模式")
-        return False
-
-    auto.mouse_to_blank()
-    sleep(0.3)
-
-    for attempt in range(2):
-        log.debug(f"简单键盘寻路: 第 {attempt + 1} 次尝试按↑")
-        auto.key_press("up")
-        sleep(1)
-
-        if _keyboard_enter_succeeded():
-            return True
-
-    log.debug("简单键盘寻路失败，需回退到常规寻路")
-    return False
 
 
 # 在默认缩放情况下，进行镜牢寻路

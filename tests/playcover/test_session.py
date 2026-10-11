@@ -106,7 +106,7 @@ def test_term_waits_for_verified_exit_before_original_start_check(tmp_path):
     session.transport = Mock(connected=True, bundle_id="company.test")
     session.stop_game()
     session.transport.terminate.assert_called_once()
-    process.wait.assert_called_once_with(timeout=5)
+    process.wait.assert_called_once_with(timeout=10)
     process.terminate.assert_not_called()
     process.kill.assert_not_called()
     with patch.object(session.lifecycle, "start") as start, \

@@ -78,8 +78,6 @@ def validate_task_capabilities(config) -> None:
     if config.backend != "playcover":
         return
     if config.mirror:
-        if config.mirror_keyboard_navigation or config.mirror_keyboard_simple_pathfinding:
-            raise NotImplementedError("PlayCover does not support keyboard map navigation")
         for index, enabled in enumerate(config.teams_be_select, start=1):
             if not enabled:
                 continue

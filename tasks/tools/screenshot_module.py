@@ -17,6 +17,9 @@ class ScreenshotGet(QThread):
         self.finished.connect(self.deleteLater)
 
     def run(self):
+        if cfg.backend == "playcover" and auto.task_running:
+            log.warning("主任务运行中，请停止任务后再使用截图小工具")
+            return
         should_reset_window = False
         try:
             from tasks.base.script_task_scheme import init_game

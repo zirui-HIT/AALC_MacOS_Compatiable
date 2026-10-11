@@ -17,7 +17,7 @@
       "sha256": "01e29d9fd84a080774c56c9a5268fea5d3ca6c59d5302be60409cb9c3f93088d"
     },
     "tasks/mirror/mirror.py": {
-      "sha256": "650656db8bf3b077573651a5cb41e6bb8d410b00574687ba0d52c80816388303"
+      "sha256": "f4114321d4334809d13e87328e31f94c0eba877383f9993d87ccc1dc0ca88146"
     },
     "tasks/mirror/get_floor.py": {
       "sha256": "4b610a83f69c88f0aa33ef077dd173a5ea349045935073233624f777b4519a83"
@@ -56,9 +56,17 @@
     },
     "app/team_setting_card.py": {
       "sha256": "0f5b2c02a5c5eaa428ca2c10a1d808445b9927febb00f0153a7446e9abbff15e"
+    },
+    "utils/utils.py": {
+      "functions": [
+        "check_hard_mirror_time"
+      ],
+      "sha256": "fdf4775f62e095e8de73a566cfd6b833c14edbeb0d2422d0934c8f7a9d94ea61"
     }
   },
   "authorized_changes": [
-    "2026-10-10: remove White Gossypium reward/shop/fusion filters and unused single-gift crop"
+    "2026-10-10: remove White Gossypium reward/shop/fusion filters and unused single-gift crop",
+    "2026-10-11: remove keyboard pathfinding options and branches; preserve mouse/touch routing",
+    "2026-10-11: user approved weekly reset 05:00 -> 06:00 KST and clamp remaining hard runs at zero"
   ]
 }

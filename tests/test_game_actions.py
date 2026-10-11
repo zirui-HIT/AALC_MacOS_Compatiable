@@ -124,7 +124,7 @@ def test_calibrated_normal_ios_mirror_is_available_in_task_runner(monkeypatch):
         "teams": {"1": team}, "teams_be_select": [True],
         "hard_mirror": False, "auto_hard_mirror": False, "floor_3_exit": False, "save_rewards": False,
         "re_claim_rewards": False, "daily_task": False, "get_reward": False, "buy_enkephalin": False,
-        "skip_enkephalin": True, "mirror_keyboard_navigation": False, "mirror_keyboard_simple_pathfinding": False,
+        "skip_enkephalin": True,
     })
     monkeypatch.setattr(cfg, "config", config)
     validate_task_capabilities(cfg)

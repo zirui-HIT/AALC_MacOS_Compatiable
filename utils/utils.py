@@ -40,11 +40,11 @@ def check_hard_mirror_time():
     if last_time >= now_time:
         return False  # 原始时间不应晚于当前时间
 
-    # 查找当前或下一个首尔时间周四 05:00
+    # 查找当前或下一个首尔时间周四 06:00（北京时间 05:00）
     weekday = last_time.weekday()  # 0=周一，3=周四
     days_to_thursday = (3 - weekday) % 7
     candidate_date = last_time.date() + timedelta(days=days_to_thursday)
-    candidate = datetime.combine(candidate_date, time(5, 0), tzinfo=seoul_tz)
+    candidate = datetime.combine(candidate_date, time(6, 0), tzinfo=seoul_tz)
 
     if candidate <= last_time:
         candidate += timedelta(days=7)

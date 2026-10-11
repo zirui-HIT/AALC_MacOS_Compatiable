@@ -15,7 +15,6 @@ def route(monkeypatch):
 
     monkeypatch.setattr(cfg, "config", cfg.config.model_copy(update={
         "backend": "playcover", "game_profile": "ios_en", "set_win_size": 1080,
-        "mirror_keyboard_navigation": False,
     }))
     path_manager.initialize_paths()
     monkeypatch.setattr(search_road, "sleep", lambda _: None)

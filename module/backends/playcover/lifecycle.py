@@ -81,7 +81,8 @@ class PlayCoverLifecycle:
                 raise RuntimeError("Game process identity changed")
             if terminate:
                 process.terminate()
-            process.wait(timeout=5)
+            # MaaTools TERM can take slightly over 5s to finish on PlayCover.
+            process.wait(timeout=10)
         except psutil.NoSuchProcess:
             return  # TERM may finish between process enumeration and verification.
         except psutil.TimeoutExpired:

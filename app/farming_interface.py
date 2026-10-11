@@ -579,6 +579,15 @@ class FarmingInterfaceLeft(QWidget):
             self.after_completion_selector._hide_editor()
         except Exception:
             pass
+        if sys.platform == "darwin":
+            app = QApplication.instance()
+            if self.my_script is not None:
+                # 退出信号早于线程 finally；先连接再检查，避免错过 finished。
+                self.my_script.finished.connect(app.quit, Qt.ConnectionType.QueuedConnection)
+                if self.my_script.isRunning():
+                    return
+            app.quit()
+            return
         sys.exit(0)
 
     def check_setting(self):

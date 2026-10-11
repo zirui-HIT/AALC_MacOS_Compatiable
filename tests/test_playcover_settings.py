@@ -30,7 +30,6 @@ def test_active_settings_are_not_restricted_to_a_calibration_team(monkeypatch, s
         'teams': {'1': team}, 'teams_be_select': [True], 'get_reward': True, 'buy_enkephalin': True,
         'daily_task': True, 'daily_teams': system + 1, 'set_thread_count': 8,
         'use_continuous_combat': True, 'targeted_teaming_thread': True, 'skip_enkephalin': False,
-        'mirror_keyboard_navigation': False, 'mirror_keyboard_simple_pathfinding': False,
         'after_completion_actions': [], 'after_completion_power_action': 'none',
     })
     monkeypatch.setattr(cfg, 'config', settings)

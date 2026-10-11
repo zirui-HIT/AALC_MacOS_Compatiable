@@ -101,6 +101,9 @@ class ImageUtils:
         if path_manager.current_theme == "dark":
             dark_paths = [path for path in paths if path_manager.is_path_dark(path)]
             if dark_paths:
+                if cfg.game_profile == "ios_en" and not any(path.endswith("/ios_en") for path in dark_paths):
+                    # iOS overlays also cover unchanged UI in a dark-theme game.
+                    dark_paths = [path for path in paths if path.endswith("/ios_en")] + dark_paths
                 paths = dark_paths
         elif path_manager.current_theme == "default":
             paths = [path for path in paths if path_manager.is_path_default(path)]

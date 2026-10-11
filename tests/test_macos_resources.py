@@ -1,6 +1,7 @@
 import logging
 from unittest.mock import patch
 
+import pytest
 from PIL import Image, ImageDraw, ImageFont
 
 from utils.runtime_paths import resource_path
@@ -102,3 +103,40 @@ def test_macos_image_sync_does_not_require_windows_software_update(monkeypatch):
     assert not coordinator.ResourceSyncCoordinator._is_resource_sync_version_ready(
         window, coordinator.UpdateStatus.FAILURE, version, notify_user=False,
     )
+
+
+@pytest.mark.parametrize("dark_overlay", [False, True])
+def test_dark_theme_keeps_ios_overlay_before_general_resources(tmp_path, monkeypatch, dark_overlay):
+    from module.config import cfg
+    from utils import image_utils
+    from utils.path_manager import path_manager
+
+    monkeypatch.setattr(cfg, "config", cfg.config.model_copy(update={"game_profile": "ios_en"}))
+    monkeypatch.setattr(image_utils, "data_path", lambda path: tmp_path / "data" / path)
+    monkeypatch.setattr(image_utils, "resource_path", lambda path: tmp_path / "resources" / path)
+    paths = ["assets/ios_en/default/button.png", "assets/images/dark/share/button.png"]
+    if dark_overlay:
+        paths.append("assets/ios_en/dark/button.png")
+    for path in paths:
+        full = tmp_path / "resources" / path
+        full.parent.mkdir(parents=True, exist_ok=True)
+        Image.new("L", (16, 9), 100).save(full)
+    path_manager.initialize_paths()
+    path_manager.set_theme("dark")
+    _, profile = image_utils.ImageUtils.load_image("button.png", resize=False, return_path=True)
+    assert profile == ("dark/ios_en" if dark_overlay else "default/ios_en")
+
+
+@pytest.mark.parametrize("page,expected", [("mirror_reward_confirm", True), ("mirror_reward_forfeit_confirm", False)])
+def test_dark_theme_claim_button_on_real_ios_pages(monkeypatch, page, expected):
+    from module.automation import auto
+    from module.config import cfg
+    from utils.path_manager import path_manager
+    from utils.runtime_paths import SOURCE_ROOT
+
+    monkeypatch.setattr(cfg, "config", cfg.config.model_copy(update={"game_profile": "ios_en", "set_win_size": 1080}))
+    path_manager.initialize_paths()
+    path_manager.set_theme("dark")
+    auto.clear_img_cache()
+    monkeypatch.setattr(auto, "screenshot", Image.open(SOURCE_ROOT / f"tests/fixtures/playcover/{page}.png").convert("L"))
+    assert bool(auto.find_element("mirror/claim_reward/claim_rewards_confirm_assets.png")) == expected

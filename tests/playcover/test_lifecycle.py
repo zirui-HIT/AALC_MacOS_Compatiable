@@ -36,6 +36,7 @@ def test_only_verified_game_executable_is_terminated(tmp_path):
     with patch("psutil.process_iter", return_value=[unrelated, target]):
         lifecycle.stop_verified_process()
     target.terminate.assert_called_once()
+    target.wait.assert_called_once_with(timeout=10)
     unrelated.terminate.assert_not_called()
     target.kill.assert_not_called()
 
@@ -58,9 +59,28 @@ def test_term_wait_timeout_does_not_force_kill(tmp_path):
     lifecycle = PlayCoverLifecycle(str(make_app(tmp_path)))
     target = Mock()
     target.exe.return_value = str(lifecycle.identity.executable)
-    target.wait.side_effect = psutil.TimeoutExpired(5)
+    target.wait.side_effect = psutil.TimeoutExpired(10)
     with patch.object(lifecycle, "process", return_value=target), pytest.raises(TimeoutError):
         lifecycle.stop_verified_process(terminate=False)
+    target.terminate.assert_not_called()
+    target.kill.assert_not_called()
+
+
+def test_term_wait_allows_playcover_shutdown_delay(tmp_path):
+    lifecycle = PlayCoverLifecycle(str(make_app(tmp_path)))
+    target = Mock()
+    target.exe.return_value = str(lifecycle.identity.executable)
+
+    def wait(*, timeout):
+        import psutil
+
+        if timeout <= 5.1:
+            raise psutil.TimeoutExpired(timeout)
+
+    target.wait.side_effect = wait
+    with patch.object(lifecycle, "process", return_value=target):
+        lifecycle.stop_verified_process(terminate=False)
+    target.wait.assert_called_once_with(timeout=10)
     target.terminate.assert_not_called()
     target.kill.assert_not_called()
 

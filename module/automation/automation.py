@@ -160,14 +160,20 @@ class Automation(metaclass=SingletonMeta):
         """
 
         def wrapper(*args, **kwargs):
-            if cfg.backend == "playcover":
-                # Stop must remain responsive while a monitor popup owns the gate.
-                from module.backends.factory import get_playcover_session
-
-                while not self._interaction_gate.wait(timeout=0.1):
-                    get_playcover_session().input.check_cancel()
             while True:
-                gate_open = self._interaction_gate.wait(timeout=GATE_WAIT_TIMEOUT)
+                if cfg.backend == "playcover":
+                    from module.backends.factory import get_playcover_session
+
+                    # Preserve the original deadline while polling cancellation.
+                    deadline = time.monotonic() + GATE_WAIT_TIMEOUT
+                    while True:
+                        remaining = max(0.0, deadline - time.monotonic())
+                        gate_open = self._interaction_gate.wait(timeout=min(0.1, remaining))
+                        get_playcover_session().input.check_cancel()
+                        if gate_open or time.monotonic() >= deadline:
+                            break
+                else:
+                    gate_open = self._interaction_gate.wait(timeout=GATE_WAIT_TIMEOUT)
                 with self._input_lock:
                     if gate_open and self._interaction_gate.is_set():
                         method = getattr(self.input_handler, method_name)
@@ -541,6 +547,9 @@ class Automation(metaclass=SingletonMeta):
                         my_crop=my_crop,
                         additional_stack=additional_stack,
                     )
+                    if (not center and my_crop is None and sys.platform == "darwin" and cfg.game_profile == "ios_en"
+                            and path_manager.current_language == "en"):
+                        center = self._find_event_grade(target)
                 elif find_type == "text":
                     # 使用文本查找方法查找元素
                     center = self.find_text_element(target, my_crop, additional_stack=additional_stack)
@@ -743,6 +752,46 @@ class Automation(metaclass=SingletonMeta):
                     return None
                 self._ocr_regions[region] = result
             return self._ocr_regions[region]
+
+    def _find_event_grade(self, target):
+        """Recognize the existing grade asset at its actual iOS text position."""
+        if not isinstance(target, str):
+            return None
+        grades = {
+            "event/very_high.png": "veryhigh", "event/high.png": "high",
+            "event/normal.png": "normal", "event/low.png": "low",
+            "event/very_low.png": "verylow",
+        }
+        label = grades.get(target)
+        if label is None or self.screenshot is None:
+            return None
+        scale = self.screenshot.height / 1440
+        region = tuple(round(value * scale) for value in (50, 1180, 1780, 1270))
+        for engine in ("vision", "rapid"):
+            result = self._ocr_screenshot(region, engine=engine)
+            if result is None or not result.txts:
+                continue
+            for text, box in zip(result.txts, result.boxes):
+                compact = re.sub(r"\s+", "", text).lower()
+                if compact == label:
+                    return [region[0] + (box[0][0] + box[2][0]) / 2,
+                            region[1] + (box[0][1] + box[2][1]) / 2]
+                if label not in compact or compact in grades.values():
+                    continue
+                # OCR can join adjacent grades; separate the original 12 slots.
+                for index in range(12):
+                    x = 150 + 140 * index
+                    cell = tuple(round(value * scale) for value in (x - 68, 1180, x + 68, 1270))
+                    if cell[2] < region[0] + box[0][0] or cell[0] > region[0] + box[2][0]:
+                        continue
+                    separated = self._ocr_screenshot(cell, engine=engine)
+                    if separated is None or not separated.txts:
+                        continue
+                    for word, bounds in zip(separated.txts, separated.boxes):
+                        if re.sub(r"\s+", "", word).lower() == label:
+                            return [cell[0] + (bounds[0][0] + bounds[2][0]) / 2,
+                                    cell[1] + (bounds[0][1] + bounds[2][1]) / 2]
+        return None
 
     def _find_target_in_ocr_dict(self, target, ocr_dict, all_text=False):
         if ocr_dict == {}:

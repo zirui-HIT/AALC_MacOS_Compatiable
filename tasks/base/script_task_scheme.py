@@ -356,7 +356,7 @@ def Mirror_task():
             cfg.rotate_team_queue()
             mir_times -= 1
             if cfg.hard_mirror and cfg.auto_hard_mirror:
-                chance = cfg.hard_mirror_chance - 1
+                chance = max(0, cfg.hard_mirror_chance - 1)
                 cfg.set_value("hard_mirror_chance", chance)
                 if chance == 0:
                     cfg.set_value("hard_mirror", False)

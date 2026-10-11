@@ -317,16 +317,6 @@ Right-click to set as permanent</translation>
         <translation>Fight to last man</translation>
     </message>
     <message>
-        <location filename="../app/page_card.py" line="498"/>
-        <source>使用键盘进行镜牢寻路</source>
-        <translation>Mirror Dungeon Pathfinding using the Keyboard</translation>
-    </message>
-    <message>
-        <location filename="../app/page_card.py" line="504"/>
-        <source>简单键盘寻路（始终按↑键，避免鼠标拖动）</source>
-        <translation>Simple keyboard pathfinding (always press ↑, avoid mouse dragging)</translation>
-    </message>
-    <message>
         <location filename="../app/team_setting_card.py" line="675"/>
         <source>不治疗罪人</source>
         <translation>No heal sinners</translation>

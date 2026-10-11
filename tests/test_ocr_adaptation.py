@@ -111,6 +111,68 @@ def test_full_text_keeps_rapid_after_vision_on_same_frame(recognition):
     assert engines.run_vision.call_count == 2
 
 
+@pytest.mark.parametrize("grade", ["Very High", "High", "Normal", "Low", "Very Low"])
+def test_event_grade_fallback_uses_actual_box_and_original_priority(recognition, monkeypatch, grade):
+    event_handling = import_module("tasks.event.event_handling")
+
+    auto, engines, _ = recognition
+    auto.screenshot = Image.new("RGB", (1920, 1080))
+    auto.model = "clam"
+    auto.find_image_element = Mock(return_value=None)
+    auto.mouse_action_with_pos = Mock()
+    result = output("Unselectable", "like", grade)
+    result.boxes[2] = [[350, 30], [440, 30], [440, 52], [350, 52]]
+    engines.run_vision.return_value = result
+    engines.run.return_value = output()
+    monkeypatch.setattr(event_handling, "auto", auto)
+    handler = event_handling.EventHandling()
+    assert handler.decision_event_handling()
+    auto.mouse_action_with_pos.assert_called_once_with([433.0, 926.0])
+    assert handler.fallback_offset == 0
+    engines.run_vision.assert_called_once()
+
+
+def test_event_grade_falls_back_to_rapid_when_vision_is_unavailable(recognition):
+    auto, engines, _ = recognition
+    auto.screenshot = Image.new("RGB", (1920, 1080))
+    auto.find_image_element = Mock(return_value=None)
+    engines.run_vision.return_value = None
+    engines.run.return_value = output("High")
+    assert auto.find_element("event/high.png", model="clam") == [43.0, 889.0]
+    assert engines.run.call_args.args[0].size == (1297, 67)
+
+
+def test_event_grade_splits_joined_text_before_returning_coordinates(recognition):
+    auto, engines, _ = recognition
+    auto.screenshot = Image.new("RGB", (1920, 1080))
+    auto.find_image_element = Mock(return_value=None)
+    joined = output("Very High Very Low Unselectable")
+    joined.boxes[0] = [[355, 30], [600, 30], [600, 52], [355, 52]]
+    engines.run_vision.side_effect = [joined, output("Very High")]
+    assert auto.find_element("event/very_high.png", model="clam") == [381.0, 889.0]
+    assert engines.run_vision.call_args.args[0].size == (102, 67)
+    engines.run.assert_not_called()
+
+
+def test_event_grade_is_exact_and_does_not_use_unrelated_text(recognition):
+    auto, engines, _ = recognition
+    auto.screenshot = Image.new("RGB", (1920, 1080))
+    auto.find_image_element = Mock(return_value=None)
+    engines.run_vision.return_value = output("like", "highway", "Very Low", "Unselectable")
+    engines.run.return_value = output()
+    assert auto.find_element("event/high.png", model="clam") is None
+    assert auto.find_element("event/low.png", model="clam") is None
+    assert auto.find_element("event/very_low.png", model="clam") == [43.0, 889.0]
+
+
+def test_non_event_image_failure_does_not_run_extra_ocr(recognition):
+    auto, engines, _ = recognition
+    auto.find_image_element = Mock(return_value=None)
+    assert auto.find_element("home/drive_assets.png", model="clam") is None
+    engines.run_vision.assert_not_called()
+    engines.run.assert_not_called()
+
+
 @pytest.mark.parametrize("language,profile,platform", [
     ("zh_cn", "ios_en", "darwin"), (None, "ios_en", "darwin"),
     ("en", "steam", "darwin"), ("en", "ios_en", "win32"),

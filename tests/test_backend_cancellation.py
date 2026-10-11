@@ -77,7 +77,8 @@ def test_caffeinate_tracks_host_process_and_balances_nested_users(monkeypatch):
 
 
 @pytest.mark.parametrize("main_running", [False, True])
-def test_screenshot_tool_only_resets_stop_at_new_independent_task(monkeypatch, main_running):
+@pytest.mark.parametrize("cancelled", [False, True])
+def test_screenshot_tool_only_resets_stop_at_new_independent_task(monkeypatch, main_running, cancelled):
     from module.backends import factory
     from module.config import cfg
 
@@ -87,7 +88,8 @@ def test_screenshot_tool_only_resets_stop_at_new_independent_task(monkeypatch, m
     monkeypatch.setattr(tool.auto, "task_running", main_running)
     session = Mock()
     session.cancel = threading.Event()
-    session.cancel.set()
+    if cancelled:
+        session.cancel.set()
     session.input.is_pause = True
     monkeypatch.setattr(factory, "get_playcover_session", lambda: session)
 
@@ -95,10 +97,57 @@ def test_screenshot_tool_only_resets_stop_at_new_independent_task(monkeypatch, m
         if session.cancel.is_set():
             raise BackendCancelled("stopping main task")
 
+    initialize = Mock(side_effect=initialize)
     monkeypatch.setattr(main, "init_game", initialize)
     capture = Mock(return_value=Mock())
     monkeypatch.setattr(tool.auto, "take_screenshot", capture)
     tool.ScreenshotGet().run()
-    assert session.cancel.is_set() == main_running
+    assert session.cancel.is_set() == (main_running and cancelled)
     assert session.input.is_pause == main_running
+    assert initialize.call_count == int(not main_running)
     assert capture.call_count == int(not main_running)
+
+
+@pytest.mark.parametrize("mode", ["open", "timeout", "cancel"])
+def test_playcover_gate_keeps_original_timeout_and_stop_response(monkeypatch, mode):
+    module = import_module("module.automation.automation")
+    from module.backends import factory
+
+    monkeypatch.setattr(module.cfg, "config", module.cfg.config.model_copy(update={"backend": "playcover"}))
+    monkeypatch.setattr(module, "GATE_WAIT_TIMEOUT", 0.03 if mode == "timeout" else 30)
+    automation = object.__new__(module.Automation)
+    automation._interaction_gate = threading.Event()
+    automation._input_lock = threading.RLock()
+    automation._business_frame = None
+    automation.input_handler = Mock()
+    automation._invoke_input = Mock(return_value="clicked")
+    session = Mock()
+    if mode == "open":
+        automation._interaction_gate.set()
+    if mode == "cancel":
+        session.input.check_cancel.side_effect = BackendCancelled("stopped")
+    monkeypatch.setattr(factory, "get_playcover_session", lambda: session)
+    results = []
+
+    def click():
+        try:
+            results.append(automation._run_business_interaction("mouse_click")(10, 20))
+        except BackendCancelled as exc:
+            results.append(exc)
+
+    worker = threading.Thread(target=click, daemon=True)
+    worker.start()
+    worker.join(0.5)
+    try:
+        assert not worker.is_alive(), "Closed gate bypassed the original deadline or cancellation"
+        if mode == "cancel":
+            assert isinstance(results[0], BackendCancelled)
+            automation._invoke_input.assert_not_called()
+        else:
+            assert results == ["clicked"]
+            automation._invoke_input.assert_called_once()
+        assert automation._interaction_gate.is_set() == (mode == "open")
+    finally:
+        session.input.check_cancel.side_effect = BackendCancelled("cleanup")
+        automation._interaction_gate.set()
+        worker.join(0.5)
