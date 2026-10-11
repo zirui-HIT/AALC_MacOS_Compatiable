@@ -1,6 +1,7 @@
 from time import sleep
 
 from module.automation import TextMatchResult, auto
+from module.backends.base import BackendCancelled
 from module.config import cfg, theme_list
 from module.decorator.decorator import begin_and_finish_time_log
 from module.logger import log
@@ -56,6 +57,9 @@ def select_theme_pack(hard_mode=False, floor=None, team_num=None, use_custom_the
         )
     # 游戏更新后新增的主题包尚未收录时的兜底权重，取自「未知 / unknown」配置项
     unknown_weight = int(theme_pack_list_zh.get("未知", theme_pack_list_en.get("unknown", -5)))
+    forbidden_keywords = theme_list.get_forbidden_theme_packs(
+        hard_mode, floor, team_num, use_custom_theme_pack_weight
+    )
     refresh_times = 3
     if auto.find_element("mirror/road_in_mir/legend_assets.png", take_screenshot=True):
         return
@@ -65,7 +69,7 @@ def select_theme_pack(hard_mode=False, floor=None, team_num=None, use_custom_the
             continue
 
         try:
-            if floor == 5 and cfg.select_event_pack:
+            if floor == 5 and cfg.select_event_pack and not forbidden_keywords:
                 if all_theme_pack := auto.find_element(
                     "mirror/theme_pack/theme_pack_features.png",
                     find_type="image_with_multiple_targets",
@@ -105,6 +109,13 @@ def select_theme_pack(hard_mode=False, floor=None, team_num=None, use_custom_the
                         theme_pack_weight = unknown_weight
                         theme_pack_name = "unknown"
 
+                    if forbidden_keywords and (
+                        theme_pack_name in forbidden_keywords
+                        or theme_pack_name in {"unknown", "未知", "号线", "line"}
+                    ):
+                        log.info(f"硬禁选或名称未确认，排除卡包：{theme_pack_name}")
+                        theme_pack_weight = float("-inf")
+
                     weight_list.append(theme_pack_weight)  # 采用最大值的形式，权重越大，优先级越高
                     pack_name.append(theme_pack_name)
 
@@ -134,8 +145,13 @@ def select_theme_pack(hard_mode=False, floor=None, team_num=None, use_custom_the
         if refresh_times >= 0 and loop_count < 15:
             auto.mouse_to_blank(move_back=False)
 
-        # 如果多次刷新仍无达到优选阈值的主题包，则选择权重最大的主题包
-        if refresh_times <= 0:
+        if weight_list and max(weight_list) == float("-inf"):
+            msg = f"第{floor}层刷新已不可用，剩余卡包均为禁选或名称未确认；已停止任务，请手动处理选包"
+            log.error(msg)
+            raise BackendCancelled(msg)
+
+        # 刷新用尽或入口不可用时，只要本轮已识别卡包，就按最高权重兜底。
+        if refresh_times <= 0 or weight_list:
             try:
                 max_weight = max(weight_list)
                 max_index = weight_list.index(max_weight)

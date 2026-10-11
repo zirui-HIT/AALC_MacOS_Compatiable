@@ -784,6 +784,24 @@ class Theme_pack_list(metaclass=SingletonMeta):
         log.debug(f"已加载自定义权重。path={custom_path}, keys={setting_keys}, count={len(effective_list)}")
         return effective_list
 
+    def get_forbidden_theme_packs(self, hard_mode, floor, team_num, use_custom_theme_pack_weight):
+        """按层读取硬禁选；队伍名单只追加，全局禁选不能被自定义权重覆盖。"""
+        mode = "hard" if hard_mode else "normal"
+        configs = [self.config]
+        if use_custom_theme_pack_weight and team_num:
+            configs.append(self.load_config(self.build_team_weight_path(team_num)) or {})
+        forbidden = set()
+        for config in configs:
+            policy = config.get("forbidden_theme_packs", {})
+            if floor in (1, 2, 3, 4, 5):
+                forbidden.update(policy.get(f"{mode}_{floor}", []))
+            else:
+                # 楼层尚未确认时，保守采用当前难度各层禁选的并集。
+                for key, keywords in policy.items():
+                    if key.startswith(f"{mode}_"):
+                        forbidden.update(keywords)
+        return forbidden
+
     def _load_version(self, version_path: str) -> str:
         """加载版本信息"""
         try:

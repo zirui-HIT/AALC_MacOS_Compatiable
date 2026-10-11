@@ -209,6 +209,32 @@ def test_chinese_ocr_can_initialize_after_profile_switch(profile_ocr, monkeypatc
 FIXTURES = SOURCE_ROOT / "tests/fixtures/ios_zh_cn"
 
 
+@pytest.mark.parametrize("state", ["available", "exhausted"])
+@pytest.mark.parametrize("height", [810, 1080])
+@pytest.mark.parametrize("model", ["clam", "normal"])
+def test_theme_refresh_rejects_exhausted_button(chinese, monkeypatch, state, height, model):
+    """Real first-floor toolbar before and after its single available refresh."""
+    from module.automation import auto
+
+    cfg, _, paths = chinese
+    monkeypatch.setattr(cfg, "config", cfg.config.model_copy(update={"set_win_size": height}))
+    paths.set_theme("default")
+    screen = Image.new("L", (1920, 1080))
+    screen.paste(Image.open(FIXTURES / f"theme_refresh_{state}.png"), (1200, 0))
+    if height != 1080:
+        screen = screen.resize((int(height * 16 / 9), height))
+    auto.clear_img_cache()
+    monkeypatch.setattr(auto, "screenshot", screen)
+    point = auto.find_element("mirror/theme_pack/refresh_assets.png", model=model)
+    if state == "exhausted":
+        assert point is None
+    else:
+        assert point is not None
+        scale = height / 1080
+        assert 1500 * scale <= point[0] <= 1748 * scale
+        assert 35 * scale <= point[1] <= 105 * scale
+
+
 @pytest.mark.skipif(sys.platform != "darwin" or os.environ.get("AALC_NATIVE_VISION_TEST") != "1",
                     reason="Opt-in native Vision replay requires macOS model access")
 def test_native_chinese_ocr_replay(chinese, monkeypatch):

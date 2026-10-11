@@ -647,6 +647,11 @@ class Automation(metaclass=SingletonMeta):
         """
         返回目标文本的坐标
         """
+        # YAML 中的 && 要求同一卡包裁剪内同时命中各片段，允许 OCR 分行。
+        if "&&" in target:
+            parts = [part.strip() for part in target.split("&&")]
+            positions = [self.find_str_in_text(part, ocr_dict) for part in parts] if all(parts) else []
+            return positions[0] if positions and all(positions) else False
         targets = [target]
         if cfg.game_profile == "ios_zh_cn":
             targets += ImageUtils.ios_zh_cn_profile().get("text_aliases", {}).get(target, [])

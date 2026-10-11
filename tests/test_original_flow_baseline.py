@@ -19,6 +19,20 @@ class PlatformCalls(ast.NodeTransformer):
         )
 
     def visit_If(self, node):
+        # 2026-10-11: user explicitly requested per-floor hard bans in addition to weights.
+        hard_ban_guards = (
+            'forbidden_keywords and (theme_pack_name in forbidden_keywords '
+            'or theme_pack_name in {"unknown", "未知", "号线", "line"})',
+            'weight_list and max(weight_list) == float("-inf")',
+        )
+        if any(ast.dump(node.test) == ast.dump(ast.parse(test, mode="eval").body) for test in hard_ban_guards):
+            return None
+        if ast.dump(node.test) == ast.dump(ast.parse(
+                "floor == 5 and cfg.select_event_pack and not forbidden_keywords", mode="eval").body):
+            node.test = ast.parse("floor == 5 and cfg.select_event_pack", mode="eval").body
+        # 2026-10-11: user authorized selecting the best visible pack when refresh is unavailable.
+        if ast.dump(node.test) == ast.dump(ast.parse("refresh_times <= 0 or weight_list", mode="eval").body):
+            node.test = ast.parse("refresh_times <= 0", mode="eval").body
         # 2026-10-11: user explicitly requested deleting keyboard pathfinding.
         keyboard_pathfinding = (
             isinstance(node.test, ast.Attribute)
@@ -27,6 +41,16 @@ class PlatformCalls(ast.NodeTransformer):
             and node.test.attr == "mirror_keyboard_simple_pathfinding"
         )
         return None if self.is_gossypium_filter(node) or keyboard_pathfinding else self.generic_visit(node)
+
+    def visit_Assign(self, node):
+        # Ignore only the authorized policy load; preserve every original assignment.
+        policy_load = ast.parse(
+            "forbidden_keywords = theme_list.get_forbidden_theme_packs("
+            "hard_mode, floor, team_num, use_custom_theme_pack_weight)"
+        ).body[0]
+        if ast.dump(node) == ast.dump(policy_load):
+            return None
+        return self.generic_visit(node)
 
     def visit_For(self, node):
         had_filter = any(self.is_gossypium_filter(stmt) for stmt in node.body)

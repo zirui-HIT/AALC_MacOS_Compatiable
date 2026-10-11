@@ -62,7 +62,7 @@ def _match(text: str, keywords: List[str]) -> Optional[str]:
     """复刻 Automation.find_str_in_text：忽略空格的子串匹配，按顺序取首个命中"""
     haystack = text.replace(" ", "").lower()
     for keyword in keywords:
-        if keyword.replace(" ", "").lower() in haystack:
+        if all(part.replace(" ", "").lower() in haystack for part in keyword.split("&&")):
             return keyword
     return None
 
@@ -112,23 +112,19 @@ def test_renamed_translations_keep_old_and_new_keywords() -> None:
     assert _match("无法去爱", keywords) == "无法去爱"
 
 
-def test_rerun_theme_packs_share_the_original_keyword() -> None:
-    # 复刻卡包和本体共用一套关键词和一份权重，短关键词的 OCR 容错率也更高
+def test_unclassified_rerun_theme_packs_keep_the_original_keyword() -> None:
     cn_keywords = _keywords("theme_pack_list_cn", "theme_pack_list_hard_cn")
     for original, rerun, expected in (
         ("LCB定期体检", "LCB定期体检 复刻", "体检"),
         ("深夜清扫", "深夜清扫 复刻", "清扫"),
-        ("肉斩骨断", "肉斩骨断 复刻", "骨断"),
-        ("时间杀人时间", "时间杀人时间 复刻", "时间杀人"),
         ("WARP快车谋杀案", "WARP快车谋杀案 复刻", "谋杀"),
-        ("20区的奇迹", "20区的奇迹 复刻", "区的奇"),
     ):
         assert _match(original, cn_keywords) == expected, original
         assert _match(rerun, cn_keywords) == expected, rerun
 
     en_keywords = _keywords("theme_pack_list", "theme_pack_list_hard")
     assert _match("Miracle in District 20", en_keywords) == "miracle"
-    assert _match("Miracle in District 20 BokGak", en_keywords) == "miracle"
+    assert _match("Miracle in District 20 BokGak", en_keywords) == "miracle&&bokgak"
 
 
 def test_wrath_keywords_separate_normal_and_hard_variants() -> None:
@@ -220,12 +216,13 @@ def test_english_keywords_do_not_cover_each_other() -> None:
     # 除设计内的主备对（EN_OCR_ALTERNATIVES）外，任意两个英文关键词不得
     # 互为子串：过短的片段会抢走别的卡包（und/wrath 教训）。后续新增短链
     # 与其他关键词冲突时，此测试会先报出未登记或缺失的覆盖关系
-    keywords = _keywords("theme_pack_list", "theme_pack_list_hard")
+    keywords = [key for key in _keywords("theme_pack_list", "theme_pack_list_hard") if "&&" not in key]
     expected_covers = {
         frozenset((fallback, main))
         for fallback, main in _interface_dict("EN_OCR_ALTERNATIVES").items()
         if fallback.lower() in main.lower() or main.lower() in fallback.lower()
     }
+    expected_covers.update(frozenset((f"line {number}", "line")) for number in (1, 2, 3, 5))
     covers = set()
     for index, first in enumerate(keywords):
         for second in keywords[index + 1:]:
