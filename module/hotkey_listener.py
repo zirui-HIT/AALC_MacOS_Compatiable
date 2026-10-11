@@ -1,8 +1,13 @@
 from __future__ import annotations
 
+import itertools
+import sys
+import threading
 from collections.abc import Callable
 
 from pynput import keyboard
+
+from module.logger import log
 
 _MODIFIER_KEYS = {
     keyboard.Key.alt,
@@ -11,6 +16,8 @@ _MODIFIER_KEYS = {
     keyboard.Key.ctrl,
     keyboard.Key.shift,
 }
+
+HotkeyProvider = Callable[[], dict[str, Callable[[], None]]]
 
 
 class _ExactHotKey:
@@ -41,33 +48,100 @@ class _ExactHotKey:
         self._is_active = False
 
 
-class ExactGlobalHotKeys(keyboard.Listener):
-    def __init__(self, hotkeys: dict[str, Callable[[], None]], *args, **kwargs):
+class GlobalHotKeys:
+    """复用一个 pynput 监听器；后注册的组件优先，关闭时注销自己的 token。"""
+
+    def __init__(self):
+        self._lock = threading.RLock()
+        self._listener: keyboard.Listener | None = None
+        self._registrations: dict[int, HotkeyProvider] = {}
+        self._tokens = itertools.count()
+        self._suspended = False
+        self._hotkeys: list[_ExactHotKey] = []
         self._pressed_keys: set[keyboard.Key | keyboard.KeyCode] = set()
-        self._hotkeys = [_ExactHotKey(keyboard.HotKey.parse(hotkey), callback) for hotkey, callback in hotkeys.items()]
-        super().__init__(
-            on_press=self._on_press,
-            on_release=self._on_release,
-            *args,
-            **kwargs,
-        )
-        self.daemon = True
+        self._canonicalize = lambda key: key
+
+    def register(self, provider: HotkeyProvider) -> int:
+        with self._lock:
+            token = next(self._tokens)
+            self._registrations[token] = provider
+            self._refresh()
+            return token
+
+    def unregister(self, token: int) -> None:
+        with self._lock:
+            if self._registrations.pop(token, None) is not None:
+                self._refresh()
+
+    def stop(self) -> None:
+        """录入新快捷键时只暂停派发，保留底层监听器。"""
+        with self._lock:
+            self._suspended = True
+            self._refresh()
+
+    def start(self) -> None:
+        """恢复派发，重新读取当前配置。"""
+        with self._lock:
+            self._suspended = False
+            self._refresh()
+
+    def _refresh(self) -> None:
+        self._hotkeys = [] if self._suspended else self._collect_hotkeys()
+        self._pressed_keys.clear()
+        if self._listener is not None or not self._hotkeys:
+            return
+        try:
+            if sys.platform == "darwin":
+                from module.platforms.macos import hotkeys_available
+
+                if not hotkeys_available():
+                    log.info("Global hotkeys unavailable: enable Input Monitoring; GUI Stop remains available")
+                    return
+            listener = keyboard.Listener(on_press=self._on_press, on_release=self._on_release)
+            self._canonicalize = listener.canonical
+            listener.start()
+        except Exception as e:
+            log.error(f"快捷键监听启动失败: {e}")
+            return
+        self._listener = listener
+
+    def _collect_hotkeys(self) -> list[_ExactHotKey]:
+        resolved: dict[str, Callable[[], None]] = {}
+        for provider in self._registrations.values():
+            try:
+                resolved.update(provider())
+            except Exception as e:
+                log.error(f"读取快捷键配置失败: {e}")
+        collected = []
+        for hotkey, callback in resolved.items():
+            try:
+                keys = keyboard.HotKey.parse(hotkey)
+            except ValueError:
+                log.error(f"快捷键 {hotkey} 格式无效，请确认设置的快捷键格式有效")
+                continue
+            collected.append(_ExactHotKey(keys, callback))
+        return collected
 
     def _on_press(self, key, injected=False):
         if injected:
             return
 
-        canonical_key = self.canonical(key)
-        self._pressed_keys.add(canonical_key)
-        pressed_modifiers = {key for key in self._pressed_keys if key in _MODIFIER_KEYS}
-        for hotkey in self._hotkeys:
-            hotkey.press(canonical_key, pressed_modifiers)
+        with self._lock:
+            canonical_key = self._canonicalize(key)
+            self._pressed_keys.add(canonical_key)
+            pressed_modifiers = {key for key in self._pressed_keys if key in _MODIFIER_KEYS}
+            for hotkey in self._hotkeys:
+                hotkey.press(canonical_key, pressed_modifiers)
 
     def _on_release(self, key, injected=False):
         if injected:
             return
 
-        canonical_key = self.canonical(key)
-        for hotkey in self._hotkeys:
-            hotkey.release(canonical_key)
-        self._pressed_keys.discard(canonical_key)
+        with self._lock:
+            canonical_key = self._canonicalize(key)
+            for hotkey in self._hotkeys:
+                hotkey.release(canonical_key)
+            self._pressed_keys.discard(canonical_key)
+
+
+global_hotkeys = GlobalHotKeys()

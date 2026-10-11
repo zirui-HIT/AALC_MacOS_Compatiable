@@ -68,3 +68,61 @@ app.quit()
     result = subprocess.run([sys.executable, "-c", script], cwd=SOURCE_ROOT,
                             env=environment, capture_output=True, text=True, timeout=45)
     assert result.returncode == 0, json.dumps({"stdout": result.stdout, "stderr": result.stderr}, ensure_ascii=False)
+
+
+@pytest.mark.skipif(sys.platform != "darwin", reason="Mac global hotkey lifecycle")
+def test_widgets_share_listener_and_release_registrations_on_close_and_destroy(tmp_path):
+    script = """
+import os
+import threading
+import module
+module.CONFIG_PATH = os.environ['AALC_TEST_CONFIG_PATH']
+from PySide6.QtCore import QCoreApplication, QEvent
+from PySide6.QtWidgets import QApplication
+from module import hotkey_listener
+from module.platforms import macos
+macos.hotkeys_available = lambda: True
+class FakeListener:
+    instances = []
+    def __init__(self, **kwargs): self.instances.append(self)
+    def canonical(self, key): return key
+    def start(self): pass
+hotkey_listener.keyboard.Listener = FakeListener
+from app.farming_interface import FarmingInterface
+from tasks.tools.infinite_battle import InfiniteBattles
+from module.config import cfg
+app = QApplication(['hotkey-ui-test'])
+gui_thread = threading.get_ident()
+threads = []
+class Probe(InfiniteBattles):
+    def _on_stop_shortcut(self): threads.append(threading.get_ident())
+farming = FarmingInterface()
+manager = hotkey_listener.global_hotkeys
+initial = len(manager._registrations)
+tool = Probe()
+assert len(manager._registrations) == initial + 1
+assert len(FakeListener.instances) == 1
+def press():
+    keys = hotkey_listener.keyboard.HotKey.parse(cfg.shutdown_hotkey)
+    for key in keys: manager._on_press(key)
+    for key in reversed(keys): manager._on_release(key)
+worker = threading.Thread(target=press)
+worker.start()
+worker.join(2)
+app.processEvents()
+assert threads == [gui_thread]
+tool.close()
+assert len(manager._registrations) == initial
+farming._listener_stop()
+farming._listener_start()
+assert len(FakeListener.instances) == 1
+farming.deleteLater()
+QCoreApplication.sendPostedEvents(None, QEvent.DeferredDelete)
+assert not manager._registrations
+app.quit()
+"""
+    environment = {**os.environ, "QT_QPA_PLATFORM": "offscreen", "TMPDIR": str(data_path("tmp")),
+                   "AALC_TEST_CONFIG_PATH": str(tmp_path / "config.yaml")}
+    result = subprocess.run([sys.executable, "-c", script], cwd=SOURCE_ROOT, env=environment,
+                            capture_output=True, text=True, timeout=45)
+    assert result.returncode == 0, json.dumps({"stdout": result.stdout, "stderr": result.stderr}, ensure_ascii=False)

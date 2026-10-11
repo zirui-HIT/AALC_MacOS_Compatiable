@@ -3,7 +3,7 @@ from typing import Callable
 
 from PySide6.QtCore import QT_TRANSLATE_NOOP, Qt
 from PySide6.QtGui import QTextBlockFormat, QTextCursor
-from PySide6.QtWidgets import QApplication, QDialog, QTextEdit
+from PySide6.QtWidgets import QApplication, QDialog, QFrame, QHBoxLayout, QTextEdit, QVBoxLayout, QWidget
 from qfluentwidgets import (
     BodyLabel,
     CheckBox,
@@ -12,6 +12,7 @@ from qfluentwidgets import (
     PopUpAniStackedWidget,
     PrimaryPushButton,
     PushButton,
+    SpinBox,
     TextEdit,
     ToolTipFilter,
     ToolTipPosition,
@@ -20,9 +21,9 @@ from qfluentwidgets import (
     setCustomStyleSheet,
 )
 
-from app import mediator
-from app.base_combination import *
-from app.base_tools import *
+from app import mediator, page_name_and_index, task_check_box, toggle_button_group
+from app.base_combination import CheckBoxWithButton
+from app.base_tools import BaseLabel, BaseSettingLayout, NormalTextButton, ToSettingButton
 from app.common.ui_config import get_log_text_edit_qss, set_border_style
 from app.language_manager import LanguageManager
 from app.page_card import (
@@ -47,6 +48,7 @@ from module.after_completion_types import (
 from module.automation import auto
 from module.config import TeamSetting, cfg
 from module.game_and_screen import screen
+from module.hotkey_listener import global_hotkeys
 from module.logger import log
 from module.logger.my_log import ui_log_dispatcher
 from module.system_actions import (
@@ -370,53 +372,29 @@ class FarmingInterface(QWidget):
         self.hbox_layout.addLayout(self.hbox_layout_center, stretch=4)
         self.hbox_layout.addLayout(self.hbox_layout_right, stretch=3)
 
-        """
-        self.setWidget(self.scroll_widget)
-        self.setWidgetResizable(True)
-        self.setViewportMargins(0, 0, 0, 5)
-        self.setHorizontalScrollBarPolicy(Qt.ScrollBarAlwaysOff)"""
-
         self.interface_left = FarmingInterfaceLeft()
         self.interface_center = FarmingInterfaceCenter()
         self.interface_right = FarmingInterfaceRight()
-        self.listener = None
         self.hbox_layout_left.addWidget(self.interface_left)
         self.hbox_layout_center.addWidget(self.interface_center)
         self.hbox_layout_right.addWidget(self.interface_right)
-        # self.setStyleSheet("border: 1px solid black;")
-        # 启动快捷键监听
-
-        self._listener_start()
+        token = global_hotkeys.register(self._hotkey_map)
+        self.destroyed.connect(lambda: global_hotkeys.unregister(token))
         mediator.hotkey_listener_stop_signal.connect(self._listener_stop)
         mediator.hotkey_listener_start_signal.connect(self._listener_start)
 
     def _listener_stop(self):
-        if self.listener:
-            self.listener.stop()
-            self.listener = None
+        global_hotkeys.stop()
 
     def _listener_start(self):
-        self._listener_stop()
-        try:
-            if sys.platform == "darwin":
-                from module.platforms.macos import hotkeys_available
+        global_hotkeys.start()
 
-                if not hotkeys_available():
-                    log.info("Global hotkeys unavailable: enable Input Monitoring; GUI Stop remains available")
-                    return
-            from module.hotkey_listener import ExactGlobalHotKeys
-
-            self.listener = ExactGlobalHotKeys(
-                {
-                    cfg.shutdown_hotkey: self.my_stop_shortcut,
-                    cfg.pause_hotkey: self.my_pause_and_resume,
-                    cfg.resume_hotkey: self.my_pause_and_resume,
-                }
-            )
-            self.listener.start()
-        except ValueError:
-            self.listener = None
-            log.error("快捷键监听启动失败，请确认设置的快捷键格式有效")
+    def _hotkey_map(self):
+        return {
+            cfg.shutdown_hotkey: self.my_stop_shortcut,
+            cfg.pause_hotkey: self.my_pause_and_resume,
+            cfg.resume_hotkey: self.my_pause_and_resume,
+        }
 
     def my_stop_shortcut(self):
         mediator.link_start.emit()
