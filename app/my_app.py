@@ -273,7 +273,9 @@ class MainWindow(ApplicationWindow):
         self.tray_menu = None
         self.tray_icon = QSystemTrayIcon(self)
         if sys.platform == "darwin":
-            self.tray_icon.setIcon(QIcon(str(resource_path("assets/logo/aalc_tray.png"))))
+            icon = QIcon(str(resource_path("assets/logo/aalc_tray_template.svg")))
+            icon.setIsMask(True)
+            self.tray_icon.setIcon(icon)
             self.tray_menu = QMenu(self)
             self.tray_menu.addAction(self.tr("打开主窗口"), self.restore_window)
             self.tray_menu.addAction(self.tr("退出") + " AALC", self.on_tray_quit)
