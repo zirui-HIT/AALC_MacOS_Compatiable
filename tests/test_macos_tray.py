@@ -28,7 +28,7 @@ app.processEvents()
 
 
 @pytest.mark.skipif(sys.platform != "darwin", reason="macOS menu bar lifecycle")
-@pytest.mark.parametrize("scenario", ["hide_and_restore", "tray_clicks", "cancel_quit", "deferred_quit", "application_quit"])
+@pytest.mark.parametrize("scenario", ["hide_and_restore", "tray_clicks", "idle_hidden_quit", "cancel_quit", "cancel_tool_quit", "deferred_quit", "probe_finish_race", "script_finish_race", "duplicate_finish_cancel", "application_quit"])
 def test_menu_bar_lifecycle(tmp_path, scenario):
     scripts = {
         "hide_and_restore": """
@@ -126,6 +126,21 @@ window.farming_interface.interface_left.my_script = None
 window.on_tray_quit()
 assert window._quit_confirmed
 """,
+        "idle_hidden_quit": """
+window.close()
+app.processEvents()
+assert not window.isVisible() and policies[-1] is False
+before = list(policies)
+window.tray_icon.activated.emit(QSystemTrayIcon.ActivationReason.Trigger)
+assert window._tray_click_timer.isActive()
+window.on_tray_quit()
+assert window._quit_confirmed and not window.isVisible()
+assert policies == before  # No new Dock registration during an idle hidden quit.
+assert not window._tray_click_timer.isActive()
+window.restore_window()
+window.hide_to_tray()
+assert not window.isVisible() and policies == before  # Late UI callbacks cannot revive a quitting app.
+""",
         "deferred_quit": """
 class Worker(QObject):
     finished = Signal()
@@ -149,14 +164,87 @@ assert window._quit_requested and window._close_deferred
 assert not window._quit_confirmed
 probe.finish()
 assert window._close_deferred and not window._quit_confirmed
-app.processEvents()
-assert not script.isRunning() and window._quit_confirmed
-my_app.MessageBoxConfirm.return_value.exec.assert_called_once()
 """,
         "application_quit": """
 window.close()
 assert not window.isVisible()
 QTimer.singleShot(0, app.quit)
+""",
+        "cancel_tool_quit": """
+tool = Mock()
+window.tools_interface.tools = {'test-tool': tool}
+my_app.MessageBoxConfirm = Mock()
+my_app.MessageBoxConfirm.return_value.exec.return_value = False
+window.close()
+window.on_tray_quit()
+assert window.isVisible() and policies[-1] is True
+assert not window._quit_requested and not window._quit_confirmed
+tool.w.close.assert_not_called()
+window.tools_interface.tools = {}
+window.on_tray_quit()
+assert window._quit_confirmed
+""",
+        "probe_finish_race": """
+class Probe(QObject):
+    finished = Signal()
+    running = True
+    def isRunning(self):
+        if self.running:
+            self.running = False
+            self.finished.emit()  # Finishes between checking and connecting.
+            return True
+        return False
+probe = Probe()
+window.setting_interface.playcover_settings.worker = probe
+window.close()
+window.on_tray_quit()
+assert window._close_deferred and window._quit_requested
+window.on_tray_quit()  # Repeated Quit must not re-enter deferred cleanup.
+""",
+        "script_finish_race": """
+class Worker(QObject):
+    finished = Signal()
+    running = True
+    stops = 0
+    def isRunning(self): return self.running
+    def terminate(self):
+        self.stops += 1
+        self.running = False
+        self.finished.emit()  # Fast cleanup can finish before the old connection.
+worker = Worker()
+window.farming_interface.interface_left.my_script = worker
+my_app.MessageBoxConfirm = Mock()
+my_app.MessageBoxConfirm.return_value.exec.return_value = True
+window.close()
+window.on_tray_quit()
+assert window._close_deferred and worker.stops == 1
+window.on_tray_quit()
+assert worker.stops == 1
+""",
+        "duplicate_finish_cancel": """
+class Probe(QObject):
+    finished = Signal()
+    checks = 0
+    def isRunning(self):
+        self.checks += 1
+        if self.checks == 1:
+            return True
+        if self.checks == 2:
+            self.finished.emit()  # Both queued signal and fallback will resume close.
+        return False
+probe = Probe()
+window.setting_interface.playcover_settings.worker = probe
+window.tools_interface.tools = {'test-tool': Mock()}
+my_app.MessageBoxConfirm = Mock()
+my_app.MessageBoxConfirm.return_value.exec.return_value = False
+window.close()
+window.on_tray_quit()
+outcomes = []
+def retry_quit():
+    outcomes.append((window.isVisible(), window._quit_requested, my_app.MessageBoxConfirm.return_value.exec.call_count))
+    window.tools_interface.tools = {}
+    window.on_tray_quit()
+QTimer.singleShot(50, retry_quit)
 """,
     }
     script = BOOTSTRAP + scripts[scenario] + """
@@ -167,6 +255,13 @@ assert app.exec() == 0
 assert marks == ['quit'], marks
 assert window._quit_confirmed
 """
+    if scenario == "deferred_quit":
+        script += """
+assert not script.isRunning()
+my_app.MessageBoxConfirm.return_value.exec.assert_called_once()
+"""
+    if scenario == "duplicate_finish_cancel":
+        script += "assert outcomes == [(True, False, 1)], outcomes\n"
     result = subprocess.run(
         [sys.executable, "-c", script], cwd=SOURCE_ROOT,
         env={**os.environ, "QT_QPA_PLATFORM": "offscreen", "AALC_TEST_CONFIG_PATH": str(tmp_path / "config.yaml")},
@@ -207,27 +302,35 @@ event.clickCount.assert_not_called()
 
 @pytest.mark.skipif(sys.platform != "darwin" or os.environ.get("AALC_NATIVE_UI_TEST") != "1",
                     reason="Opt-in native AppKit test requires WindowServer access")
-@pytest.mark.parametrize("quit_entry", ["menu", "native"])
+@pytest.mark.parametrize("quit_entry", ["menu_hidden", "menu_visible", "native_hidden", "native_visible", "native_menu_open", "running_cancel_then_quit"])
 def test_native_dock_visibility_and_background_worker(tmp_path, quit_entry):
     script = """
 import os
 import sys
 import time
 import traceback
+from unittest.mock import Mock
 import module
 module.CONFIG_PATH = os.environ['AALC_TEST_CONFIG_PATH']
+from module.config import cfg
+cfg.config = cfg.config.model_copy(update={'backend': 'playcover'})
 from PySide6.QtCore import QThread, QTimer
 from PySide6.QtTest import QTest
 from PySide6.QtWidgets import QApplication, QSystemTrayIcon
 from AppKit import NSApplication, NSApplicationActivationPolicyAccessory, NSApplicationActivationPolicyRegular, NSMenu, NSEventTrackingRunLoopMode
 from Foundation import NSRunLoop, NSTimer
+from app import my_app
 from app.my_app import MainWindow
 class Worker(QThread):
     ticks = 0
+    stops = 0
     def run(self):
         while not self.isInterruptionRequested():
             self.ticks += 1
             self.msleep(10)
+    def terminate(self):
+        self.stops += 1
+        self.requestInterruption()  # Model the PlayCover adapter's cooperative stop.
 app = QApplication(['native-tray-test'])
 window = MainWindow(['--smoke-test'])
 native = NSApplication.sharedApplication()
@@ -235,7 +338,14 @@ worker = Worker()
 window.farming_interface.interface_left.my_script = worker
 worker.start()
 marks = []
-app.aboutToQuit.connect(lambda: marks.append('quit'))
+def on_quit():
+    marks.append('quit')
+    assert not window.tray_icon.isVisible()
+    assert window.tray_icon._native_menu is None
+    assert window.tray_icon._qt_menu is None
+    if sys.argv[1] not in ('menu_visible', 'native_visible', 'running_cancel_then_quit'):
+        assert native.activationPolicy() == NSApplicationActivationPolicyAccessory
+app.aboutToQuit.connect(on_quit)
 opened = []
 selected_action = [0]
 timers = []
@@ -248,7 +358,15 @@ def inspect_native_menu():
     assert menu.itemAtIndex_(0).image() is not None and menu.font() is not None
     assert window.tray_icon._status_item.menu() is menu  # AppKit positions it below the status item.
     opened.append(menu)
+    window.tray_icon.popup_menu(window.tray_menu)  # A repeated click must not nest tracking.
+    assert window.tray_icon._native_menu is menu
     def select_item(timer):
+        if selected_action[0] == -2:
+            native.terminate_(None)  # Quit while AppKit is still tracking the menu.
+            return
+        if selected_action[0] == -1:
+            menu.cancelTrackingWithoutAnimation()
+            return
         item = menu.itemAtIndex_(selected_action[0])
         menu.cancelTrackingWithoutAnimation()
         def dispatch_selection():
@@ -271,6 +389,14 @@ def verify():
             QTest.qWait(50)
         assert window.tray_icon.geometry().isValid()
         window.grab().save(os.environ['AALC_NATIVE_PREVIEW_PATH'])
+        window.close()
+        selected_action[0] = -1
+        window.tray_icon.popup_menu(window.tray_menu)
+        QTest.qWait(100)
+        assert not window.isVisible() and not window._quit_requested
+        assert window.tray_icon._native_menu is None and window.tray_icon._status_item.menu() is None
+        selected_action[0] = 0
+        window.restore_window()
         for iteration in range(3):
             window.tray_icon._status_item.setLength_(40 + iteration * 12)
             before = worker.ticks
@@ -295,13 +421,34 @@ def verify():
             assert window.isVisible() and not window.isMinimized()
             assert not window.tray_menu.isVisible() and worker.isRunning()
             assert len(opened) == before_opened + 1  # Double clicks never open a menu.
-        worker.requestInterruption()
-        assert worker.wait(1000)
-        if sys.argv[1] == 'native':
-            native.terminate_(None)  # Native application menu / ⌘Q / Dock quit.
-        else:
+        if sys.argv[1] == 'running_cancel_then_quit':
+            my_app.MessageBoxConfirm = Mock()
+            my_app.MessageBoxConfirm.return_value.exec.side_effect = [False, True]
+            window.close()
             selected_action[0] = 2
             window.tray_icon.popup_menu(window.tray_menu)
+            QTest.qWait(200)
+            assert not window._quit_requested and not window._quit_confirmed
+            assert window.isVisible() and worker.isRunning() and worker.stops == 0
+            assert native.activationPolicy() == NSApplicationActivationPolicyRegular
+            window.close()
+            window.tray_icon.popup_menu(window.tray_menu)
+            return
+        worker.requestInterruption()
+        assert worker.wait(1000)
+        if sys.argv[1] not in ('menu_visible', 'native_visible'):
+            window.close()
+            QTest.qWait(200)
+            assert not window.isVisible()
+            assert native.activationPolicy() == NSApplicationActivationPolicyAccessory
+        if sys.argv[1].startswith('menu'):
+            selected_action[0] = 2  # Select the native status menu's Quit item.
+            window.tray_icon.popup_menu(window.tray_menu)
+        elif sys.argv[1] == 'native_menu_open':
+            selected_action[0] = -2
+            window.tray_icon.popup_menu(window.tray_menu)
+        else:
+            native.terminate_(None)  # Native application menu / ⌘Q / Dock quit.
     except Exception:
         traceback.print_exc()
         worker.requestInterruption()
@@ -312,6 +459,13 @@ QTimer.singleShot(10000, lambda: app.exit(2))
 assert app.exec() == 0
 assert marks == ['quit']
 assert window._quit_confirmed
+assert not window.tray_icon.isVisible()
+assert window.tray_icon._native_menu is None and window.tray_icon._qt_menu is None
+if sys.argv[1] not in ('menu_visible', 'native_visible', 'running_cancel_then_quit'):
+    assert native.activationPolicy() == NSApplicationActivationPolicyAccessory
+if sys.argv[1] == 'running_cancel_then_quit':
+    assert worker.wait(1000) and worker.stops == 1
+    assert my_app.MessageBoxConfirm.return_value.exec.call_count == 2
 """
     result = subprocess.run(
         [sys.executable, "-c", script, quit_entry], cwd=SOURCE_ROOT,

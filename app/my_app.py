@@ -373,6 +373,8 @@ class MainWindow(ApplicationWindow):
 
     def restore_window(self):
         """Restore window from minimized/hidden state and reset title bar button states"""
+        if sys.platform == "darwin" and self._quit_confirmed:
+            return
         set_dock_visible(True)
         # 避免最小化按钮处于focus状态
         for btn in [self.titleBar.minBtn, self.titleBar.closeBtn, self.titleBar.maxBtn]:
@@ -391,6 +393,8 @@ class MainWindow(ApplicationWindow):
 
     def hide_to_tray(self):
         """Keep tasks alive while hiding the macOS window and Dock entry."""
+        if sys.platform == "darwin" and self._quit_confirmed:
+            return
         self.init_system_tray()
         if not QSystemTrayIcon.isSystemTrayAvailable():
             # 没有恢复入口时保持窗口可见（例如 offscreen 测试平台）。
@@ -464,8 +468,10 @@ class MainWindow(ApplicationWindow):
             if self._quit_requested:
                 return
             self._quit_requested = True
-        # close() 对隐藏窗口不生效，需先确保窗口可见
-        if not self.isVisible():
+        # Hidden Qt windows receive closeEvent too. Only restore a macOS window
+        # when the original task/tool confirmation needs a visible parent.
+        if not self.isVisible() and (
+                sys.platform != "darwin" or self._has_running_script() or self.tools_interface.tools):
             self.restore_window()
         self.close()
 
@@ -637,6 +643,9 @@ class MainWindow(ApplicationWindow):
 
     def closeEvent(self, e):
         if sys.platform == "darwin":
+            if self._quit_confirmed:
+                e.accept()
+                return
             if not self._quit_requested:
                 cfg.set_value("window_position_x", self.x())
                 cfg.set_value("window_position_y", self.y())
@@ -648,18 +657,36 @@ class MainWindow(ApplicationWindow):
         if sys.platform == "darwin":
             if e.isAccepted():
                 self._quit_confirmed = True
+                self._tray_click_timer.stop()
                 QTimer.singleShot(0, QApplication.instance().quit)
             elif not self._close_deferred:
                 self._quit_requested = False
+
+    def _defer_macos_close(self, worker, e):
+        """Queue native close after cleanup, including an already-finished worker."""
+        self._close_deferred = True
+        resumed = False
+
+        def resume_close():
+            nonlocal resumed
+            if resumed:
+                return
+            resumed = True
+            if self._quit_requested and not self._quit_confirmed:
+                self.close()
+
+        # The signal and the post-connect check can both observe completion.
+        worker.finished.connect(resume_close, Qt.ConnectionType.QueuedConnection)
+        e.ignore()
+        if not worker.isRunning():
+            QTimer.singleShot(0, resume_close)
 
     def _close_for_exit(self, e):
         """Original exit confirmation and cleanup, shared by explicit quit entries."""
         if sys.platform == "darwin":
             worker = self.setting_interface.playcover_settings.worker
             if worker is not None and worker.isRunning():
-                self._close_deferred = True
-                worker.finished.connect(self.close)
-                e.ignore()
+                self._defer_macos_close(worker, e)
                 return
         # 保存窗口位置
         cfg.set_value("window_position_x", self.x())
@@ -684,9 +711,7 @@ class MainWindow(ApplicationWindow):
                 worker = self.farming_interface.interface_left.my_script
                 worker.terminate()
                 if cfg.backend == "playcover":
-                    self._close_deferred = True
-                    e.ignore()
-                    worker.finished.connect(self.close)
+                    self._defer_macos_close(worker, e)
                     return
             else:
                 e.ignore()

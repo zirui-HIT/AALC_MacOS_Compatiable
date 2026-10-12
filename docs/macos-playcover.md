@@ -166,9 +166,12 @@ macOS 菜单栏按钮使用 AppKit 入口，避免 Qt 6.9.2 在 macOS 27 的手�
 弹出菜单使用 AppKit `NSMenu`，背景、圆角、字体与高亮跟随系统外观；打开项带窗口图标，与退出项之间有原生分隔线。
 菜单显示时临时绑定到 `NSStatusItem`，由 AppKit 按图标实时位置在其下方定位并处理屏幕边界；关闭后解除绑定，继续保留双击恢复窗口。
 每个原生菜单项持有原 `QAction`，菜单关闭后到达的选择回调仍能执行原“打开／退出”动作。
+空闲时从隐藏窗口退出直接走关闭事件，不重新注册 Dock 图标；仅原任务/工具确认需要显示窗口时恢复。
+macOS 等待线程结束后使用排队关闭，并补查线程是否已结束，防止快速结束时漏接信号；确认退出后取消待处理单击并阻止迟到的恢复回调。
 任务完成后的“退出 AALC”仍按原有完成流程退出。“最小化到托盘”开启时也使用菜单栏常驻模式。
 原生验证：`AALC_NATIVE_UI_TEST=1 .venv/bin/python -m pytest tests/test_macos_tray.py -q`，
-需要 WindowServer 访问；普通回归使用 offscreen 与隔离配置，不连接游戏。
+覆盖菜单关闭后动作派发、菜单取消/重复打开、单击/双击、隐藏/可见窗口退出、菜单展开时退出，以及后台线程运行时取消后再次退出。
+需要 WindowServer 访问；普通回归使用 offscreen 与隔离配置，还检查线程结束竞态和迟到的窗口恢复，不连接游戏。
 
 ```sh
 .venv/bin/python -m pytest tests/playcover -q --basetemp .runtime/tmp/pytest-playcover
