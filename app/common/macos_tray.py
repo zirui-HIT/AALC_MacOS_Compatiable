@@ -39,7 +39,11 @@ class AALCStatusItemTarget(NSObject):
     def menuAction_(self, sender):
         tray = self.tray_ref()
         if tray is not None:
-            QTimer.singleShot(0, tray._menu_actions[sender.tag()].trigger)
+            # AppKit can send the selection after menuDidClose cleared tracking.
+            # The selected item owns its action independently of the open menu.
+            action = sender.representedObject()
+            if action is not None:
+                QTimer.singleShot(0, action.trigger)
 
     def menuWillOpen_(self, menu):
         tray = self.tray_ref()
@@ -61,7 +65,6 @@ class MacSystemTrayIcon(QSystemTrayIcon):
         self._status_item = None
         self._native_menu = None
         self._qt_menu = None
-        self._menu_actions = []
         self._target = AALCStatusItemTarget.alloc().init()
         self._target.tray_ref = weakref.ref(self)
         QApplication.instance().aboutToQuit.connect(self.hide)
@@ -95,14 +98,13 @@ class MacSystemTrayIcon(QSystemTrayIcon):
         native_menu.setMinimumWidth_(220)
         native_menu.setDelegate_(self._target)
         self._qt_menu = menu
-        self._menu_actions = menu.actions()
-        for index, action in enumerate(self._menu_actions):
+        for index, action in enumerate(menu.actions()):
             if action.isSeparator():
                 item = NSMenuItem.separatorItem()
             else:
                 item = NSMenuItem.alloc().initWithTitle_action_keyEquivalent_(action.text(), "menuAction:", "")
                 item.setTarget_(self._target)
-                item.setTag_(index)
+                item.setRepresentedObject_(action)
                 item.setEnabled_(action.isEnabled())
                 if index == 0:
                     item.setImage_(NSImage.imageWithSystemSymbolName_accessibilityDescription_("macwindow", action.text()))
@@ -123,7 +125,6 @@ class MacSystemTrayIcon(QSystemTrayIcon):
             self._status_item.setMenu_(None)
         self._native_menu = None
         self._qt_menu = None
-        self._menu_actions = []
 
     def hide(self):
         if self._status_item is not None:

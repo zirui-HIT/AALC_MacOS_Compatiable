@@ -249,8 +249,13 @@ def inspect_native_menu():
     assert window.tray_icon._status_item.menu() is menu  # AppKit positions it below the status item.
     opened.append(menu)
     def select_item(timer):
-        menu.performActionForItemAtIndex_(selected_action[0])
+        item = menu.itemAtIndex_(selected_action[0])
         menu.cancelTrackingWithoutAnimation()
+        def dispatch_selection():
+            assert window.tray_icon._native_menu is None
+            assert window.tray_icon._status_item.menu() is None
+            assert native.sendAction_to_from_(item.action(), item.target(), item)
+        QTimer.singleShot(0, dispatch_selection)
     timer = NSTimer.timerWithTimeInterval_repeats_block_(0.15, False, select_item)
     timers.append(timer)
     NSRunLoop.currentRunLoop().addTimer_forMode_(timer, NSEventTrackingRunLoopMode)

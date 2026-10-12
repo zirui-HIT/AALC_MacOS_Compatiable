@@ -165,6 +165,7 @@ macOS 应用图标和菜单栏图标来自仓库根目录的 `icon.png`，随包
 macOS 菜单栏按钮使用 AppKit 入口，避免 Qt 6.9.2 在 macOS 27 的手势事件上读取无效 `clickCount` 而崩溃。
 弹出菜单使用 AppKit `NSMenu`，背景、圆角、字体与高亮跟随系统外观；打开项带窗口图标，与退出项之间有原生分隔线。
 菜单显示时临时绑定到 `NSStatusItem`，由 AppKit 按图标实时位置在其下方定位并处理屏幕边界；关闭后解除绑定，继续保留双击恢复窗口。
+每个原生菜单项持有原 `QAction`，菜单关闭后到达的选择回调仍能执行原“打开／退出”动作。
 任务完成后的“退出 AALC”仍按原有完成流程退出。“最小化到托盘”开启时也使用菜单栏常驻模式。
 原生验证：`AALC_NATIVE_UI_TEST=1 .venv/bin/python -m pytest tests/test_macos_tray.py -q`，
 需要 WindowServer 访问；普通回归使用 offscreen 与隔离配置，不连接游戏。
