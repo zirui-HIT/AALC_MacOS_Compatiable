@@ -327,19 +327,29 @@ class MainWindow(ApplicationWindow):
             return
         # 创建系统托盘对象，并绑定主窗口的激活处理逻辑。
         self.tray_menu = None
-        self.tray_icon = QSystemTrayIcon(self)
+        if sys.platform == "darwin" and QApplication.platformName() == "cocoa":
+            from app.common.macos_tray import MacSystemTrayIcon
+
+            self.tray_icon = MacSystemTrayIcon(self)
+        else:
+            self.tray_icon = QSystemTrayIcon(self)
         if sys.platform == "darwin":
             icon = QIcon(str(resource_path("assets/logo/aalc_tray_template.svg")))
             icon.setIsMask(True)
             self.tray_icon.setIcon(icon)
             self.tray_menu = QMenu(self)
             self.tray_menu.addAction(self.tr("打开主窗口"), self.restore_window)
+            self.tray_menu.addSeparator()
             self.tray_menu.addAction(self.tr("退出") + " AALC", self.on_tray_quit)
-            self.tray_icon.setContextMenu(self.tray_menu)
+            # 原生 contextMenu 会吞掉双击；延迟单击菜单，双击期间只恢复窗口。
+            self._tray_click_timer = QTimer(self)
+            self._tray_click_timer.setSingleShot(True)
+            self._tray_click_timer.setTimerType(Qt.PreciseTimer)
+            self._tray_click_timer.timeout.connect(self._show_macos_tray_menu)
             self.tray_icon.setToolTip("AALC")
         else:
             self.tray_icon.setIcon(application_icon())
-            self.tray_icon.activated.connect(self.on_tray_icon_activated)
+        self.tray_icon.activated.connect(self.on_tray_icon_activated)
         self.tray_icon.show()
 
     def _continue_main_startup_sequence(self, argv: list[str]) -> None:
@@ -398,7 +408,26 @@ class MainWindow(ApplicationWindow):
             return True
         return super().eventFilter(watched, event)
 
+    def _show_macos_tray_menu(self):
+        if QApplication.platformName() == "cocoa":
+            self.tray_icon.popup_menu(self.tray_menu)
+            return
+        geometry = self.tray_icon.geometry()
+        self.tray_menu.popup(geometry.bottomLeft() if geometry.isValid() else QCursor.pos())
+
     def on_tray_icon_activated(self, reason):
+        if sys.platform == "darwin":
+            if reason == QSystemTrayIcon.ActivationReason.DoubleClick or (
+                    reason == QSystemTrayIcon.ActivationReason.Trigger and self._tray_click_timer.isActive()):
+                self._tray_click_timer.stop()
+                self.tray_menu.close()
+                QTimer.singleShot(0, self.restore_window)
+            elif reason == QSystemTrayIcon.ActivationReason.Trigger:
+                self._tray_click_timer.start(QApplication.doubleClickInterval())
+            elif reason == QSystemTrayIcon.ActivationReason.Context:
+                self._tray_click_timer.stop()
+                self._show_macos_tray_menu()
+            return
         if reason == QSystemTrayIcon.ActivationReason.Trigger or reason == QSystemTrayIcon.ActivationReason.DoubleClick:
             if self.tray_menu:
                 self.tray_menu.close()

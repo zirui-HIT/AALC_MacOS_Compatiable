@@ -161,6 +161,9 @@ macOS 设置页已开放原有“定时执行”卡片。每日任务通过 `lau
 macOS 应用图标和菜单栏图标来自仓库根目录的 `icon.png`，随包提供 PNG 与多尺寸 ICNS。
 点击主窗口关闭按钮会隐藏窗口并移除 Dock 图标，仅保留右上角菜单栏入口；后台任务继续运行。
 菜单栏“打开主窗口”恢复窗口及 Dock 图标，“退出 AALC”、⌘Q 和 Dock 退出沿用原有确认与清理。
+左键单击在系统双击间隔结束后显示“打开主窗口／退出 AALC”菜单，双击直接恢复主窗口；右键立即显示菜单。
+macOS 菜单栏按钮使用 AppKit 入口，避免 Qt 6.9.2 在 macOS 27 的手势事件上读取无效 `clickCount` 而崩溃。
+弹出菜单使用 AppKit `NSMenu`，背景、圆角、字体与高亮跟随系统外观；打开项带窗口图标，与退出项之间有原生分隔线。
 任务完成后的“退出 AALC”仍按原有完成流程退出。“最小化到托盘”开启时也使用菜单栏常驻模式。
 原生验证：`AALC_NATIVE_UI_TEST=1 .venv/bin/python -m pytest tests/test_macos_tray.py -q`，
 需要 WindowServer 访问；普通回归使用 offscreen 与隔离配置，不连接游戏。

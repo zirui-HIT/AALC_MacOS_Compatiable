@@ -28,7 +28,7 @@ app.processEvents()
 
 
 @pytest.mark.skipif(sys.platform != "darwin", reason="macOS menu bar lifecycle")
-@pytest.mark.parametrize("scenario", ["hide_and_restore", "cancel_quit", "deferred_quit", "application_quit"])
+@pytest.mark.parametrize("scenario", ["hide_and_restore", "tray_clicks", "cancel_quit", "deferred_quit", "application_quit"])
 def test_menu_bar_lifecycle(tmp_path, scenario):
     scripts = {
         "hide_and_restore": """
@@ -40,8 +40,9 @@ my_app.MessageBoxConfirm = Mock(side_effect=AssertionError('Hide must not prompt
 tray = window.tray_icon
 window.init_system_tray()
 assert window.tray_icon is tray
-assert tray.contextMenu() is window.tray_menu
-assert len(window.tray_menu.actions()) == 2
+assert tray.contextMenu() is None  # Native menus swallow the double click.
+assert len(window.tray_menu.actions()) == 3
+assert window.tray_menu.actions()[1].isSeparator()
 assert not app.quitOnLastWindowClosed()
 assert not window.windowIcon().isNull() and not tray.icon().isNull()
 for _ in range(3):
@@ -67,7 +68,43 @@ window.close()
 assert window.isVisible()  # Never hide without a way to restore.
 window.farming_interface.interface_left.my_script = None
 window.setting_interface.playcover_settings.worker = None
-window.tray_menu.actions()[1].trigger()
+window.tray_menu.actions()[-1].trigger()
+assert window._quit_confirmed
+""",
+        "tray_clicks": """
+from PySide6.QtTest import QTest
+script = Mock()
+script.isRunning.return_value = True
+window.farming_interface.interface_left.my_script = script
+my_app.MessageBoxConfirm = Mock(side_effect=AssertionError('Tray clicks must not quit'))
+menu = window.tray_menu
+for _ in range(3):
+    window.close()
+    window.tray_icon.activated.emit(QSystemTrayIcon.ActivationReason.Trigger)
+    assert not menu.isVisible() and not window.isVisible()
+    window.tray_icon.activated.emit(QSystemTrayIcon.ActivationReason.Trigger)
+    app.processEvents()
+    assert window.isVisible() and policies[-1] is True
+    QTest.qWait(QApplication.doubleClickInterval() + 100)
+    assert not menu.isVisible() and not window._quit_requested
+window.close()
+window.tray_icon.activated.emit(QSystemTrayIcon.ActivationReason.Trigger)
+QTest.qWait(QApplication.doubleClickInterval() + 100)
+assert menu.isVisible() and not window.isVisible()
+menu.actions()[0].trigger()
+app.processEvents()
+assert window.isVisible()
+menu.close()
+window.close()
+window.tray_icon.activated.emit(QSystemTrayIcon.ActivationReason.Context)
+assert menu.isVisible() and not window.isVisible()
+menu.close()
+window.tray_icon.activated.emit(QSystemTrayIcon.ActivationReason.DoubleClick)
+app.processEvents()
+assert window.isVisible() and not menu.isVisible()
+script.terminate.assert_not_called()
+window.farming_interface.interface_left.my_script = None
+menu.actions()[-1].trigger()
 assert window._quit_confirmed
 """,
         "cancel_quit": """
@@ -138,6 +175,36 @@ assert window._quit_confirmed
     assert result.returncode == 0, result.stdout + result.stderr
 
 
+@pytest.mark.skipif(sys.platform != "darwin", reason="AppKit status button")
+@pytest.mark.parametrize("buttons, expected", [(0, "Trigger"), (1, "Trigger"), (2, "Context")])
+def test_native_tray_gesture_does_not_read_mouse_click_count(tmp_path, buttons, expected):
+    script = f"""
+from unittest.mock import Mock
+from PySide6.QtWidgets import QApplication, QSystemTrayIcon
+from app.common import macos_tray
+app = QApplication(['tray-gesture-test'])
+tray = macos_tray.MacSystemTrayIcon(None)
+event = Mock()
+event.type.return_value = 15  # NSEventTypeApplicationDefined, as on macOS 27.
+event.clickCount.side_effect = AssertionError('clickCount is invalid on gesture events')
+macos_tray.NSApplication = Mock()
+macos_tray.NSApplication.sharedApplication.return_value.currentEvent.return_value = event
+macos_tray.NSEvent = Mock()
+macos_tray.NSEvent.pressedMouseButtons.return_value = {buttons}
+reasons = []
+tray.activated.connect(reasons.append)
+tray._target.clicked_(None)
+assert reasons == [QSystemTrayIcon.ActivationReason.{expected}], reasons
+event.clickCount.assert_not_called()
+"""
+    result = subprocess.run(
+        [sys.executable, "-c", script], cwd=SOURCE_ROOT,
+        env={**os.environ, "QT_QPA_PLATFORM": "offscreen"},
+        capture_output=True, text=True, timeout=20,
+    )
+    assert result.returncode == 0, result.stdout + result.stderr
+
+
 @pytest.mark.skipif(sys.platform != "darwin" or os.environ.get("AALC_NATIVE_UI_TEST") != "1",
                     reason="Opt-in native AppKit test requires WindowServer access")
 @pytest.mark.parametrize("quit_entry", ["menu", "native"])
@@ -152,7 +219,8 @@ module.CONFIG_PATH = os.environ['AALC_TEST_CONFIG_PATH']
 from PySide6.QtCore import QThread, QTimer
 from PySide6.QtTest import QTest
 from PySide6.QtWidgets import QApplication, QSystemTrayIcon
-from AppKit import NSApplication, NSApplicationActivationPolicyAccessory, NSApplicationActivationPolicyRegular
+from AppKit import NSApplication, NSApplicationActivationPolicyAccessory, NSApplicationActivationPolicyRegular, NSMenu, NSEventTrackingRunLoopMode
+from Foundation import NSRunLoop, NSTimer
 from app.my_app import MainWindow
 class Worker(QThread):
     ticks = 0
@@ -168,6 +236,25 @@ window.farming_interface.interface_left.my_script = worker
 worker.start()
 marks = []
 app.aboutToQuit.connect(lambda: marks.append('quit'))
+opened = []
+selected_action = [0]
+timers = []
+def inspect_native_menu():
+    menu = window.tray_icon._native_menu
+    assert isinstance(menu, NSMenu)
+    assert menu.numberOfItems() == 3 and menu.itemAtIndex_(1).isSeparatorItem()
+    assert menu.itemAtIndex_(0).title() == window.tray_menu.actions()[0].text()
+    assert menu.itemAtIndex_(2).title() == window.tray_menu.actions()[-1].text()
+    assert menu.itemAtIndex_(0).image() is not None and menu.font() is not None
+    assert window.tray_icon._status_item.menu() is None  # Preserve double-click handling.
+    opened.append(menu)
+    def select_item(timer):
+        menu.performActionForItemAtIndex_(selected_action[0])
+        menu.cancelTrackingWithoutAnimation()
+    timer = NSTimer.timerWithTimeInterval_repeats_block_(0.15, False, select_item)
+    timers.append(timer)
+    NSRunLoop.currentRunLoop().addTimer_forMode_(timer, NSEventTrackingRunLoopMode)
+window.tray_menu.aboutToShow.connect(inspect_native_menu)
 def verify():
     try:
         assert app.platformName() == 'cocoa'
@@ -186,23 +273,35 @@ def verify():
             assert native.activationPolicy() == NSApplicationActivationPolicyAccessory
             assert not window.isVisible() and window.tray_icon.isVisible()
             assert worker.isRunning() and worker.ticks > before
-            window.tray_menu.actions()[0].trigger()
+            before_opened = len(opened)
+            window.tray_icon._target.clicked_(None)
+            QTest.qWait(QApplication.doubleClickInterval() + 400)
+            assert len(opened) == before_opened + 1
+            QTest.qWait(200)
+            assert window.isVisible() and window.tray_icon._native_menu is None
+            window.close()
+            window.tray_icon._target.clicked_(None)
+            QTest.qWait(50)
+            window.tray_icon._target.clicked_(None)
             QTest.qWait(200)
             assert native.activationPolicy() == NSApplicationActivationPolicyRegular
             assert window.isVisible() and not window.isMinimized()
+            assert not window.tray_menu.isVisible() and worker.isRunning()
+            assert len(opened) == before_opened + 1  # Double clicks never open a menu.
         worker.requestInterruption()
         assert worker.wait(1000)
         if sys.argv[1] == 'native':
             native.terminate_(None)  # Native application menu / ⌘Q / Dock quit.
         else:
-            window.tray_menu.actions()[1].trigger()
+            selected_action[0] = 2
+            window.tray_icon.popup_menu(window.tray_menu)
     except Exception:
         traceback.print_exc()
         worker.requestInterruption()
         worker.wait(1000)
         app.exit(1)
 QTimer.singleShot(200, verify)
-QTimer.singleShot(7000, lambda: app.exit(2))
+QTimer.singleShot(10000, lambda: app.exit(2))
 assert app.exec() == 0
 assert marks == ['quit']
 assert window._quit_confirmed
