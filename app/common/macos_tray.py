@@ -50,6 +50,7 @@ class AALCStatusItemTarget(NSObject):
         tray = self.tray_ref()
         if tray is not None and tray._qt_menu is not None:
             tray._qt_menu.aboutToHide.emit()
+            tray._finish_menu()
 
 
 class MacSystemTrayIcon(QSystemTrayIcon):
@@ -106,14 +107,23 @@ class MacSystemTrayIcon(QSystemTrayIcon):
                 if index == 0:
                     item.setImage_(NSImage.imageWithSystemSymbolName_accessibilityDescription_("macwindow", action.text()))
             native_menu.addItem_(item)
-        # Keep the status button's own menu unset so it can still report two clicks.
+        # Attach only after the double-click interval; AppKit anchors the menu
+        # to the current status item position, including screen-edge adjustment.
         self._native_menu = native_menu
+        self._status_item.setMenu_(native_menu)
         try:
-            native_menu.popUpMenuPositioningItem_atLocation_inView_(None, (0, 0), self._status_item.button())
-        finally:
-            self._native_menu = None
-            self._qt_menu = None
-            self._menu_actions = []
+            self._status_item.button().performClick_(None)
+        except BaseException:
+            self._finish_menu()
+            raise
+
+    def _finish_menu(self):
+        # An assigned menu intercepts button clicks; detach it after tracking.
+        if self._status_item is not None:
+            self._status_item.setMenu_(None)
+        self._native_menu = None
+        self._qt_menu = None
+        self._menu_actions = []
 
     def hide(self):
         if self._status_item is not None:

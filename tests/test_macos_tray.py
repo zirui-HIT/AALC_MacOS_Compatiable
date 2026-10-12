@@ -246,7 +246,7 @@ def inspect_native_menu():
     assert menu.itemAtIndex_(0).title() == window.tray_menu.actions()[0].text()
     assert menu.itemAtIndex_(2).title() == window.tray_menu.actions()[-1].text()
     assert menu.itemAtIndex_(0).image() is not None and menu.font() is not None
-    assert window.tray_icon._status_item.menu() is None  # Preserve double-click handling.
+    assert window.tray_icon._status_item.menu() is menu  # AppKit positions it below the status item.
     opened.append(menu)
     def select_item(timer):
         menu.performActionForItemAtIndex_(selected_action[0])
@@ -266,7 +266,8 @@ def verify():
             QTest.qWait(50)
         assert window.tray_icon.geometry().isValid()
         window.grab().save(os.environ['AALC_NATIVE_PREVIEW_PATH'])
-        for _ in range(3):
+        for iteration in range(3):
+            window.tray_icon._status_item.setLength_(40 + iteration * 12)
             before = worker.ticks
             window.titleBar.closeBtn.click()
             QTest.qWait(200)
@@ -279,6 +280,7 @@ def verify():
             assert len(opened) == before_opened + 1
             QTest.qWait(200)
             assert window.isVisible() and window.tray_icon._native_menu is None
+            assert window.tray_icon._status_item.menu() is None  # Restore double-click handling after tracking.
             window.close()
             window.tray_icon._target.clicked_(None)
             QTest.qWait(50)
