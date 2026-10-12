@@ -1,5 +1,6 @@
 import copy
 import re
+import sys
 from collections import deque
 from functools import lru_cache
 
@@ -20,8 +21,6 @@ from qfluentwidgets import (
     BodyLabel,
     DropDownPushButton,
     InfoBarPosition,
-    PrimaryPushButton,
-    PushButton,
     RoundMenu,
     ScrollArea,
     SubtitleLabel,
@@ -31,12 +30,14 @@ from qfluentwidgets import (
 from qfluentwidgets import (
     FluentIcon as FIF,
 )
-from qframelesswindow import FramelessDialog, StandardTitleBar
+from qframelesswindow import StandardTitleBar
 from ruamel.yaml import YAML
 
 from app.base_tools import BaseSpinBox
 from app.card.messagebox_custom import BaseInfoBar, MessageBoxConfirm, MessageBoxEdit
+from app.common.widgets import PrimaryPushButton, PushButton
 from app.language_manager import LanguageManager
+from app.window_base import ApplicationDialog
 from module import THEME_PACK_LIST_EXAMPLE_PATH
 from module.config import cfg, theme_list
 from module.config.theme_pack_import_export import (
@@ -520,7 +521,7 @@ class ThemePackCard(QFrame):
             pass  # 信号可能已经被断开或对象已被销毁
 
 
-class ThemePackSettingDialog(FramelessDialog):
+class ThemePackSettingDialog(ApplicationDialog):
     """主题包权重设置对话框"""
 
     def __init__(self, parent, config_data, save_path):
@@ -528,8 +529,8 @@ class ThemePackSettingDialog(FramelessDialog):
         self.setObjectName("ThemePackSettingDialog")
         LanguageManager().register_component(self)
         self.setWindowTitle(self.tr("主题包权重配置"))
-        self.setMinimumSize(1100, 600)
-        self.resize(1200, 700)
+        self.setMinimumSize(740, 520) if sys.platform == "darwin" else self.setMinimumSize(1100, 600)
+        self.resize(840, 600) if sys.platform == "darwin" else self.resize(1200, 700)
 
         # 设置自定义标题栏
         self.setTitleBar(StandardTitleBar(self))
@@ -596,6 +597,7 @@ class ThemePackSettingDialog(FramelessDialog):
             self,
         )
         self.info_label.setAlignment(Qt.AlignCenter)
+        self.info_label.setWordWrap(True)
 
         # 优选阈值设置
         self.threshold_widget = QWidget(self)
@@ -713,13 +715,24 @@ class ThemePackSettingDialog(FramelessDialog):
 
         # 主布局 - 上方是滚动区域，下方是固定按钮区域
         self.main_layout = QVBoxLayout(self)
-        self.main_layout.setContentsMargins(0, 32, 0, 0)  # 顶部留出 32px 标题栏高度
+        self.main_layout.setContentsMargins(0, 0 if sys.platform == "darwin" else 32, 0, 0)  # 顶部留出 32px 标题栏高度
         self.main_layout.setSpacing(0)
         self.main_layout.addWidget(self.scroll_area, 1)  # 滚动区域占据剩余空间
         self.main_layout.addWidget(self.button_widget)  # 按钮区域固定在底部
 
     def _apply_styles(self):
         """应用主题样式到各个组件"""
+        if sys.platform == "darwin":
+            from app.common.macos_ui import colors, surface_qss
+
+            c = colors(isDarkTheme())
+            self.setStyleSheet(f"""
+                ThemePackSettingDialog, QScrollArea > QWidget {{ background: {c['window']}; }}
+                TitleLabel {{ color: {c['text']}; font-size: 18px; background: transparent; }}
+                SubtitleLabel {{ color: {c['text']}; font-size: 16px; background: transparent; }}
+                BodyLabel {{ color: {c['text']}; font-size: 13px; background: transparent; }}
+            """ + surface_qss(isDarkTheme()))
+            return
         # 设置对话框自身样式
         if isDarkTheme():
             bg_color = "rgba(28, 28, 28, 1)"
@@ -781,7 +794,7 @@ class ThemePackSettingDialog(FramelessDialog):
             normal_packs = self.config_data.get("theme_pack_list", {})
             hard_packs = self.config_data.get("theme_pack_list_hard", {})
 
-        col_count = 5  # 每行5个卡片
+        col_count = 3 if sys.platform == "darwin" else 5
 
         row = 0
         col = 0

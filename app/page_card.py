@@ -1,4 +1,5 @@
 import os
+import sys
 
 from markdown_it import MarkdownIt
 from mdit_py_plugins.anchors import anchors_plugin
@@ -10,13 +11,12 @@ from PySide6.QtGui import (
     QPainter,
     QTextDocument,
 )
-from PySide6.QtWidgets import QFileDialog, QFrame, QHBoxLayout, QVBoxLayout, QWidget
+from PySide6.QtWidgets import QFileDialog, QFrame, QHBoxLayout, QSizePolicy, QVBoxLayout, QWidget
 from qfluentwidgets import (
     Action,
     InfoBar,
     InfoBarPosition,
     MessageBox,
-    PopUpAniStackedWidget,
     RoundMenu,
     ScrollArea,
     SmoothMode,
@@ -39,6 +39,7 @@ from app.base_combination import (
 )
 from app.base_tools import BaseCheckBox
 from app.common.ui_config import get_theme_aware_text_browser_qss
+from app.common.widgets import PopUpAniStackedWidget
 from app.language_manager import LanguageManager
 from app.widget.custom_segmented_widget import CustomSegmentedWidget
 from module.config import TeamSetting, cfg, theme_list
@@ -55,11 +56,17 @@ class PageCard(QFrame):
 
         self.card_layout = QVBoxLayout(self)
         self.all_page = PopUpAniStackedWidget(self)
+        if sys.platform == "darwin":
+            self.all_page.setSizePolicy(QSizePolicy.Ignored, QSizePolicy.Ignored)
 
         self.page_general = QWidget()
         self.page_advanced = QWidget()
         self.vbox_general = QVBoxLayout(self.page_general)
         self.vbox_advanced = QVBoxLayout(self.page_advanced)
+        if sys.platform == "darwin":
+            for layout in (self.vbox_general, self.vbox_advanced):
+                layout.setContentsMargins(4, 4, 4, 4)
+                layout.setSpacing(4)
 
         self.scroll_general = ScrollArea(self)
         self.scroll_general.setWidgetResizable(True)
@@ -76,8 +83,12 @@ class PageCard(QFrame):
         self.all_page.addWidget(self.scroll_general, deltaX=-76, deltaY=0)
         self.all_page.addWidget(self.scroll_advanced, deltaX=76, deltaY=0)
 
-        self.card_layout.addWidget(self.all_page)
-        self.card_layout.addWidget(self.pivot)
+        self.card_layout.addWidget(self.all_page, 1)
+        if sys.platform == "darwin":
+            self.card_layout.insertWidget(0, self.pivot)
+            self.card_layout.setContentsMargins(0, 0, 0, 0)
+        else:
+            self.card_layout.addWidget(self.pivot)
 
         self.scroll_general.enableTransparentBackground()
         self.scroll_advanced.enableTransparentBackground()
@@ -87,6 +98,8 @@ class PageCard(QFrame):
     def set_pivot(self):
         self.pivot = CustomSegmentedWidget(self)
         self.pivot.setFixedHeight(36)
+        if sys.platform == "darwin":
+            self.pivot.setFixedWidth(280)
 
         self.pivot.addItem("general", "常规设置")
         self.pivot.addItem("advanced", "高级设置")
@@ -503,6 +516,14 @@ class PageMirror(PageCard):
         self.vbox_advanced.addWidget(self.skip_event_pack)
         self.vbox_advanced.addWidget(self.re_claim_rewards)
         self.vbox_advanced.addWidget(self.fight_to_last_man)
+        if sys.platform == "darwin":
+            options = QWidget(self.page_general)
+            options_layout = QVBoxLayout(options)
+            options_layout.setContentsMargins(4, 4, 4, 4)
+            for option in (self.hard_mirror, self.hard_mirror_single_bonuses, self.save_rewards):
+                self.vbox_advanced.removeWidget(option)
+                options_layout.addWidget(option)
+            self.vbox_general.insertWidget(0, options)
 
         self.card_layout.insertWidget(self.card_layout.count() - 1, self.mirror_count)
 

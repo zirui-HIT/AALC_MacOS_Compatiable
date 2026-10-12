@@ -6,6 +6,7 @@ from PySide6.QtGui import QDesktopServices
 from PySide6.QtWidgets import (
     QFileDialog,
     QHBoxLayout,
+    QLabel,
     QSizePolicy,
     QWidget,
 )
@@ -63,14 +64,12 @@ class SettingInterface(QWidget):
         self.__initLayout()
         self.__init_nav()
         if sys.platform == "darwin":
-            from app.playcover_settings import PlayCoverSettings
-
-            self.playcover_settings = PlayCoverSettings(self.scroll_widget)
-            self.expand_layout.addWidget(self.playcover_settings)
             for widget in (self.simulator_setting_group, self.game_path_group,
-                           self.win_input_type_card, self.hdr_warning_card, self.mirrorchyan_cdk_card):
+                           self.win_input_type_card, self.hdr_warning_card, self.mirrorchyan_cdk_card,
+                           self.experimental_group):
                 widget.setVisible(False)
             self.update_source_card.setEnabled(False)
+            self.update_source_card.hide()
             self.screenshot_benchmark_card.setVisible(False)
             ScheduleHelper().restore_daily_tasks(cfg)
 
@@ -116,6 +115,11 @@ class SettingInterface(QWidget):
         # give nav a fixed width and prevent stretch
         self.setting_nav.setSizePolicy(QSizePolicy.Fixed, QSizePolicy.Expanding)
         self.content_scroll.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
+        if sys.platform == "darwin":
+            self.main_layout.setSpacing(12)
+            self.setting_nav.setFixedWidth(148)
+            self.expand_layout.setContentsMargins(8, 4, 8, 12)
+            self.expand_layout.setSpacing(20)
 
     def __init_card(self):
         """初始化设置页中全部设置卡片。"""
@@ -493,6 +497,15 @@ class SettingInterface(QWidget):
             config_name="experimental_hdr_warning",
             parent=self.experimental_group,
         )
+        if sys.platform == "darwin":
+            from app.playcover_settings import PlayCoverSettings
+
+            self.playcover_group = BaseSettingCardGroup(QT_TRANSLATE_NOOP("BaseSettingCardGroup", "PlayCover 连接"), self.scroll_widget)
+            self.playcover_settings = PlayCoverSettings(self.playcover_group)
+            self.playcover_group.addSettingCard(self.playcover_settings)
+            self.version_label = QLabel(f"AALC {cfg.version}" + (" · Development" if not getattr(sys, "frozen", False) else ""))
+            self.version_label.setObjectName("secondaryLabel")
+            self.about_group.vBoxLayout.insertWidget(1, self.version_label)
 
     def _on_hard_mirror_chance_confirm(self, _: int) -> None:
         """手动调整困难模式次数后，同步刷新自动切换时间戳。
@@ -556,9 +569,14 @@ class SettingInterface(QWidget):
         self.about_group.addSettingCard(self.feedback_card)
 
         self.experimental_group.addSettingCard(self.hdr_warning_card)
-        self.experimental_group.addSettingCard(self.keep_screen_awake_card)
+        if sys.platform == "darwin":
+            self.game_setting_group.addSettingCard(self.keep_screen_awake_card)
+        else:
+            self.experimental_group.addSettingCard(self.keep_screen_awake_card)
 
         # 再把各个分组按页面顺序加入主滚动布局。
+        if sys.platform == "darwin":
+            self.expand_layout.addWidget(self.playcover_group)
         self.expand_layout.addWidget(self.game_setting_group)
         self.expand_layout.addWidget(self.theme_pack_group)
         self.expand_layout.addWidget(self.simulator_setting_group)
@@ -599,7 +617,9 @@ class SettingInterface(QWidget):
         ]
 
         if sys.platform == "darwin":
-            nav_items = [item for item in nav_items if item[0] not in {"simulator", "game_path"}]
+            nav_items = [("playcover", QT_TRANSLATE_NOOP("Nav", "PlayCover 连接"), self.playcover_group)] + [
+                item for item in nav_items if item[0] not in {"simulator", "game_path", "experimental"}
+            ]
         self.setting_nav.add_nav_items(nav_items)
 
         # connect scroll sync
@@ -751,6 +771,8 @@ class SettingInterface(QWidget):
 
     def retranslateUi(self):
         self.setting_nav.retranslateUi()
+        if sys.platform == "darwin":
+            self.playcover_group.retranslateUi()
 
         self.game_setting_group.retranslateUi()
         self.game_setting_card.retranslateUi()

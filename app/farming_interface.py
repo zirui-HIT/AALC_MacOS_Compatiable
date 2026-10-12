@@ -3,16 +3,21 @@ from typing import Callable
 
 from PySide6.QtCore import QT_TRANSLATE_NOOP, Qt
 from PySide6.QtGui import QTextBlockFormat, QTextCursor
-from PySide6.QtWidgets import QApplication, QDialog, QFrame, QHBoxLayout, QTextEdit, QVBoxLayout, QWidget
+from PySide6.QtWidgets import (
+    QApplication,
+    QDialog,
+    QFrame,
+    QGridLayout,
+    QHBoxLayout,
+    QLabel,
+    QTextEdit,
+    QToolButton,
+    QVBoxLayout,
+    QWidget,
+)
 from qfluentwidgets import (
     BodyLabel,
-    CheckBox,
-    ComboBox,
     FlyoutViewBase,
-    PopUpAniStackedWidget,
-    PrimaryPushButton,
-    PushButton,
-    SpinBox,
     TextEdit,
     ToolTipFilter,
     ToolTipPosition,
@@ -24,7 +29,9 @@ from qfluentwidgets import (
 from app import mediator, page_name_and_index, task_check_box, toggle_button_group
 from app.base_combination import CheckBoxWithButton
 from app.base_tools import BaseLabel, BaseSettingLayout, NormalTextButton, ToSettingButton
+from app.common.macos_ui import LogResizeHandle
 from app.common.ui_config import get_log_text_edit_qss, set_border_style
+from app.common.widgets import CheckBox, ComboBox, PopUpAniStackedWidget, PrimaryPushButton, PushButton, SpinBox
 from app.language_manager import LanguageManager
 from app.page_card import (
     PageDailyTask,
@@ -107,6 +114,9 @@ class AfterCompletionActionEditor(FlyoutViewBase):
         if sys.platform == "darwin":
             self._power_items = self._power_items[:1]
             self.box_exit_emulator.setEnabled(False)
+            self.box_exit_emulator.hide()
+            self.label_power.hide()
+            self.power_combo.hide()
         self.power_combo.addItems([self.tr(text) for text, _ in self._power_items])
         self.vbox.addWidget(self.power_combo)
 
@@ -188,7 +198,7 @@ class AfterCompletionSelector(QFrame):
         self._joiner_text = QT_TRANSLATE_NOOP("AfterCompletionSelector", "与")
         self._after_power_text = QT_TRANSLATE_NOOP("AfterCompletionSelector", "后，再{0}")
         self._power_only_text = QT_TRANSLATE_NOOP("AfterCompletionSelector", "执行{0}")
-        self._do_nothing_text = QT_TRANSLATE_NOOP("AfterCompletionSelector", "什么也不干")
+        self._do_nothing_text = QT_TRANSLATE_NOOP("AfterCompletionSelector", "不执行额外动作") if sys.platform == "darwin" else QT_TRANSLATE_NOOP("AfterCompletionSelector", "什么也不干")
         self._tool_tip_text = QT_TRANSLATE_NOOP(
             "AfterCompletionSelector", "支持组合动作：退出目标后再执行电源动作，可选择仅本次或保存默认"
         )
@@ -364,13 +374,22 @@ class FarmingInterface(QWidget):
     def __init__(self, parent=None):
         super().__init__(parent=parent)
         # objectName 由 addSubInterface 设置，这里不需要设置
-        self.hbox_layout = QHBoxLayout(self)
+        self.hbox_layout = QGridLayout(self) if sys.platform == "darwin" else QHBoxLayout(self)
         self.hbox_layout_left = QVBoxLayout()
         self.hbox_layout_center = QVBoxLayout()
         self.hbox_layout_right = QVBoxLayout()
-        self.hbox_layout.addLayout(self.hbox_layout_left, stretch=3)
-        self.hbox_layout.addLayout(self.hbox_layout_center, stretch=4)
-        self.hbox_layout.addLayout(self.hbox_layout_right, stretch=3)
+        if sys.platform == "darwin":
+            self.hbox_layout.setContentsMargins(0, 4, 0, 0)
+            self.hbox_layout.setSpacing(8)
+            self.hbox_layout.addLayout(self.hbox_layout_left, 0, 0)
+            self.hbox_layout.addLayout(self.hbox_layout_center, 0, 1)
+            self.hbox_layout.addLayout(self.hbox_layout_right, 1, 0, 1, 2)
+            self.hbox_layout.setColumnStretch(1, 1)
+            self.hbox_layout.setRowStretch(0, 1)
+        else:
+            self.hbox_layout.addLayout(self.hbox_layout_left, stretch=3)
+            self.hbox_layout.addLayout(self.hbox_layout_center, stretch=4)
+            self.hbox_layout.addLayout(self.hbox_layout_right, stretch=3)
 
         self.interface_left = FarmingInterfaceLeft()
         self.interface_center = FarmingInterfaceCenter()
@@ -378,6 +397,25 @@ class FarmingInterface(QWidget):
         self.hbox_layout_left.addWidget(self.interface_left)
         self.hbox_layout_center.addWidget(self.interface_center)
         self.hbox_layout_right.addWidget(self.interface_right)
+        if sys.platform == "darwin":
+            self.interface_left.setFixedWidth(206)
+            left = self.interface_left
+            # Move presentation widgets only; their original slots/owners remain unchanged.
+            left.hbox_layout.removeWidget(left.then)
+            left.hbox_layout.removeWidget(left.after_completion_selector)
+            left.hbox_layout.removeItem(left.action_button_layout)
+            left.action_button_layout.setParent(None)
+            self.action_footer = QFrame(self)
+            self.action_footer.setObjectName("actionFooter")
+            footer = QHBoxLayout(self.action_footer)
+            footer.setContentsMargins(12, 6, 12, 6)
+            left.then.setFixedWidth(56)
+            footer.addWidget(left.then)
+            left.after_completion_selector.setFixedWidth(300)
+            footer.addWidget(left.after_completion_selector)
+            footer.addStretch()
+            footer.addLayout(left.action_button_layout)
+            self.hbox_layout.addWidget(self.action_footer, 2, 0, 1, 2)
         token = global_hotkeys.register(self._hotkey_map)
         self.destroyed.connect(lambda: global_hotkeys.unregister(token))
         mediator.hotkey_listener_stop_signal.connect(self._listener_stop)
@@ -424,11 +462,13 @@ class FarmingInterfaceLeft(QWidget):
 
     def __init_widget(self):
         self.hbox_layout = QVBoxLayout(self)
+        if sys.platform == "darwin":
+            self.hbox_layout.setContentsMargins(0, 0, 0, 0)
         self.setting_layout = QVBoxLayout()
         self.setting_options = QVBoxLayout()
         self.setting_options.setSpacing(10)
 
-        self.setting_box = BaseSettingLayout()
+        self.setting_box = QFrame() if sys.platform == "darwin" else BaseSettingLayout()
         self.setting_box.setLayout(self.setting_layout)
 
     def __init_card(self):
@@ -461,7 +501,7 @@ class FarmingInterfaceLeft(QWidget):
         )
         self.mirror = CheckBoxWithButton(
             "mirror",
-            QT_TRANSLATE_NOOP("CheckBoxWithButton", "坐牢设置"),
+            QT_TRANSLATE_NOOP("CheckBoxWithButton", "镜牢任务") if sys.platform == "darwin" else QT_TRANSLATE_NOOP("CheckBoxWithButton", "坐牢设置"),
             None,
             "mirror",
         )
@@ -476,6 +516,8 @@ class FarmingInterfaceLeft(QWidget):
         )
 
         self.resonate_with_Ahab.button.setEnabled(False)
+        if sys.platform == "darwin":
+            self.resonate_with_Ahab.hide()
 
         self.select_all = NormalTextButton(QT_TRANSLATE_NOOP("NormalTextButton", "全选"), "select_all")
         self.select_all.clicked.connect(self.select_all_function)
@@ -494,14 +536,18 @@ class FarmingInterfaceLeft(QWidget):
         self.pause_resume_button.button.setMinimumSize(90, 70)
         self.pause_resume_button.setVisible(False)
         if sys.platform == "darwin":
-            self.setting_options.setSpacing(8)
+            self.setting_options.setSpacing(4)
             for row in (self.daily_task, self.get_reward, self.buy_enkephalin, self.mirror, self.resonate_with_Ahab):
-                row.hBoxLayout.setContentsMargins(8, 4, 8, 4)
-            self.select_all.setFixedHeight(48)
-            self.clear_all.setFixedHeight(48)
-            self.link_start_button.setFixedHeight(80)
-            self.pause_resume_button.setFixedHeight(80)
+                row.hBoxLayout.setContentsMargins(6, 2, 6, 2)
+            self.select_all.setFixedHeight(32)
+            self.clear_all.setFixedHeight(32)
+            self.link_start_button.setFixedHeight(36)
+            self.pause_resume_button.setFixedHeight(36)
+            self.link_start_button.button.setMinimumSize(120, 32)
+            self.pause_resume_button.button.setMinimumSize(80, 32)
             self.after_completion_selector.setMaximumHeight(96)
+            self.after_completion_selector.setMinimumWidth(0)
+            self.then.label.setText(self.tr("完成后"))
             font_size = 16
         else:
             scale_factor = QApplication.primaryScreen().logicalDotsPerInch() / 96  # Windows 标准 DPI 是 96
@@ -523,6 +569,14 @@ class FarmingInterfaceLeft(QWidget):
         self.setting_options.addWidget(self.mirror)
         self.setting_options.addWidget(self.resonate_with_Ahab)
         self.setting_layout.addLayout(self.setting_options)
+        if sys.platform == "darwin":
+            self.setting_box.setObjectName("taskPanel")
+            self.setting_box.setStyleSheet("")
+            self.setting_box.setAttribute(Qt.WA_StyledBackground)
+            self.setting_layout.setContentsMargins(10, 12, 10, 10)
+            self.task_title = QLabel(self.tr("运行任务"), self.setting_box)
+            self.task_title.setObjectName("sectionTitle")
+            self.setting_layout.insertWidget(0, self.task_title)
 
         self.hbox_button = QHBoxLayout()
         self.hbox_button.addWidget(self.select_all)
@@ -837,9 +891,14 @@ class FarmingInterfaceLeft(QWidget):
         self.resonate_with_Ahab.retranslateUi()
 
         self.then.retranslateUi()
+        if sys.platform == "darwin":
+            self.then.label.setText(self.tr("完成后"))
+            self.task_title.setText(self.tr("运行任务"))
         self.after_completion_selector.retranslateUi()
         self.select_all.retranslateUi()
         self.clear_all.retranslateUi()
+        if sys.platform == "darwin":
+            self.link_start_button.set_text(self.link_start_button.get_text())
         self.sync_pause_resume_button()
 
 
@@ -852,6 +911,8 @@ class FarmingInterfaceCenter(QWidget):
         self.__init_card()
         self.__init_layout()
         self.__init_setting()
+        if sys.platform == "darwin":
+            self._update_heading(list(page_name_and_index)[self.setting_page.currentIndex()])
 
         self.connect_mediator()
 
@@ -860,8 +921,20 @@ class FarmingInterfaceCenter(QWidget):
     def __init_widget(self):
         # self.setting_box = CardWidget()
         self.vbox = QVBoxLayout(self)
+        if sys.platform == "darwin":
+            self.setObjectName("parameterPanel")
+            self.setAttribute(Qt.WA_StyledBackground)
+            self.vbox.setContentsMargins(12, 12, 12, 12)
+            self.heading = QLabel(self)
+            self.heading.setObjectName("sectionTitle")
+            self.heading.setFixedHeight(30)
+            self.vbox.addWidget(self.heading)
 
         self.setting_page = PopUpAniStackedWidget(self)
+        if sys.platform == "darwin":
+            from PySide6.QtWidgets import QSizePolicy
+
+            self.setting_page.setSizePolicy(QSizePolicy.Ignored, QSizePolicy.Ignored)
 
     def __init_card(self):
         self.set_windows = PageSetWindows(self)
@@ -876,12 +949,17 @@ class FarmingInterfaceCenter(QWidget):
         self.setting_page.addWidget(self.get_reward)
         self.setting_page.addWidget(self.buy_enkephalin)
         self.setting_page.addWidget(self.mirror)
-        self.vbox.addWidget(self.setting_page)
+        self.vbox.addWidget(self.setting_page, 1)
         # self.setting_box.setLayout(self.vbox)
 
     def __init_setting(self):
         self.setting_page.setCurrentIndex(cfg.get_value("default_page"))
         list(toggle_button_group.items())[cfg.get_value("default_page")][1].setChecked(True)
+        if sys.platform == "darwin" and cfg.backend == "playcover" and cfg.get_value("default_page") == 0:
+            # Only the visible initial page changes; do not overwrite the saved index.
+            self.setting_page.setCurrentWidget(self.daily_task)
+            toggle_button_group["set_windows"].setChecked(False)
+            toggle_button_group["daily_task"].setChecked(True)
 
     def switch_to_page(self, target: str):
         try:
@@ -895,6 +973,13 @@ class FarmingInterfaceCenter(QWidget):
     def connect_mediator(self):
         # 连接所有可能信号
         mediator.switch_page.connect(self.switch_to_page)
+        if sys.platform == "darwin":
+            mediator.switch_page.connect(self._update_heading)
+
+    def _update_heading(self, target):
+        titles = {"set_windows": "窗口设置", "daily_task": "日常任务", "get_reward": "领取奖励",
+                  "buy_enkephalin": "狂气换体", "mirror": "镜牢任务"}
+        self.heading.setText(self.tr(titles.get(target, target)))
 
     def retranslateUi(self):
         self.set_windows.retranslateUi()
@@ -902,6 +987,8 @@ class FarmingInterfaceCenter(QWidget):
         self.get_reward.retranslateUi()
         self.buy_enkephalin.retranslateUi()
         self.mirror.retranslateUi()
+        if sys.platform == "darwin":
+            self._update_heading(list(page_name_and_index)[self.setting_page.currentIndex()])
 
 
 class FarmingInterfaceRight(QWidget):
@@ -915,15 +1002,30 @@ class FarmingInterfaceRight(QWidget):
         self._apply_theme_style()
         self._connect_log_stream()
         self._bootstrap_log_history()
+        if sys.platform == "darwin":
+            LanguageManager().register_component(self)
 
     def __init_widget(self):
         self.main_layout = QVBoxLayout(self)
+        if sys.platform == "darwin":
+            self.setObjectName("logPanel")
+            self.setAttribute(Qt.WA_StyledBackground)
+            self.main_layout.setContentsMargins(12, 6, 12, 8)
+            self.log_toggle = QToolButton(self)
+            self.log_toggle.setText(self.tr("运行日志"))
+            self.log_toggle.setCheckable(True)
+            self.log_toggle.setChecked(True)
+            self.log_toggle.setToolButtonStyle(Qt.ToolButtonTextBesideIcon)
+            self.log_toggle.setArrowType(Qt.DownArrow)
+            self.log_toggle.toggled.connect(self._set_log_expanded)
+            self.main_layout.addWidget(self.log_toggle, 0, Qt.AlignLeft)
 
     def __init_card(self):
         self.scroll_log_edit = TextEdit()
         self.scroll_log_edit.setAutoFormatting(QTextEdit.AutoFormattingFlag.AutoAll)
         self.scroll_log_edit.setReadOnly(True)
         if sys.platform == "darwin":
+            self.scroll_log_edit.setPlaceholderText(self.tr("运行任务后，日志会显示在这里。"))
             cursor = self.scroll_log_edit.textCursor()
             block_format = cursor.blockFormat()
             block_format.setLineHeight(135, QTextBlockFormat.LineHeightTypes.ProportionalHeight.value)
@@ -938,6 +1040,19 @@ class FarmingInterfaceRight(QWidget):
 
     def __init_layout(self):
         self.main_layout.addWidget(self.scroll_log_edit)
+        if sys.platform == "darwin":
+            self.scroll_log_edit.setFixedHeight(80)
+            self.log_resize_handle = LogResizeHandle(self.scroll_log_edit, self)
+            self.main_layout.insertWidget(0, self.log_resize_handle)
+
+    def _set_log_expanded(self, expanded):
+        self.scroll_log_edit.setVisible(expanded)
+        self.log_resize_handle.setVisible(expanded)
+        self.log_toggle.setArrowType(Qt.DownArrow if expanded else Qt.RightArrow)
+
+    def retranslateUi(self):
+        self.log_toggle.setText(self.tr("运行日志"))
+        self.scroll_log_edit.setPlaceholderText(self.tr("运行任务后，日志会显示在这里。"))
 
     def _connect_log_stream(self):
         ui_log_dispatcher.new_lines.connect(self._handle_new_lines)

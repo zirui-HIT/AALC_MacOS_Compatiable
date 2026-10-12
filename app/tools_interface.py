@@ -29,6 +29,7 @@ class ToolsInterface(ScrollArea):
         if sys.platform == "darwin":
             for card in (self.auto_battle_card, self.auto_production_card):
                 card.setEnabled(False)
+                card.hide()
                 card.setToolTip("This legacy tool is not yet validated on PlayCover; use the main task runner")
         self.setWidget(self.scroll_widget)
 

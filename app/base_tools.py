@@ -13,16 +13,9 @@ from PySide6.QtWidgets import (
 from qfluentwidgets import (
     Action,
     BodyLabel,
-    CheckBox,
-    ComboBox,
-    DoubleSpinBox,
     FluentIconBase,
-    LineEdit,
-    PushButton,
     RoundMenu,
-    SpinBox,
     SplitToolButton,
-    ToggleToolButton,
     ToolButton,
     ToolTipFilter,
     ToolTipPosition,
@@ -34,6 +27,7 @@ from qfluentwidgets.components.settings.setting_card import SettingIconWidget
 
 from app import *
 from app.common.ui_config import get_setting_layout_style
+from app.common.widgets import CheckBox, ComboBox, DoubleSpinBox, LineEdit, PushButton, SpinBox, ToggleToolButton
 from module.config import cfg
 
 

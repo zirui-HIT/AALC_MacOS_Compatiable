@@ -8,15 +8,13 @@ from qfluentwidgets import (
     DateTimeEdit,
     FluentStyleSheet,
     InfoBar,
-    LineEdit,
     MessageBox,
-    PrimaryPushButton,
     ScrollArea,
-    SpinBox,
 )
 from qfluentwidgets.common.icon import FluentIconBase
 from qfluentwidgets.components.widgets.info_bar import InfoBarIcon, InfoBarPosition
 
+from app.common.widgets import LineEdit, PrimaryPushButton, SpinBox
 from module.config import cfg
 
 
@@ -104,6 +102,7 @@ class MessageBoxConfirm(MessageBox):
         self.contentLabel.clear()
 
         self.contentLabel = BodyLabel(content, parent)
+        self.contentLabel.setWordWrap(True)
         self.contentLabel.setObjectName("contentLabel")
         self.contentLabel.setOpenExternalLinks(True)
         self.contentLabel.linkActivated.connect(self.open_url)

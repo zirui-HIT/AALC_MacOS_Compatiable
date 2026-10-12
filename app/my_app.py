@@ -13,14 +13,17 @@ from PySide6.QtCore import (
     QThread,
     QTimer,
 )
-from PySide6.QtGui import QAction, QCursor, QIcon
+from PySide6.QtGui import QAction, QCursor, QIcon, QKeySequence
 from PySide6.QtWidgets import (
     QApplication,
     QHBoxLayout,
     QLabel,
     QMenu,
+    QMenuBar,
+    QSizePolicy,
     QStackedWidget,
     QSystemTrayIcon,
+    QToolButton,
     QVBoxLayout,
     QWidget,
 )
@@ -40,6 +43,7 @@ from app import AnnouncementStatus, mediator
 from app.announcement_board import AnnouncementBoard, AnnouncementThread
 from app.card.messagebox_custom import MessageBoxConfirm, MessageBoxWarning
 from app.common.icons import application_icon
+from app.common.macos_ui import GlassPanel, apply_macos_theme, surface_qss
 from app.common.ui_config import apply_font_config, get_main_window_style, get_title_bar_style
 from app.custom_pivot import FullWidthPivot
 from app.farming_interface import FarmingInterface
@@ -103,9 +107,10 @@ class MainWindow(ApplicationWindow):
         self.setWindowIcon(application_icon())
         if sys.platform == "darwin":
             QApplication.instance().setWindowIcon(self.windowIcon())
-        self.setWindowTitle(f"Ahab Assistant Limbus Company - {cfg.version}")
+        self.setWindowTitle("AALC" if sys.platform == "darwin" else f"Ahab Assistant Limbus Company - {cfg.version}")
         self.setObjectName("MainWindow")
-        setThemeColor("#9c080b")
+        setThemeColor(QApplication.palette().color(QApplication.palette().ColorRole.Highlight)
+                      if sys.platform == "darwin" else "#9c080b")
         LanguageManager().register_component(self)
 
         # Apply theme
@@ -133,7 +138,8 @@ class MainWindow(ApplicationWindow):
         self.titleBar.hBoxLayout.insertWidget(3, self.resource_sync_status_label, 0, Qt.AlignLeft)
 
         if sys.platform == "darwin":
-            self.resize(1120, 760)
+            self.resize(880, 600)
+            self.setMinimumSize(760, 540)
         else:
             self.resize(1080, 600)
         # 恢复窗口位置
@@ -158,6 +164,8 @@ class MainWindow(ApplicationWindow):
 
         self.pivot = FullWidthPivot()  # 顶部 Tab 导航栏
         self.stackedWidget = QStackedWidget()  # 页面容器（一次只显示一个页面）
+        if sys.platform == "darwin":
+            self.stackedWidget.setSizePolicy(QSizePolicy.Ignored, QSizePolicy.Ignored)
         self.vBoxLayout = QVBoxLayout(self)  # 主布局（垂直）
         self.HBoxLayout = QHBoxLayout()  # 水平布局
         # self.stackedWidget.setStyleSheet("border: 1px solid black;")
@@ -184,20 +192,26 @@ class MainWindow(ApplicationWindow):
 
         # 向 pivot 添加子界面
         self.addSubInterface(self.farming_interface, "farming_interface", "一键长草")
-        if cfg.language_in_program == "zh_cn":
-            self.help_interface = MarkdownViewer(str(resource_path("./assets/doc/zh/How_to_use.md")))
+        if sys.platform != "darwin":
+            if cfg.language_in_program == "zh_cn":
+                self.help_interface = MarkdownViewer(str(resource_path("./assets/doc/zh/How_to_use.md")))
+            else:
+                self.help_interface = MarkdownViewer(str(resource_path("./assets/doc/en/How_to_use_EN.md")))
+            self.addSubInterface(self.help_interface, "help_interface", "帮助")
+            self.addSubInterface(self.tools_interface, "tools_interface", "小工具")
         else:
-            self.help_interface = MarkdownViewer(str(resource_path("./assets/doc/en/How_to_use_EN.md")))
-        self.addSubInterface(self.help_interface, "help_interface", "帮助")
-        self.addSubInterface(self.tools_interface, "tools_interface", "小工具")
+            self.tools_interface.hide()
         self.addSubInterface(self.setting_interface, "setting_interface", "设置")
         # self.addSubInterface(self.team_setting, 'team_setting', '队伍设置')
 
-        self.HBoxLayout.addWidget(self.pivot)
-        self.vBoxLayout.addSpacing(10)
-        self.vBoxLayout.addLayout(self.HBoxLayout, 0)
+        if sys.platform == "darwin":
+            self._init_macos_toolbar()
+        else:
+            self.HBoxLayout.addWidget(self.pivot)
+            self.vBoxLayout.addSpacing(10)
+            self.vBoxLayout.addLayout(self.HBoxLayout, 0)
         self.vBoxLayout.addWidget(self.stackedWidget)
-        self.vBoxLayout.setContentsMargins(30, 20, 30, 0)
+        self.vBoxLayout.setContentsMargins(12, 8, 12, 10) if sys.platform == "darwin" else self.vBoxLayout.setContentsMargins(30, 20, 30, 0)
         self.pivot.setMaximumHeight(50)
 
         # Tab 切换逻辑：点击 Tab 时切换对应页面
@@ -207,7 +221,7 @@ class MainWindow(ApplicationWindow):
         # 標題置頂
         self.titleBar.raise_()
         # Dev Watermark
-        if os.environ.get("AALC_DEV_MODE") == "1" or not getattr(sys, "frozen", False):
+        if sys.platform != "darwin" and (os.environ.get("AALC_DEV_MODE") == "1" or not getattr(sys, "frozen", False)):
             self.dev_watermark = DevWatermark(self)
             self.dev_watermark.move(0, 0)
             self.dev_watermark.raise_()
@@ -264,6 +278,48 @@ class MainWindow(ApplicationWindow):
                 scale_factor = 200
                 log.warning("计算得到的缩放因子大于最高预设值，调整为200%")
             cfg.set_value("zoom_scale", scale_factor)
+
+    def _init_macos_toolbar(self):
+        self.toolbar = GlassPanel(self)
+        layout = QHBoxLayout(self.toolbar)
+        layout.setContentsMargins(8, 6, 12, 6)
+        layout.setSpacing(12)
+        layout.addWidget(self.pivot)
+        layout.addStretch()
+        layout.addWidget(self.resource_sync_status_label)
+        self.tools_button = QToolButton(self.toolbar)
+        self.tools_button.setObjectName("toolbarTools")
+        self.tools_button.setText(self.tr("工具"))
+        self.tools_button.setPopupMode(QToolButton.InstantPopup)
+        menu = QMenu(self.tools_button)
+        self.screenshot_action = menu.addAction(self.tr("截图工具"))
+        self.screenshot_action.triggered.connect(
+            lambda: self.tools_interface._tool_start("screenshot", self.tools_interface.get_screenshot_card)
+        )
+        self.tools_button.setMenu(menu)
+        layout.addWidget(self.tools_button)
+        self.vBoxLayout.addWidget(self.toolbar)
+        self.pivot.setItemText("farming_interface", self.tr("任务"))
+
+        self.menu_bar = QMenuBar(self)
+        app_menu = self.menu_bar.addMenu("AALC")
+        self.about_action = app_menu.addAction(self.tr("关于 AALC"))
+        self.about_action.setMenuRole(QAction.AboutRole)
+        self.about_action.triggered.connect(self._show_macos_about)
+        self.preferences_action = app_menu.addAction(self.tr("设置…"))
+        self.preferences_action.setMenuRole(QAction.PreferencesRole)
+        self.preferences_action.setShortcut(QKeySequence("Ctrl+,"))
+        self.preferences_action.triggered.connect(lambda: self.pivot.setCurrentItem("setting_interface"))
+        quit_action = app_menu.addAction(self.tr("退出 AALC"))
+        quit_action.setMenuRole(QAction.QuitRole)
+        quit_action.setShortcut(QKeySequence.Quit)
+        quit_action.triggered.connect(self.on_tray_quit)
+        self.tools_menu = self.menu_bar.addMenu(self.tr("工具"))
+        self.tools_menu.addAction(self.screenshot_action)
+
+    def _show_macos_about(self):
+        self.pivot.setCurrentItem("setting_interface")
+        self.setting_interface.setting_nav.set_active_nav("about")
 
     def init_system_tray(self):
         """初始化系统托盘图标与点击事件。"""
@@ -534,7 +590,9 @@ class MainWindow(ApplicationWindow):
         mainWindow_style = get_main_window_style(is_dark)
         titleBar_style = get_title_bar_style(is_dark)
 
-        self.setStyleSheet(f"MainWindow {{ background-color: {mainWindow_style['bg_color']}; }}")
+        apply_macos_theme(is_dark)
+        self.setStyleSheet(f"MainWindow {{ background-color: {mainWindow_style['bg_color']}; }}"
+                          + (surface_qss(is_dark) if sys.platform == "darwin" else ""))
         title_size = 14 if sys.platform == "darwin" else 13
         self.titleBar.titleLabel.setStyleSheet(
             f"QLabel {{ background: transparent; font-size: {title_size}px; padding: 0 4px; color: {titleBar_style['text_color']}; }}"
@@ -802,9 +860,16 @@ class MainWindow(ApplicationWindow):
             subprocess.Popen([source_file, assert_name], creationflags=subprocess.DETACHED_PROCESS)
 
     def retranslateUi(self):
-        self.pivot.setItemText("farming_interface", self.tr("一键长草"))
-        self.pivot.setItemText("help_interface", self.tr("帮助"))
-        self.pivot.setItemText("tools_interface", self.tr("小工具"))
+        self.pivot.setItemText("farming_interface", self.tr("任务") if sys.platform == "darwin" else self.tr("一键长草"))
+        if sys.platform != "darwin":
+            self.pivot.setItemText("help_interface", self.tr("帮助"))
+            self.pivot.setItemText("tools_interface", self.tr("小工具"))
+        elif hasattr(self, "tools_button"):
+            self.tools_button.setText(self.tr("工具"))
+            self.screenshot_action.setText(self.tr("截图工具"))
+            self.about_action.setText(self.tr("关于 AALC"))
+            self.preferences_action.setText(self.tr("设置…"))
+            self.tools_menu.setTitle(self.tr("工具"))
         self.pivot.setItemText("setting_interface", self.tr("设置"))
         if sys.platform == "darwin" and hasattr(self, "tray_menu"):
             self.tray_menu.actions()[0].setText(self.tr("打开主窗口"))

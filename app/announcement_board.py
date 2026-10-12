@@ -1,3 +1,4 @@
+import sys
 import time
 
 import requests
@@ -12,13 +13,10 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 from qfluentwidgets import (
-    CheckBox,
     ListWidget,
-    PopUpAniStackedWidget,
-    PrimaryPushButton,
     isDarkTheme,
 )
-from qframelesswindow import FramelessDialog, StandardTitleBar
+from qframelesswindow import StandardTitleBar
 
 from app import AnnouncementStatus
 from app.common.icons import application_icon
@@ -28,6 +26,8 @@ from app.common.ui_config import (
     get_announcement_list_qss,
     get_announcement_sidebar_qss,
 )
+from app.common.widgets import CheckBox, PopUpAniStackedWidget, PrimaryPushButton
+from app.window_base import ApplicationDialog
 from module.config import cfg
 from module.logger import log
 from utils.runtime_paths import resource_path
@@ -134,7 +134,7 @@ class Announcement(QWidget):
         return self.raw_content
 
 
-class AnnouncementBoard(FramelessDialog):
+class AnnouncementBoard(ApplicationDialog):
     def __init__(self, anno, time, parent=None):
         super().__init__(parent=parent)
 
@@ -151,7 +151,7 @@ class AnnouncementBoard(FramelessDialog):
 
         # 主布局
         self.main_layout = QHBoxLayout(self)
-        self.main_layout.setContentsMargins(0, 32, 0, 0)  # 留出标题栏高度
+        self.main_layout.setContentsMargins(0, 0 if sys.platform == "darwin" else 32, 0, 0)  # 留出标题栏高度
         self.main_layout.setSpacing(0)
         self.setLayout(self.main_layout)
         self.resize(800, 580)

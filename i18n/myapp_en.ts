@@ -167,6 +167,10 @@
         <source>结束后操作</source>
         <translation>Post-completion operations</translation>
     </message>
+    <message>
+        <source>不执行额外动作</source>
+        <translation>Do nothing</translation>
+    </message>
 </context>
 <context>
     <name>AnnouncementBoard</name>
@@ -1181,6 +1185,10 @@ Right-click to set as permanent</translation>
         <source>亚哈共鸣</source>
         <translation>Ahab-Res</translation>
     </message>
+    <message>
+        <source>镜牢</source>
+        <translation>Mirror Dungeon</translation>
+    </message>
 </context>
 <context>
     <name>CheckBoxWithComboBox</name>
@@ -1674,6 +1682,14 @@ Entering a formation code will overwrite your current team configuration.</trans
         <source>当前选择后会永久保存</source>
         <translation type="vanished">The current selection will be saved permanently.</translation>
     </message>
+    <message>
+        <source>运行任务</source>
+        <translation>Tasks</translation>
+    </message>
+    <message>
+        <source>完成后</source>
+        <translation>After completion</translation>
+    </message>
 </context>
 <context>
     <name>HotketInputCard</name>
@@ -2022,6 +2038,26 @@ To stop seeing this notice, disable &quot;HDR detection warning&quot; under Sett
         <location filename="../app/my_app.py" line="563"/>
         <source>存在未保存的队伍设置</source>
         <translation>There are unsaved team settings</translation>
+    </message>
+    <message>
+        <source>任务</source>
+        <translation>Tasks</translation>
+    </message>
+    <message>
+        <source>工具</source>
+        <translation>Tools</translation>
+    </message>
+    <message>
+        <source>截图工具</source>
+        <translation>Capture tool</translation>
+    </message>
+    <message>
+        <source>关于 AALC</source>
+        <translation>About AALC</translation>
+    </message>
+    <message>
+        <source>设置…</source>
+        <translation>Settings…</translation>
     </message>
 </context>
 <context>
@@ -3197,6 +3233,121 @@ Update Logs:</translation>
         <location filename="../tasks/base/script_task_scheme.py" line="414"/>
         <source>所有任务已完成</source>
         <translation>All Tasks Done</translation>
+    </message>
+</context>
+<context>
+    <name>PushButton</name>
+    <message>
+        <source>开始运行</source>
+        <translation>Start</translation>
+    </message>
+</context>
+<context>
+    <name>FarmingInterfaceCenter</name>
+    <message>
+        <source>镜牢任务</source>
+        <translation>Mirror Dungeon</translation>
+    </message>
+    <message>
+        <source>日常任务</source>
+        <translation>Daily tasks</translation>
+    </message>
+    <message>
+        <source>领取奖励</source>
+        <translation>Rewards</translation>
+    </message>
+    <message>
+        <source>狂气换体</source>
+        <translation>Lunacy exchange</translation>
+    </message>
+</context>
+<context>
+    <name>FarmingInterfaceRight</name>
+    <message>
+        <source>运行日志</source>
+        <translation>Activity log</translation>
+    </message>
+    <message>
+        <source>运行任务后，日志会显示在这里。</source>
+        <translation>Task logs will appear here when a task runs.</translation>
+    </message>
+</context>
+<context>
+    <name>SettingInterface</name>
+    <message>
+        <source>PlayCover 连接</source>
+        <translation>PlayCover connection</translation>
+    </message>
+</context>
+<context>
+    <name>PlayCoverSettings</name>
+    <message>
+        <source>游戏图像语言</source>
+        <translation>Game image language</translation>
+    </message>
+    <message>
+        <source>本机地址</source>
+        <translation>Local host</translation>
+    </message>
+    <message>
+        <source>端口</source>
+        <translation>Port</translation>
+    </message>
+    <message>
+        <source>游戏应用</source>
+        <translation>Game application</translation>
+    </message>
+    <message>
+        <source>应用标识</source>
+        <translation>Bundle ID</translation>
+    </message>
+    <message>
+        <source>截图方式</source>
+        <translation>Capture method</translation>
+    </message>
+    <message>
+        <source>选择游戏…</source>
+        <translation>Choose game…</translation>
+    </message>
+    <message>
+        <source>保存连接设置</source>
+        <translation>Save connection settings</translation>
+    </message>
+    <message>
+        <source>测试连接与截图</source>
+        <translation>Test connection and capture</translation>
+    </message>
+    <message>
+        <source>先在 PlayCover 中启用 MaaTools，再启动游戏并测试连接。</source>
+        <translation>Enable MaaTools in PlayCover, then start the game and test the connection.</translation>
+    </message>
+</context>
+<context>
+    <name>LogResizeHandle</name>
+    <message>
+        <source>拖动调整日志高度</source>
+        <translation>Drag to resize the log pane</translation>
+    </message>
+</context>
+<context>
+    <name>CheckBoxWithButton</name>
+    <message>
+        <source>镜牢任务</source>
+        <translation>Mirror Dungeon</translation>
+    </message>
+</context>
+<context>
+    <name>Nav</name>
+    <message>
+        <source>PlayCover 连接</source>
+        <translation>PlayCover</translation>
+    </message>
+</context>
+<context>
+    <name>BaseSettingCardGroup</name>
+    <message>
+        <source>PlayCover 连接</source>
+        <translation>PlayCover connection</translation>
     </message>
 </context>
 </TS>

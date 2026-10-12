@@ -8,6 +8,7 @@ from PySide6.QtWidgets import (
     QDialog,
     QFileDialog,
     QFormLayout,
+    QHBoxLayout,
     QLabel,
     QLineEdit,
     QPushButton,
@@ -16,6 +17,7 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
+from app.language_manager import LanguageManager
 from module.backends.playcover.lifecycle import read_app_identity
 from module.config import cfg
 
@@ -50,12 +52,19 @@ class PlayCoverSettings(QWidget):
         super().__init__(parent)
         self.worker = None
         layout = QFormLayout(self)
-        layout.addRow(QLabel("PlayCover / MaaTools · 1920×1080"))
+        self.form_layout = layout
+        layout.setContentsMargins(14, 12, 14, 12)
+        layout.setHorizontalSpacing(20)
+        layout.setVerticalSpacing(10)
+        layout.setFieldGrowthPolicy(QFormLayout.AllNonFixedFieldsGrow)
+        heading = QLabel("MaaTools · 1920 × 1080")
+        heading.setObjectName("secondaryLabel")
+        layout.addRow(heading)
         self.profile = QComboBox()
         self.profile.addItem("English", "ios_en")
         self.profile.addItem("中文（日文字库汉化）", "ios_zh_cn")
         self.profile.setCurrentIndex(max(0, self.profile.findData(cfg.game_profile)))
-        layout.addRow("Game image language", self.profile)
+        layout.addRow(self.tr("游戏图像语言"), self.profile)
         self.host = QLineEdit(cfg.playcover_host)
         self.port = QSpinBox()
         self.port.setRange(1, 65535)
@@ -65,21 +74,42 @@ class PlayCoverSettings(QWidget):
         self.method = QComboBox()
         self.method.addItems(["bgr", "scrn"])
         self.method.setCurrentText(cfg.playcover_capture_method)
-        for label, field in (("Host (loopback only)", self.host), ("Port", self.port), ("Installed game .app", self.path), ("Bundle ID", self.bundle), ("Capture method", self.method)):
+        for label, field in ((self.tr("本机地址"), self.host), (self.tr("端口"), self.port), (self.tr("游戏应用"), self.path), (self.tr("应用标识"), self.bundle), (self.tr("截图方式"), self.method)):
             layout.addRow(label, field)
-        pick = QPushButton("Choose installed .app")
+        pick = QPushButton(self.tr("选择游戏…"))
+        self.pick_button = pick
         pick.clicked.connect(self.choose_app)
-        layout.addRow(pick)
-        save = QPushButton("Save connection settings")
+        save = QPushButton(self.tr("保存连接设置"))
+        self.save_button = save
         save.clicked.connect(self.save)
-        layout.addRow(save)
-        self.test = QPushButton("Test connection and preview screenshot (read only)")
+        save.setDefault(True)
+        actions = QHBoxLayout()
+        actions.addWidget(pick)
+        actions.addStretch()
+        actions.addWidget(save)
+        layout.addRow(actions)
+        self.test = QPushButton(self.tr("测试连接与截图"))
         self.test.clicked.connect(self.test_connection)
         layout.addRow(self.test)
-        self.status = QLabel("Start the game manually, then test. Enable MaaTools in PlayCover first.")
+        self.status = QLabel(self.tr("先在 PlayCover 中启用 MaaTools，再启动游戏并测试连接。"))
+        self.status.setObjectName("secondaryLabel")
         self.status.setWordWrap(True)
         layout.addRow(self.status)
         self.setMinimumHeight(self.sizeHint().height())
+        self._initial_status = self.status.text()
+        LanguageManager().register_component(self)
+
+    def retranslateUi(self):
+        labels = [(self.profile, "游戏图像语言"), (self.host, "本机地址"), (self.port, "端口"),
+                  (self.path, "游戏应用"), (self.bundle, "应用标识"), (self.method, "截图方式")]
+        for field, text in labels:
+            self.form_layout.labelForField(field).setText(self.tr(text))
+        self.pick_button.setText(self.tr("选择游戏…"))
+        self.save_button.setText(self.tr("保存连接设置"))
+        self.test.setText(self.tr("测试连接与截图"))
+        if self.status.text() == self._initial_status:
+            self._initial_status = self.tr("先在 PlayCover 中启用 MaaTools，再启动游戏并测试连接。")
+            self.status.setText(self._initial_status)
 
     def choose_app(self):
         path, _ = QFileDialog.getOpenFileName(self, "Choose installed Limbus Company", "", "Applications (*.app)")

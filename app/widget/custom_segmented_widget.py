@@ -1,10 +1,12 @@
 # 自定义 SegmentedWidget 组件
+import sys
 from typing import TYPE_CHECKING
 
 from PySide6.QtCore import QRectF
 from PySide6.QtGui import QColor, QPainter, QPainterPath, QPen
 from qfluentwidgets import SegmentedWidget, isDarkTheme, setCustomStyleSheet, themeColor
 
+from app.common.macos_ui import colors
 from app.common.ui_config import get_segmented_widget_qss
 
 if TYPE_CHECKING:
@@ -22,6 +24,11 @@ class CustomSegmentedWidget(SegmentedWidget):
         """应用自定义 QSS 样式。"""
         color = themeColor().name()
         light_qss, dark_qss = get_segmented_widget_qss(color)
+        if sys.platform == "darwin":
+            def style(dark):
+                c = colors(dark)
+                return f"SegmentedItem {{ color: {c['text']}; font-size: 14px; border: none; }}"
+            light_qss, dark_qss = style(False), style(True)
         setCustomStyleSheet(self, light_qss, dark_qss)
 
     def paintEvent(self, e: "QPaintEvent"):
@@ -57,7 +64,7 @@ class CustomSegmentedWidget(SegmentedWidget):
         if not self.currentItem():
             return
 
-        c = themeColor()
+        c = QColor(colors(is_dark)["line"]) if sys.platform == "darwin" else themeColor()
         painter.setPen(QPen(c, 1.5))
         painter.setBrush(QColor(30, 30, 30, 255) if is_dark else QColor(255, 255, 255, 255))
 

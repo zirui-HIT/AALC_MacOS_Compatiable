@@ -30,17 +30,13 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 from qfluentwidgets import (
-    ComboBox,
     FlyoutViewBase,
     IndicatorPosition,
     InfoBarPosition,
-    LineEdit,
     MessageBox,
     PopupTeachingTip,
-    PrimaryPushButton,
     PrimaryPushSettingCard,
     ProgressBar,
-    PushButton,
     PushSettingCard,
     SettingCard,
     SettingCardGroup,
@@ -58,6 +54,8 @@ from app.card.messagebox_custom import (
     MessageBoxEdit,
     MessageBoxSpinbox,
 )
+from app.common.macos_ui import MacSettingRow
+from app.common.widgets import ComboBox, LineEdit, PrimaryPushButton, PushButton
 from app.language_manager import LanguageManager
 from app.observe_ego_gift_selection import (
     OBSERVE_COL_VALUES,
@@ -92,6 +90,9 @@ class CheckBoxWithButton(QFrame):
         self.hBoxLayout.addWidget(self.box)
         self.hBoxLayout.addWidget(self.button)
         self.hBoxLayout.setAlignment(Qt.AlignCenter)
+        if sys.platform == "darwin":
+            self.hBoxLayout.setContentsMargins(4, 2, 4, 2)
+            self.hBoxLayout.setAlignment(Qt.AlignVCenter)
         task_check_box.append(self.box.check_box)
 
     def set_box_enabled(self, b: bool):
@@ -120,10 +121,13 @@ class CheckBoxWithComboBox(QFrame):
         self.box = BaseCheckBox(check_box_name, check_box_icon, check_box_title, parent=self, center=False, tips=tips)
         self.box.setFixedWidth(150)
         self.combo_box = BaseComboBox(combo_box_name, combo_box_width)
-        self.combo_box.setFixedWidth(300)
+        self.combo_box.setFixedWidth(180 if sys.platform == "darwin" else 300)
         self.hBoxLayout.addWidget(self.box, Qt.AlignLeft)
         self.hBoxLayout.addWidget(self.combo_box)
         self.hBoxLayout.setAlignment(Qt.AlignCenter)
+        if sys.platform == "darwin":
+            self.hBoxLayout.setContentsMargins(4, 2, 4, 2)
+            self.hBoxLayout.setAlignment(Qt.AlignVCenter)
 
     def add_combobox(self, config_name, combo_box_width=None):
         self.additional_combo_box = BaseComboBox(config_name, combo_box_width)
@@ -162,7 +166,7 @@ class LabelWithComboBox(QFrame):
         self.text = label_text
         self.items = items
 
-        if vbox:
+        if vbox and sys.platform != "darwin":
             self.layout_ = QVBoxLayout(self)
         else:
             self.layout_ = QHBoxLayout(self)
@@ -177,6 +181,12 @@ class LabelWithComboBox(QFrame):
         self.layout_.setAlignment(Qt.AlignmentFlag.AlignCenter)
         self.setMaximumHeight(80)
         self.setSizePolicy(QSizePolicy.Preferred, QSizePolicy.Fixed)
+        if sys.platform == "darwin":
+            self.layout_.setContentsMargins(4, 2, 4, 2)
+            self.layout_.setSpacing(20)
+            self.layout_.setStretch(0, 1)
+            self.combo_box.setMaximumWidth(200)
+            self.setMaximumHeight(58)
 
         if tips:
             self.setToolTip(tips)
@@ -202,7 +212,7 @@ class LabelWithSpinBox(QFrame):
         tips: str | None = None,
     ):
         super().__init__(parent)
-        self.vbox_layout = QVBoxLayout(self)
+        self.vbox_layout = QHBoxLayout(self) if sys.platform == "darwin" else QVBoxLayout(self)
         self.tips = tips
         self.text = label_text
         self.label = BaseLabel(label_text)
@@ -212,6 +222,12 @@ class LabelWithSpinBox(QFrame):
         self.vbox_layout.setAlignment(Qt.AlignCenter)
         self.setMaximumHeight(100)
         self.setSizePolicy(QSizePolicy.Preferred, QSizePolicy.Fixed)
+        if sys.platform == "darwin":
+            self.vbox_layout.setContentsMargins(4, 2, 4, 2)
+            self.vbox_layout.setStretch(0, 1)
+            self.box.setFixedWidth(150)
+            self.box.setFixedHeight(36)
+            self.setMaximumHeight(58)
 
         if tips:
             self.setToolTip(tips)
@@ -233,6 +249,10 @@ class MirrorSpinBox(QFrame):
         self.box_layout.addWidget(self.label, stretch=1)
         self.box_layout.addWidget(self.box, stretch=2)
         self.setMaximumHeight(70)
+        if sys.platform == "darwin":
+            self.box_layout.setContentsMargins(4, 2, 4, 2)
+            self.box.setFixedWidth(150)
+            self.box.setFixedHeight(36)
 
     def retranslateUi(self):
         self.label.label.setText(self.tr(self.text))
@@ -677,7 +697,7 @@ class SinnerSelect(QFrame):
         self.ani.start()
 
 
-class ComboBoxSettingCard(SettingCard):
+class ComboBoxSettingCard(MacSettingRow, SettingCard):
     valueChanged = Signal()
 
     def __init__(
@@ -727,12 +747,15 @@ class BaseSettingCardGroup(SettingCardGroup):
     def __init__(self, title: str, parent=None):
         super().__init__(title, parent)
         self.text = title
+        if sys.platform == "darwin":
+            self.titleLabel.setStyleSheet("font-size: 16px; font-weight: 600; background: transparent;")
+            self.cardLayout.setSpacing(0)
 
     def retranslateUi(self):
         self.titleLabel.setText(self.tr(self.text))
 
 
-class BasePushSettingCard(PushSettingCard):
+class BasePushSettingCard(MacSettingRow, PushSettingCard):
     def __init__(self, text, icon: str | QIcon | FluentIconBase, title, content=None, parent=None):
         super().__init__(text, icon, title, content, parent)
         self.text = text
@@ -766,7 +789,7 @@ class BasePushSettingCard(PushSettingCard):
         self.button.setText(self.tr(self.text))
 
 
-class BasePrimaryPushSettingCard(PrimaryPushSettingCard):
+class BasePrimaryPushSettingCard(MacSettingRow, PrimaryPushSettingCard):
     def __init__(self, text, icon, title, content=None, parent=None):
         super().__init__(text, icon, title, content, parent)
         self.text = text
@@ -834,7 +857,7 @@ class PushSettingCardMirrorchyan(SettingCard):
         self.button.setText(self.tr(self.button_text))
 
 
-class SwitchSettingCard(SettingCard):
+class SwitchSettingCard(MacSettingRow, SettingCard):
     """Setting card with switch button"""
 
     checkedChanged = Signal(bool)
@@ -1196,6 +1219,11 @@ class DailySettingCard(SwitchSettingCard):
         self.button.clicked.connect(self.__show_view)
         self.__connect_signal()
         self.retranslateUi()
+        if sys.platform == "darwin":
+            self.autodaily_timepicker.setColumnWidth(0, 52)
+            self.autodaily_timepicker.setColumnWidth(1, 52)
+            self.autodaily_timepicker.setFixedWidth(105)
+            self._fit_text()
 
     def __show_view(self):
         self._popup = PopupTeachingTip.make(

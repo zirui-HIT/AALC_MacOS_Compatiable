@@ -2,7 +2,7 @@
 import sys
 
 from PySide6.QtCore import QT_TRANSLATE_NOOP, Qt
-from PySide6.QtGui import QColor, QFont
+from PySide6.QtGui import QColor
 from PySide6.QtWidgets import QApplication, QFrame
 from qfluentwidgets import isDarkTheme, qconfig
 
@@ -41,14 +41,17 @@ def apply_font_config():
     """应用全局字体配置"""
     qconfig.fontFamilies.value = FONT_FAMILIES
     if sys.platform == "darwin":
-        font = QFont()
-        font.setFamilies(FONT_FAMILIES)
-        font.setPixelSize(16)
-        QApplication.instance().setFont(font)
+        from app.common.macos_ui import system_font
+
+        QApplication.instance().setFont(system_font())
 
 
 def get_main_window_style(is_dark: bool) -> dict:
     """获取主窗口样式"""
+    if sys.platform == "darwin":
+        from app.common.macos_ui import colors
+
+        return {"bg_color": colors(is_dark)["window"]}
     return MAIN_WINDOW_STYLES["dark"] if is_dark else MAIN_WINDOW_STYLES["light"]
 
 
@@ -72,6 +75,8 @@ SETTING_LAYOUT_STYLES = {
 
 def get_setting_layout_style(is_dark: bool) -> dict:
     """获取设置卡片样式"""
+    if sys.platform == "darwin":
+        return {"border": "none", "border_hover": "none"}
     return SETTING_LAYOUT_STYLES["dark"] if is_dark else SETTING_LAYOUT_STYLES["light"]
 
 
@@ -812,6 +817,11 @@ SETTING_INTERFACE_STYLES = {
 
 def get_setting_interface_qss() -> tuple[str, str]:
     """返回 (light_qss, dark_qss) 用于设置界面"""
+    if sys.platform == "darwin":
+        from app.common.macos_ui import surface_qss
+
+        return tuple("QScrollArea { border: none; background: transparent; }" + surface_qss(dark)
+                     for dark in (False, True))
     return SETTING_INTERFACE_STYLES["light"], SETTING_INTERFACE_STYLES["dark"]
 
 

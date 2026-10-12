@@ -7,11 +7,14 @@ Custom Pivot component with full-width indicator and bottom divider line
 2. 使用setCustomStyleSheet管理样式，通过属性选择器控制样式
 """
 
+import sys
+
 from PySide6.QtCore import QRectF, Qt
 from PySide6.QtGui import QColor, QPainter, QPen
 from PySide6.QtWidgets import QHBoxLayout, QPushButton, QSizePolicy, QWidget
 from qfluentwidgets import Pivot, isDarkTheme, qconfig, themeColor
 
+from app.common.macos_ui import colors
 from app.common.ui_config import get_pivot_item_qss
 
 
@@ -28,6 +31,8 @@ class PivotItem(QPushButton):
         self.setProperty("pivotItem", "true")
         self.setProperty("selected", "false")
         self.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Fixed)
+        if sys.platform == "darwin":
+            self.setFixedSize(112, 34)
 
     @property
     def routeKey(self) -> str:
@@ -85,8 +90,19 @@ class FullWidthPivot(Pivot):
         # 更新所有子项的样式
         for item in self.items.values():
             item.setTextColor(light_qss, dark_qss)
+            if sys.platform == "darwin":
+                self._style_macos_item(item)
 
         self.update()
+
+    def _style_macos_item(self, item):
+        c = colors(isDarkTheme())
+        item.setStyleSheet(f"""
+            QPushButton {{ border: none; border-radius: 7px; background: transparent;
+                color: {c['secondary']}; font-size: 16px; padding: 4px 12px; }}
+            QPushButton:hover {{ background: {c['selection']}; }}
+            QPushButton[selected="true"] {{ background: {c['surface']}; color: {c['text']}; }}
+        """)
 
     def createItem(self, routeKey: str, text: str) -> QPushButton:
         """重写创建item的方法，返回自定义PivotItem"""
@@ -96,6 +112,8 @@ class FullWidthPivot(Pivot):
         color = themeColor().name()
         light_qss, dark_qss = get_pivot_item_qss(color)
         item.setTextColor(light_qss, dark_qss)
+        if sys.platform == "darwin":
+            self._style_macos_item(item)
 
         item.clicked.connect(lambda: self._onUiItemClicked(routeKey))
         return item
@@ -164,6 +182,8 @@ class FullWidthPivot(Pivot):
     def paintEvent(self, e):
         """绘制指示器和分割线"""
         QWidget.paintEvent(self, e)
+        if sys.platform == "darwin":
+            return
 
         painter = QPainter(self)
         painter.setRenderHints(QPainter.Antialiasing)

@@ -14,8 +14,6 @@ from PySide6.QtWidgets import (
 from qfluentwidgets import (
     ExpandSettingCard,
     InfoBarPosition,
-    PrimaryPushButton,
-    PushButton,
     ScrollArea,
     SmoothMode,
     ToolButton,
@@ -41,6 +39,7 @@ from app.common.ui_config import (
     get_starlight_bonus_name,
     get_starlight_total_cost_qss,
 )
+from app.common.widgets import PrimaryPushButton, PushButton
 from app.language_manager import LanguageManager
 from app.observe_ego_gift_selection import (
     MAX_OBSERVE_GIFT_SELECTIONS,
