@@ -122,6 +122,29 @@ PlayCover/游戏相关进程。AALC 的 GUI 停止按钮始终可用；全局热
 权限时启动，不会代替用户开启系统授权。任务期间使用 caffeinate，结束/取消/异常时清理。
 macOS 结束后操作目前只开放退出游戏/AALC，其余电源动作待验证。
 
+## 每日定时与常驻
+
+macOS 设置页已开放原有“定时执行”卡片。每日任务通过 `launchd` 的
+`StartCalendarInterval` 触发原来的 `start --exit autodaily` 等命令；常驻主实例
+通过原有本机 socket 接收参数，任务排队、游戏启动、兑换和结束后动作均沿用原流程。
+定时进程使用系统自带 `sh`/`nc` 发送现有 socket 协议，源码和打包主实例均可接收；
+不再从 `launchd` 直接执行下载目录中的 Python/应用，以避免等待 macOS 文件访问权限。
+
+任务 plist 和标准输出日志保存在仓库 `.runtime/schedules/`，通过 `launchctl`
+加载到当前用户 GUI 会话，不写入系统 LaunchAgents 目录。启用项在 AALC 下次启动时
+恢复注册，因此重新登录后需要先启动 AALC。界面关闭定时开关会卸载对应任务。
+
+本机 2026-10-12 配置为：08:00 日常（经验本 1 次、纽本 3 次）、邮件及日/周常领奖、
+狂气兑换至当天 2 次；20:00 仅启用狂气兑换任务。兑换函数包含普通模组合成，
+若早晨未达到当天目标，晚上按原流程补足。两项均仅退出游戏，不退出 AALC。
+槽位保存四类任务的开关，次数、队伍和策略继续共用主配置；早晨槽位不启用镜牢。
+
+本机正常启动打包 AALC 主进程；常驻防休眠项
+`.runtime/schedules/io.aalc.PlayCover.resident.plist` 使用 `caffeinate -i -w <AALC PID>`
+跟随该进程，阻止空闲系统睡眠，允许显示器息屏。主进程启动不携带 `start` 参数，
+不会立即执行游戏任务。主动睡眠、关机及退出登录仍会中断常驻；
+`launchd` 的日历任务在睡眠期间错过时会于唤醒后触发。
+
 2026-10-11 选择性整合上游 PR：
 
 - [#942](https://github.com/KIYI671/AhabAssistantLimbusCompany/pull/942)：未截图、空图或异常维度直接返回未识别结果。

@@ -1066,6 +1066,10 @@ class AutoDailyView(FlyoutViewBase):
 
         self.__get_init()
 
+        if sys.platform == "darwin":
+            for widget in (self.box_exit_emulator, self.box_sleep, self.box_hibernate, self.box_shutdown, self.box_lock):
+                widget.setVisible(False)
+
         mediator.autodaily_setting.connect(self.__autodaily_setting)
         self.save_button.clicked.connect(self.__save)
         self.retranslateUi()

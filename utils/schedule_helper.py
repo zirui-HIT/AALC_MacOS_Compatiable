@@ -5,7 +5,12 @@ utils.schedule_helper: 计划任务的帮助类的实现
 import datetime
 import getpass
 import os
+import plistlib
+import shlex
+import subprocess
 import sys
+
+from utils.runtime_paths import data_path
 
 if os.name == "nt":
     import winreg
@@ -25,6 +30,8 @@ class ScheduleHelper:
         # 分离平台细节, 如果日后有跨平台需求能少写很多代码
         if os.name == "nt":
             self._impl = ScheduleHelper_Win32()
+        elif sys.platform == "darwin":
+            self._impl = ScheduleHelper_MacOS()
         else:
             raise RuntimeError("未知平台")
 
@@ -65,6 +72,97 @@ class ScheduleHelper:
         """
         self._impl.unregister_task(task_name)
         log.info("移除每日任务成功")
+
+    def restore_daily_tasks(self, config):
+        """Restore portable launchd jobs when AALC enters a new macOS login session."""
+        if sys.platform != "darwin":
+            return
+        for suffix in ("", "2", "3", "4"):
+            name = "autodaily" + suffix
+            if config.get_value(name, False):
+                try:
+                    value = config.get_value("autodaily_time" + suffix, "00:00")
+                    time = datetime.datetime.strptime(value, "%H:%M")
+                    self.register_daily_task("AALC Daily Task" + suffix, f"start --exit {name}", time.hour, time.minute)
+                except Exception:
+                    log.exception("恢复 macOS 定时任务 %s 失败", name)
+
+
+class ScheduleHelper_MacOS:
+    """User-session launchd adapter; plist files and logs stay in .runtime."""
+
+    _labels = {
+        "AALC Daily Task": "io.aalc.PlayCover.daily1",
+        "AALC Daily Task2": "io.aalc.PlayCover.daily2",
+        "AALC Daily Task3": "io.aalc.PlayCover.daily3",
+        "AALC Daily Task4": "io.aalc.PlayCover.daily4",
+        "AALC Autostart": "io.aalc.PlayCover.autostart",
+    }
+
+    def __init__(self):
+        self.directory = data_path("schedules")
+        self.domain = f"gui/{os.getuid()}"
+
+    @staticmethod
+    def _launchctl(*arguments, check=True):
+        return subprocess.run(["/bin/launchctl", *arguments], check=check,
+                              capture_output=True, text=True, timeout=10)
+
+    def _definition(self, task_name, cmd_line):
+        label = self._labels[task_name]
+        # Use main.py's existing resident-instance protocol without starting a
+        # second Python/app from launchd's macOS privacy context.
+        payload = shlex.quote("|".join(shlex.split(cmd_line)))
+        command = f"printf '%s' {payload} | /usr/bin/nc -w 2 -G 1 127.0.0.1 62333"
+        return {
+            "Label": label,
+            "ProgramArguments": ["/bin/sh", "-c", command],
+            # AALC resolves its resources/data absolutely. launchd's getcwd in
+            # a protected Downloads directory can wait on macOS privacy access.
+            "WorkingDirectory": "/",
+            "LimitLoadToSessionType": "Aqua",
+            "ProcessType": "Interactive",
+            "StandardOutPath": str(self.directory / f"{label}.stdout.log"),
+            "StandardErrorPath": str(self.directory / f"{label}.stderr.log"),
+        }
+
+    def _register(self, definition):
+        label = definition["Label"]
+        target = f"{self.domain}/{label}"
+        path = self.directory / f"{label}.plist"
+        loaded = self._launchctl("print", target, check=False).returncode == 0
+        if path.is_file() and loaded:
+            with path.open("rb") as file:
+                if plistlib.load(file) == definition:
+                    return
+        if loaded:
+            self._launchctl("bootout", target)
+        self.directory.mkdir(parents=True, exist_ok=True, mode=0o700)
+        temporary = path.with_suffix(".plist.tmp")
+        try:
+            with temporary.open("wb") as file:
+                plistlib.dump(definition, file)
+            temporary.chmod(0o600)
+            temporary.replace(path)
+            self._launchctl("bootstrap", self.domain, str(path))
+        finally:
+            temporary.unlink(missing_ok=True)
+
+    def register_daily_task(self, task_name, cmd_line, h, m):
+        definition = self._definition(task_name, cmd_line)
+        definition["StartCalendarInterval"] = {"Hour": h, "Minute": m}
+        self._register(definition)
+        log.info("创建 macOS 每日任务成功，执行时间为每日 %02d:%02d", h, m)
+
+    def register_onstart_task(self, task_name, cmd_line):
+        raise NotImplementedError("macOS login autostart is not enabled; start AALC before its daily tasks")
+
+    def unregister_task(self, task_name):
+        label = self._labels[task_name]
+        target = f"{self.domain}/{label}"
+        if self._launchctl("print", target, check=False).returncode == 0:
+            self._launchctl("bootout", target)
+        (self.directory / f"{label}.plist").unlink(missing_ok=True)
 
 
 class ScheduleHelper_Win32:

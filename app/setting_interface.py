@@ -67,11 +67,12 @@ class SettingInterface(QWidget):
 
             self.playcover_settings = PlayCoverSettings(self.scroll_widget)
             self.expand_layout.addWidget(self.playcover_settings)
-            for widget in (self.simulator_setting_group, self.game_path_group, self.autodaily_group,
+            for widget in (self.simulator_setting_group, self.game_path_group,
                            self.win_input_type_card, self.hdr_warning_card, self.mirrorchyan_cdk_card):
                 widget.setVisible(False)
             self.update_source_card.setEnabled(False)
             self.screenshot_benchmark_card.setVisible(False)
+            ScheduleHelper().restore_daily_tasks(cfg)
 
         # 再应用主题样式并注册主题切换监听。
         self._apply_theme_style()
@@ -598,7 +599,7 @@ class SettingInterface(QWidget):
         ]
 
         if sys.platform == "darwin":
-            nav_items = [item for item in nav_items if item[0] not in {"simulator", "game_path", "autodaily"}]
+            nav_items = [item for item in nav_items if item[0] not in {"simulator", "game_path"}]
         self.setting_nav.add_nav_items(nav_items)
 
         # connect scroll sync
