@@ -93,7 +93,15 @@ class CheckBoxWithButton(QFrame):
         if sys.platform == "darwin":
             self.hBoxLayout.setContentsMargins(4, 2, 4, 2)
             self.hBoxLayout.setAlignment(Qt.AlignVCenter)
+            self.button.button.toggled.connect(self._show_parameter_selection)
+            self._show_parameter_selection(self.button.button.isChecked())
         task_check_box.append(self.box.check_box)
+
+    def _show_parameter_selection(self, selected):
+        self.setProperty("parameterSelected", selected)
+        self.style().unpolish(self)
+        self.style().polish(self)
+        self.update()
 
     def set_box_enabled(self, b: bool):
         self.box.set_box_enabled(b)

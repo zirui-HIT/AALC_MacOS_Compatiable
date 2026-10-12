@@ -47,9 +47,21 @@ log.append('Win Rate — 图片更新完成')
 for theme in (Theme.LIGHT, Theme.DARK):
     setTheme(theme)
     app.processEvents()
-    assert log.font().pixelSize() >= 16
-    assert log.document().firstBlock().blockFormat().lineHeight() == 135
-    assert window.pivot.currentItem().font().pixelSize() >= 16
+    assert 12 <= log.font().pixelSize() <= 13
+    assert 100 <= log.document().firstBlock().blockFormat().lineHeight() <= 115
+    assert window.pivot.currentItem().font().pixelSize() >= 14
+    log.clear()
+    for line in ('23:00:00 [INFO] 已准备', '23:00:01 [INFO] 已连接',
+                 '23:00:02 [INFO] Win Rate', '23:00:03 [INFO] 图像更新完成'):
+        log.append(line)
+    app.processEvents()
+    assert log.document().blockCount() == 4
+    assert log.document().size().height() <= log.viewport().height()
+    block = log.document().firstBlock()
+    while block.isValid():
+        assert 100 <= block.blockFormat().lineHeight() <= 115
+        assert block.blockFormat().bottomMargin() == 0
+        block = block.next()
 options = window.setting_interface.zoom_card.comboBox
 assert all(options.itemData(i) >= 100 for i in range(options.count()))
 left = window.farming_interface.interface_left

@@ -69,6 +69,8 @@ spy = QSignalSpy(mediator.switch_page)
 left.mirror.button.button.click()
 assert spy.count() == 1 and cfg.default_page == 4
 assert center.heading.text() == '镜牢任务'
+assert left.mirror.property('parameterSelected') is True
+assert left.daily_task.property('parameterSelected') is False
 assert center.setting_page.currentWidget() is center.mirror
 combo = center.get_reward.set_get_prize.combo_box.combo_box
 spy = QSignalSpy(combo.currentIndexChanged)

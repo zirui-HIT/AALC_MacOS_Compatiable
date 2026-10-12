@@ -2,7 +2,7 @@ import sys
 from typing import Callable
 
 from PySide6.QtCore import QT_TRANSLATE_NOOP, Qt
-from PySide6.QtGui import QTextBlockFormat, QTextCursor
+from PySide6.QtGui import QTextCursor
 from PySide6.QtWidgets import (
     QApplication,
     QDialog,
@@ -22,6 +22,7 @@ from qfluentwidgets import (
     ToolTipFilter,
     ToolTipPosition,
     TransparentToolButton,
+    isDarkTheme,
     qconfig,
     setCustomStyleSheet,
 )
@@ -29,7 +30,7 @@ from qfluentwidgets import (
 from app import mediator, page_name_and_index, task_check_box, toggle_button_group
 from app.base_combination import CheckBoxWithButton
 from app.base_tools import BaseLabel, BaseSettingLayout, NormalTextButton, ToSettingButton
-from app.common.macos_ui import LogResizeHandle
+from app.common.macos_ui import CompactLogTextEdit, LogResizeHandle
 from app.common.ui_config import get_log_text_edit_qss, set_border_style
 from app.common.widgets import CheckBox, ComboBox, PopUpAniStackedWidget, PrimaryPushButton, PushButton, SpinBox
 from app.language_manager import LanguageManager
@@ -239,6 +240,13 @@ class AfterCompletionSelector(QFrame):
         qconfig.themeChangedFinished.connect(self.apply_style)
 
     def apply_style(self):
+        if sys.platform == "darwin":
+            from app.common.macos_ui import colors
+
+            c = colors(isDarkTheme())
+            self.setStyleSheet("AfterCompletionSelector { background: transparent; border: none; }")
+            self.summary.setStyleSheet(f"font-size: 13px; color: {c['text']}; background: transparent;")
+            return
         set_border_style(self)
 
     def _summary_text(self, actions: list[str], power_action: str) -> tuple[str, str]:
@@ -1010,7 +1018,8 @@ class FarmingInterfaceRight(QWidget):
         if sys.platform == "darwin":
             self.setObjectName("logPanel")
             self.setAttribute(Qt.WA_StyledBackground)
-            self.main_layout.setContentsMargins(12, 6, 12, 8)
+            self.main_layout.setContentsMargins(12, 4, 12, 6)
+            self.main_layout.setSpacing(4)
             self.log_toggle = QToolButton(self)
             self.log_toggle.setText(self.tr("运行日志"))
             self.log_toggle.setCheckable(True)
@@ -1021,17 +1030,11 @@ class FarmingInterfaceRight(QWidget):
             self.main_layout.addWidget(self.log_toggle, 0, Qt.AlignLeft)
 
     def __init_card(self):
-        self.scroll_log_edit = TextEdit()
+        self.scroll_log_edit = CompactLogTextEdit() if sys.platform == "darwin" else TextEdit()
         self.scroll_log_edit.setAutoFormatting(QTextEdit.AutoFormattingFlag.AutoAll)
         self.scroll_log_edit.setReadOnly(True)
         if sys.platform == "darwin":
             self.scroll_log_edit.setPlaceholderText(self.tr("运行任务后，日志会显示在这里。"))
-            cursor = self.scroll_log_edit.textCursor()
-            block_format = cursor.blockFormat()
-            block_format.setLineHeight(135, QTextBlockFormat.LineHeightTypes.ProportionalHeight.value)
-            block_format.setBottomMargin(4)
-            cursor.setBlockFormat(block_format)
-            self.scroll_log_edit.setTextCursor(cursor)
 
     def _apply_theme_style(self):
         light, dark = get_log_text_edit_qss()

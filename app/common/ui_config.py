@@ -122,9 +122,18 @@ def get_log_text_edit_qss() -> tuple[str, str]:
     """Return (light_qss, dark_qss) for the log TextEdit."""
     light, dark = LOG_TEXT_EDIT_STYLES["light"], LOG_TEXT_EDIT_STYLES["dark"]
     if sys.platform == "darwin":
-        typography = "TextEdit { font-size: 16px; }"
-        light = light.replace("rgba(0, 0, 0, 0.75)", "rgba(0, 0, 0, 0.85)") + typography
-        dark = dark.replace("rgba(255, 255, 255, 0.75)", "rgba(255, 255, 255, 0.9)") + typography
+        from app.common.macos_ui import colors
+
+        def style(dark):
+            c = colors(dark)
+            return f"""
+                TextEdit, TextEdit:hover, TextEdit:focus {{
+                    color: {c['text']}; background: transparent;
+                    border: none; border-radius: 0; padding: 3px 0;
+                    font-size: 12px;
+                }}
+            """
+        return style(False), style(True)
     return light, dark
 
 

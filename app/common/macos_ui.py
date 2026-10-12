@@ -3,14 +3,17 @@
 import sys
 
 from PySide6.QtCore import QEvent, QRect, Qt, QTimer
-from PySide6.QtGui import QColor, QFontDatabase, QPainter, QPalette
+from PySide6.QtGui import QColor, QFontDatabase, QPainter, QPalette, QTextBlockFormat
 from PySide6.QtWidgets import QApplication, QFrame
-from qfluentwidgets import isDarkTheme, qconfig
+from qfluentwidgets import TextEdit, isDarkTheme, qconfig
 
 from utils.runtime_paths import resource_path
 
 
 def colors(dark):
+    app = QApplication.instance()
+    accent = app.palette().color(QPalette.Highlight).name() if app else "#0a84ff"
+    accent_text = app.palette().color(QPalette.HighlightedText).name() if app else "#ffffff"
     return {
         "window": "#202022" if dark else "#f4f4f6",
         "surface": "#2b2b2e" if dark else "#ffffff",
@@ -18,6 +21,10 @@ def colors(dark):
         "secondary": "#b0b0b8" if dark else "#64646c",
         "line": "#3b3b40" if dark else "#e2e2e7",
         "selection": "#3c3c44" if dark else "#e5e5eb",
+        "sidebar": "#252528" if dark else "#eeeef0",
+        "pressed": "#48484f" if dark else "#dcdce2",
+        "accent": accent,
+        "accent_text": accent_text,
     }
 
 
@@ -28,6 +35,13 @@ def apply_macos_theme(dark):
     app = QApplication.instance()
     c = colors(dark)
     palette = app.palette()
+    if app.platformName() == "cocoa":
+        import AppKit
+
+        native_accent = AppKit.NSColor.controlAccentColor().colorUsingColorSpace_(AppKit.NSColorSpace.sRGBColorSpace())
+        if native_accent is not None:
+            palette.setColor(QPalette.Highlight, QColor.fromRgbF(
+                native_accent.redComponent(), native_accent.greenComponent(), native_accent.blueComponent()))
     for role, key in ((QPalette.Window, "window"), (QPalette.Base, "surface"),
                       (QPalette.Button, "surface"), (QPalette.WindowText, "text"),
                       (QPalette.Text, "text"), (QPalette.ButtonText, "text")):
@@ -42,23 +56,33 @@ def surface_qss(dark):
     variant = "dark" if dark else "light"
     down = resource_path(f"assets/app/svgs/macos/chevron-down-{variant}.svg").as_posix()
     up = resource_path(f"assets/app/svgs/macos/chevron-up-{variant}.svg").as_posix()
-    accent = "#78aaff" if dark else "#2874e5"
+    accent = c["accent"]
+    accent_hover = QColor(accent).lighter(110).name()
+    accent_pressed = QColor(accent).darker(115).name()
     return f"""
-        QFrame#taskPanel, QWidget#parameterPanel, QWidget#logPanel {{
-            background: {c['surface']}; border: 1px solid {c['line']}; border-radius: 12px;
+        QWidget#parameterPanel {{
+            background: {c['surface']}; border: 1px solid {c['line']}; border-radius: 10px;
         }}
+        QFrame#taskPanel {{ background: {c['sidebar']}; border: none; border-radius: 10px; }}
+        QWidget#logPanel {{ background: {c['surface']}; border: 1px solid {c['line']}; border-radius: 10px; }}
         QLabel#sectionTitle {{ color: {c['text']}; font-size: 16px; font-weight: 600; }}
         QLabel#secondaryLabel {{ color: {c['secondary']}; font-size: 13px; }}
-        QFrame#actionFooter {{ background: {c['surface']}; border-top: 1px solid {c['line']}; }}
+        QFrame#actionFooter {{ background: transparent; border-top: 1px solid {c['line']}; }}
         QPushButton, QToolButton {{ background: {c['surface']}; color: {c['text']};
             border: 1px solid {c['line']}; border-radius: 7px; padding: 5px 12px; font-size: 14px; }}
         QPushButton:hover, QToolButton:hover {{ background: {c['selection']}; }}
+        QPushButton:pressed, QToolButton:pressed {{ background: {c['pressed']}; }}
+        QPushButton:focus, QToolButton:focus {{ border-color: {accent}; }}
         QPushButton:disabled {{ color: {c['secondary']}; }}
         #link_start QPushButton {{ background: {accent}; border-color: {accent};
-            color: {"#152b4d" if dark else "#ffffff"}; padding: 7px 16px; }}
+            color: {c['accent_text']}; padding: 7px 16px; }}
+        #link_start QPushButton:hover {{ background: {accent_hover}; border-color: {accent_hover}; }}
+        #link_start QPushButton:pressed {{ background: {accent_pressed}; border-color: {accent_pressed}; }}
+        #link_start QPushButton:disabled {{ background: {c['selection']}; border-color: {c['line']}; color: {c['secondary']}; }}
         QComboBox, QSpinBox, QDoubleSpinBox, QLineEdit {{ background: {c['surface']};
             color: {c['text']}; border: 1px solid {c['line']}; border-radius: 6px;
             padding: 4px 8px; font-size: 14px; min-height: 18px; }}
+        QComboBox:focus, QSpinBox:focus, QDoubleSpinBox:focus, QLineEdit:focus {{ border-color: {accent}; }}
         QComboBox::drop-down {{ border: none; width: 24px; }}
         QComboBox::down-arrow {{ image: url('{down}'); width: 12px; height: 12px; }}
         QToolButton#toolbarTools {{ padding-right: 25px; }}
@@ -74,15 +98,42 @@ def surface_qss(dark):
         QCheckBox {{ font-size: 14px; spacing: 8px; color: {c['text']}; }}
         QFrame#taskPanel CheckBoxWithButton {{ border: none; border-radius: 7px; }}
         QFrame#taskPanel CheckBoxWithButton:hover {{ background: {c['selection']}; }}
+        QFrame#taskPanel CheckBoxWithButton[parameterSelected="true"] {{ background: {c['selection']}; }}
         QFrame#taskPanel ToggleToolButton {{ border: none; background: transparent; }}
         QFrame#taskPanel ToggleToolButton:checked {{ background: {c['selection']}; }}
-        QFrame#taskPanel QToolButton:checked {{ background: {c['selection']}; }}
-        QWidget#logPanel QToolButton {{ background: transparent; border: none; padding: 4px 0; }}
-        QFrame#navFrame {{ background: {c['surface']}; border: none; border-radius: 10px; }}
+        QFrame#taskPanel QToolButton:checked {{ background: transparent; }}
+        QWidget#logPanel QToolButton {{ background: transparent; border: none; padding: 2px 0; font-size: 13px; }}
+        QFrame#navFrame {{ background: {c['sidebar']}; border: none; border-radius: 10px; }}
         QFrame#navFrame QPushButton {{ border: none; background: transparent;
             text-align: left; padding: 9px 12px; color: {c['secondary']}; border-radius: 7px; }}
         QFrame#navFrame QPushButton:checked {{ background: {c['selection']}; color: {c['text']}; }}
     """
+
+
+class CompactLogTextEdit(TextEdit):
+    """A dense log view; keep QTextEdit's original append and scroll behavior."""
+
+    def __init__(self, parent=None):
+        super().__init__(parent)
+        font = QFontDatabase.systemFont(QFontDatabase.FixedFont)
+        font.setPixelSize(12)
+        self.setFont(font)
+        self.document().setDefaultFont(font)
+        self.document().setDocumentMargin(0)
+        self._apply_line_spacing()
+
+    def _apply_line_spacing(self):
+        cursor = self.textCursor()
+        block_format = cursor.blockFormat()
+        block_format.setLineHeight(110, QTextBlockFormat.ProportionalHeight.value)
+        block_format.setTopMargin(0)
+        block_format.setBottomMargin(0)
+        cursor.setBlockFormat(block_format)
+        self.setTextCursor(cursor)
+
+    def clear(self):
+        super().clear()
+        self._apply_line_spacing()
 
 
 class MacSettingRow:

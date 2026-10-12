@@ -2,7 +2,7 @@
 import sys
 from typing import TYPE_CHECKING
 
-from PySide6.QtCore import QRectF
+from PySide6.QtCore import QRectF, Qt
 from PySide6.QtGui import QColor, QPainter, QPainterPath, QPen
 from qfluentwidgets import SegmentedWidget, isDarkTheme, setCustomStyleSheet, themeColor
 
@@ -33,6 +33,9 @@ class CustomSegmentedWidget(SegmentedWidget):
 
     def paintEvent(self, e: "QPaintEvent"):
         """自定义绘制：外框 + 分割线 + 选中高亮滑块。"""
+        if sys.platform == "darwin":
+            self._paint_macos_segments()
+            return
         # 先调用父类的 paintEvent（保留动画等行为）
         super().paintEvent(e)
 
@@ -105,3 +108,24 @@ class CustomSegmentedWidget(SegmentedWidget):
                 path.lineTo(x, y)
 
         painter.drawPath(path)
+
+    def _paint_macos_segments(self):
+        if not self.items:
+            return
+        c = colors(isDarkTheme())
+        painter = QPainter(self)
+        painter.setRenderHint(QPainter.Antialiasing)
+        painter.setPen(Qt.NoPen)
+        painter.setBrush(QColor(c["sidebar"]))
+        track = QRectF(self.rect())
+        painter.drawRoundedRect(track, 8, 8)
+        item = self.currentItem()
+        if item is None:
+            return
+        active = QRectF(float(self.slideAni.value()) + 3, 3, item.width() - 6, self.height() - 6)
+        painter.setBrush(QColor(c["surface"]))
+        painter.drawRoundedRect(active, 6, 6)
+        if item.hasFocus():
+            painter.setPen(QPen(QColor(c["accent"]), 1))
+            painter.setBrush(Qt.NoBrush)
+            painter.drawRoundedRect(active, 6, 6)

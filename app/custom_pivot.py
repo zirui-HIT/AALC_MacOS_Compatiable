@@ -32,7 +32,8 @@ class PivotItem(QPushButton):
         self.setProperty("selected", "false")
         self.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Fixed)
         if sys.platform == "darwin":
-            self.setFixedSize(112, 34)
+            self.setFixedSize(92, 32)
+            self.setCursor(Qt.ArrowCursor)
 
     @property
     def routeKey(self) -> str:
@@ -99,9 +100,11 @@ class FullWidthPivot(Pivot):
         c = colors(isDarkTheme())
         item.setStyleSheet(f"""
             QPushButton {{ border: none; border-radius: 7px; background: transparent;
-                color: {c['secondary']}; font-size: 16px; padding: 4px 12px; }}
+                color: {c['secondary']}; font-size: 14px; padding: 4px 12px; }}
             QPushButton:hover {{ background: {c['selection']}; }}
-            QPushButton[selected="true"] {{ background: {c['surface']}; color: {c['text']}; }}
+            QPushButton:pressed {{ background: {c['pressed']}; }}
+            QPushButton:focus {{ border: 1px solid {c['accent']}; }}
+            QPushButton[selected="true"] {{ background: {c['surface']}; color: {c['text']}; font-weight: 500; }}
         """)
 
     def createItem(self, routeKey: str, text: str) -> QPushButton:
