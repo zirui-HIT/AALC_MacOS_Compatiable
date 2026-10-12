@@ -16,7 +16,6 @@ dependencies = [
     "PyAutoGUI; sys_platform == 'win32'",
     "pynput",
     "pyperclip",
-    "playsound3",
     "requests",
     "packaging",
     "markdown-it-py",

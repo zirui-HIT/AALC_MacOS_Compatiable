@@ -1181,11 +1181,6 @@ Right-click to set as permanent</translation>
         <translation>Mir-Settings</translation>
     </message>
     <message>
-        <location filename="../app/farming_interface.py" line="481"/>
-        <source>亚哈共鸣</source>
-        <translation>Ahab-Res</translation>
-    </message>
-    <message>
         <source>镜牢</source>
         <translation>Mirror Dungeon</translation>
     </message>
@@ -3223,16 +3218,6 @@ Update Logs:</translation>
         <location filename="../app/windows_toast.py" line="153"/>
         <source>关闭 AALC</source>
         <translation>Shut Down AALC</translation>
-    </message>
-    <message>
-        <location filename="../tasks/base/script_task_scheme.py" line="413"/>
-        <source>AALC 运行结束</source>
-        <translation>AALC Missions Completed</translation>
-    </message>
-    <message>
-        <location filename="../tasks/base/script_task_scheme.py" line="414"/>
-        <source>所有任务已完成</source>
-        <translation>All Tasks Done</translation>
     </message>
 </context>
 <context>

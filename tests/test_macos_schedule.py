@@ -115,7 +115,6 @@ cfg.config = cfg.config.model_copy(update={
     'autodaily_task_exit': [True, False, False, False, False, False, False],
     'autodaily2_task_exit': [True, False, False, False, False, False, False],
     'set_EXP_count': 1, 'set_thread_count': 3, 'set_lunacy_to_enkephalin': 2,
-    'resonate_with_Ahab': False,
 })
 from utils import schedule_helper
 registrations = []
@@ -123,6 +122,7 @@ schedule_helper.ScheduleHelper_MacOS.register_daily_task = lambda self, *args: r
 from PySide6.QtWidgets import QApplication
 from PySide6.QtCore import QTimer
 from app.my_app import MainWindow
+from app import mediator
 from app.base_combination import AutoDailyView
 from module.backends import factory
 from tasks.base import script_task_scheme as task
@@ -137,6 +137,7 @@ assert not view.box_exit_game.isHidden()
 assert all(widget.isHidden() for widget in
     (view.box_exit_emulator, view.box_sleep, view.box_hibernate, view.box_shutdown, view.box_lock))
 marks = []
+mediator.warning.connect(lambda message: marks.append(('unexpected_warning', message)))
 session = Mock()
 session.cancel = threading.Event()
 session.transport.connected = True
@@ -148,7 +149,6 @@ task.auto.click_element = Mock(return_value=False)
 task.retry_monitor.start = lambda: None
 task.retry_monitor.stop = lambda: None
 task.apply_power_keep_awake = lambda enabled: None
-task.send_toast = lambda *args, **kwargs: None
 task.Daily_task_wrapper = lambda **kwargs: lambda: marks.append('daily')
 task.to_get_reward = lambda: marks.append('reward')
 task.Buy_enkephalin = lambda: marks.append(('exchange', cfg.set_lunacy_to_enkephalin))

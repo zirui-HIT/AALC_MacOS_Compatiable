@@ -1,13 +1,10 @@
-import random
 from datetime import datetime
 from threading import Event
 from time import sleep, time
 
-from playsound3 import playsound
-from PySide6.QtCore import QT_TRANSLATE_NOOP, QMutex, QThread
+from PySide6.QtCore import QMutex, QThread
 
 from app import mediator
-from app.windows_toast import TemplateToast, send_toast
 from module.automation import auto
 from module.backends.base import BackendCancelled
 from module.config import TeamSetting, cfg
@@ -43,7 +40,6 @@ from tasks.daily.luxcavation import EXP_luxcavation, thread_luxcavation
 from tasks.mirror.mirror import Mirror
 from tasks.teams.team_formation import select_battle_team
 from utils.path_manager import path_manager
-from utils.runtime_paths import resource_path
 from utils.utils import calculate_the_teams, check_hard_mirror_time, get_day_of_week
 
 
@@ -223,11 +219,6 @@ def _warn_if_game_monitor_hdr_enabled() -> None:
     acknowledged.wait()
 
 
-def Resonate_with_Ahab():
-    random_number = random.randint(1, 4)
-    playsound(str(resource_path(f"assets/audio/This_is_all_your_fault_{random_number}.mp3")), block=False)
-
-
 def _get_game_rendering_scale() -> int | None:
     """读取非模拟器模式下 Limbus 的渲染比例设置。"""
     try:
@@ -396,9 +387,6 @@ def script_task() -> None | int:
 
     retry_monitor.start()
 
-    if cfg.resonate_with_Ahab:
-        Resonate_with_Ahab()
-
     # 如果是战斗中，先处理战斗
     get_reward = None
     if auto.click_element("battle/turn_assets.png", take_screenshot=True):
@@ -429,8 +417,6 @@ def script_task() -> None | int:
         screen.reset_win(activate=False)
 
     log.info("脚本任务已经完成")
-    QT_TRANSLATE_NOOP("WindowsToast", "AALC 运行结束")
-    QT_TRANSLATE_NOOP("WindowsToast", "所有任务已完成")
     dt_start = datetime.fromtimestamp(start_time)
     dt_end = datetime.fromtimestamp(time())
     duration = dt_end - dt_start
@@ -438,13 +424,7 @@ def script_task() -> None | int:
     minutes, seconds = divmod(secends, 60)
     hours, minutes = divmod(minutes, 60)
     run_time = f"{int(hours):02}:{int(minutes):02}:{int(seconds):02}"
-    send_toast(
-        "AALC 运行结束",
-        ["所有任务已完成", run_time],
-        template=TemplateToast.NormalTemplate,
-    )
-    if cfg.resonate_with_Ahab:
-        Resonate_with_Ahab()
+    log.info(f"任务总用时：{run_time}")
 
     should_exit_aalc = False
     if cfg.backend in {"windows", "playcover", "android_mumu", "android_adb"}:

@@ -54,7 +54,6 @@ mouse_action_interval: 0.5 # 鼠标操作间隔时间
 mouse_down_duration: 0.1 # 鼠标按下持续时间
 use_post_message: False # 是否使用PostMessage进行输入
 
-resonate_with_Ahab: False # 是否播放亚哈语录
 
 # 实验性功能
 experimental_keep_screen_awake: False # 运行期间阻止系统与显示器休眠，任务结束自动恢复

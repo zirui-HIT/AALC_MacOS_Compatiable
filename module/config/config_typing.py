@@ -339,9 +339,6 @@ class ConfigModel(BaseModel):
     use_post_message: bool
     """是否使用PostMessage进行输入"""
 
-    resonate_with_Ahab: bool
-    """是否播放亚哈语录"""
-
     experimental_keep_screen_awake: bool
     """运行期间阻止系统与显示器休眠，任务结束自动恢复"""
 

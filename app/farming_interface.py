@@ -516,17 +516,6 @@ class FarmingInterfaceLeft(QWidget):
         if cfg.backend == "playcover":
             self.set_windows.setVisible(False)
             self.mirror.setToolTip("iOS Mirror uses the selected preset, formation order, opening graces and battle settings")
-        self.resonate_with_Ahab = CheckBoxWithButton(
-            "resonate_with_Ahab",
-            QT_TRANSLATE_NOOP("CheckBoxWithButton", "亚哈共鸣"),
-            None,
-            "resonate_with_Ahab",
-        )
-
-        self.resonate_with_Ahab.button.setEnabled(False)
-        if sys.platform == "darwin":
-            self.resonate_with_Ahab.hide()
-
         self.select_all = NormalTextButton(QT_TRANSLATE_NOOP("NormalTextButton", "全选"), "select_all")
         self.select_all.clicked.connect(self.select_all_function)
 
@@ -545,7 +534,7 @@ class FarmingInterfaceLeft(QWidget):
         self.pause_resume_button.setVisible(False)
         if sys.platform == "darwin":
             self.setting_options.setSpacing(4)
-            for row in (self.daily_task, self.get_reward, self.buy_enkephalin, self.mirror, self.resonate_with_Ahab):
+            for row in (self.daily_task, self.get_reward, self.buy_enkephalin, self.mirror):
                 row.hBoxLayout.setContentsMargins(6, 2, 6, 2)
             self.select_all.setFixedHeight(32)
             self.clear_all.setFixedHeight(32)
@@ -575,7 +564,6 @@ class FarmingInterfaceLeft(QWidget):
         self.setting_options.addWidget(self.get_reward)
         self.setting_options.addWidget(self.buy_enkephalin)
         self.setting_options.addWidget(self.mirror)
-        self.setting_options.addWidget(self.resonate_with_Ahab)
         self.setting_layout.addLayout(self.setting_options)
         if sys.platform == "darwin":
             self.setting_box.setObjectName("taskPanel")
@@ -896,7 +884,6 @@ class FarmingInterfaceLeft(QWidget):
         self.get_reward.retranslateUi()
         self.buy_enkephalin.retranslateUi()
         self.mirror.retranslateUi()
-        self.resonate_with_Ahab.retranslateUi()
 
         self.then.retranslateUi()
         if sys.platform == "darwin":

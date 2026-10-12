@@ -43,9 +43,11 @@ from PySide6.QtWidgets import QApplication
 actions, suspended, game_failure, full_window, late_delivery = json.loads(sys.argv[1])
 cfg.config = cfg.config.model_copy(update={
     'backend': 'playcover', 'daily_task': False, 'get_reward': False,
-    'buy_enkephalin': False, 'mirror': False, 'resonate_with_Ahab': False,
+    'buy_enkephalin': False, 'mirror': False,
 })
 marks = []
+warnings = []
+mediator.warning.connect(warnings.append)
 session = Mock()
 session.cancel = threading.Event()
 session.transport.connected = True
@@ -106,6 +108,7 @@ assert 'awake_released' in marks and 'worker_finished' in marks, marks
 assert ('exit_requested' in marks) == should_exit, marks
 assert ('game_stopped' in marks) == ('exit_game' in actions and not suspended and not game_failure), marks
 assert getattr(left.my_script, 'exception', None) is None
+assert warnings == [], warnings  # Successful completion never opens a warning dialog.
 sys.stdout.write('COMPLETION_CHECK_PASSED\\n')
 """
     result = subprocess.run(

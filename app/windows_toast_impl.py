@@ -3,7 +3,6 @@ try:
         InteractableWindowsToaster,
         Toast,
         ToastActivatedEventArgs,
-        ToastAudio,
         ToastButton,
         ToastButtonColour,
         ToastDisplayImage,
@@ -22,7 +21,6 @@ except ImportError:
             InteractableWindowsToaster,
             Toast,
             ToastActivatedEventArgs,
-            ToastAudio,
             ToastButton,
             ToastButtonColour,
             ToastDisplayImage,
@@ -32,7 +30,6 @@ except ImportError:
         )
 
 try:
-    from ..module.config import cfg
     from ..module.logger import log  # 正常导入方式
 except ImportError:
     # 如果作为脚本直接运行，使用绝对路径
@@ -40,7 +37,6 @@ except ImportError:
     import sys
 
     sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-    from module.config import cfg
     from module.logger import log
 
 import sys
@@ -181,27 +177,27 @@ def _test_template_toast(title, msg, app_id, on_activated):
     # 创建按钮, *tooltip* 为无障碍阅读器使用的文本
     # arguments 是用户点击按钮时传递的参数
     botton1 = ToastButton(
-        content="都是你的错",
+        content="操作一",
         arguments="action=botton1",
         image=botton_image,
         tooltip="点我点我",
     )
     # colour 定义按钮颜色 有默认, 绿色, 红色三种
     botton2 = ToastButton(
-        content="以实玛丽",
+        content="操作二",
         arguments="action=botton2",
         image=botton_image,
         colour=ToastButtonColour.Green,
     )
     botton3 = ToastButton(
-        content="伊莎玛拉",
+        content="操作三",
         arguments="action=botton3",
         image=botton_image,
         colour=ToastButtonColour.Red,
     )
     # inContextMenu 定义按钮是否放在右上角的菜单中, 对于旧版本的 Windows (8+), 该按钮会被放置在通知下方, 即正常按钮的位置
     hide_botton = ToastButton(
-        content="亚哈",
+        content="隐藏通知",
         arguments="action=hide",
         inContextMenu=True,
         image=botton_image,
@@ -214,12 +210,6 @@ def _test_template_toast(title, msg, app_id, on_activated):
         images=[image1, image2, image3],
         actions=[botton1, botton2, botton3, hide_botton],
     )
-    # 添加发送通知时的音频
-    if cfg.resonate_with_Ahab:
-        from random import randint
-
-        toast.audio = ToastAudio(Path(r"assets\audio\This_is_all_your_fault_" + f"{randint(1, 4)}.mp3"))
-
     # 定义回调函数
     def on_click(args: ToastActivatedEventArgs):
         log.info(f"用户点击了通知，参数: {args.arguments}, 输入: {args.inputs}")

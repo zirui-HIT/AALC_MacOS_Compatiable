@@ -60,9 +60,9 @@ assert window.setting_interface.setting_nav.nav_buttons['playcover'].text() == '
 """,
         "bindings": """
 assert list(window.pivot.items) == ['farming_interface', 'setting_interface']
-assert len(task_check_box) == 6  # Hidden anchors preserve original positional operations.
+assert len(task_check_box) == 5  # Window anchor and four task positions remain unchanged.
 assert center.setting_page.currentIndex() == 1 and cfg.default_page == 0
-assert left.set_windows.isHidden() and left.resonate_with_Ahab.isHidden()
+assert left.set_windows.isHidden()
 assert left.link_start_button.get_text() == 'Link Start!'
 assert QPushButton.text(left.link_start_button.button) == '开始运行'
 spy = QSignalSpy(mediator.switch_page)
