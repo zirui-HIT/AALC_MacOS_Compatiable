@@ -1,0 +1,30 @@
+制作方式：先使用内置 imagegen 探索钟表头造型；透明输出有噪点，最终资源采用独立绘制的 SVG，使用 QtSvg 渲染为 PNG。运行代码未修改。
+
+最终图标规范：Limbus Company 但丁钟表头；头部、三尖火焰、圆形机械表框、指针和四个刻度；纯白轮廓、透明背景；无文字、无纹理、无阴影；22 pt 画布，提供 1x 和 2x PNG。macOS 原生模板资源使用相同轮廓的纯黑版本，由系统按菜单栏背景渲染。
+
+imagegen 概念生成提示词：
+Use case: logo-brand
+Asset type: macOS menu bar monochrome template icon, high-resolution transparent PNG master.
+Primary request: Create a new pure-white clock-head icon recognizable as Dante from Limbus Company. It will be shown at only 18 to 20 points tall beside native macOS menu bar icons.
+Subject: Dante's mechanical clock head only, front view, a bold circular clock casing, a simple readable pair of clock hands, four minimal cardinal hour ticks, and a compact distinctive tongue of flame rising from the top. Two tiny angular casing details at left and right can suggest Dante's mechanical head. No body, no clothes.
+Style/medium: Extremely clean flat silhouette / negative-space glyph. Native macOS menu bar visual language: bold compact shapes, optically balanced, thick even strokes, restrained details. The clock face interior and gaps between components must be fully transparent cutouts, NOT black or gray paint. The ring, hands, ticks, and flame are opaque pure white (#FFFFFF). No Roman numerals.
+Scene/backdrop: Genuine fully transparent alpha background, including outside the icon and all internal negative spaces. No baked checkerboard.
+Composition/framing: One single icon, centered on a square canvas, occupying roughly 80 percent of the canvas height with ample safe padding. Flame integrated with clock casing; overall nearly square compact silhouette. Clock hands clear and separated from hour ticks.
+Color palette: White (#FFFFFF) only. Antialiasing may vary alpha at edges, but all visible RGB must remain white.
+Constraints: A finished usable icon asset, not a presentation sheet or mockup. No other objects, no labels, no text, no watermark, no border or rounded-square app container.
+Avoid: shadows, glow, gradient, shading, 3D, colored flames, black lines, gray fill, tiny decorative details, stopwatch knobs, alarm-clock twin bells, multi-icon variations.
+
+imagegen 透明清理提示词：
+Edit target: the attached white Dante clock-head glyph.
+Make one correction: completely clean its silhouette and transparency. Preserve the circular mechanical clock casing, clock hands, four hour ticks, flame, overall layout, and pure-white monochrome identity, but remove EVERY speckle, scratch, thin dark contour, fuzzy patch, detached pixel, distressed texture, and stray mark. This is an immaculate macOS menu bar icon, NOT an aged illustration.
+Every shape must be smooth, solid, pristine pure white (#FFFFFF). Every gap, the clock face interior, and all space outside the shapes must be fully transparent, including between clock hands and casing. Use crisp geometric edges with only normal alpha antialiasing. Absolutely no shading, grain, noise, glow, shadows, black or gray outlines, and no checkerboard printed into the image. Simplify the flame to a smooth compact silhouette with at most three tips. Leave even safe padding around the single centered icon. A finished transparent PNG icon master.
+
+imagegen 黑色模板探索提示词：
+Use case: logo-brand
+Asset type: production macOS NSStatusItem template glyph, one black icon on genuine transparent alpha background.
+Primary request: A simple clean clock head inspired by Dante from Limbus Company. Head only: heavy circular ring casing, two bold clock hands pointing to 12 and 4, three short bold tick marks at 3, 6, and 9, small angular cheek tabs, and a compact three-tip flame rising from the ring. The flame height is no more than one-quarter of total glyph height.
+Style: immaculate minimal geometric SVG-like flat icon, solid #000000 only, like an SF Symbols menu bar glyph. Very bold compact shapes and readable negative spaces, designed to remain clear when 18 points tall. No tiny detail.
+Composition: one single centered nearly square icon. Total glyph occupies 80% canvas height. Even safe padding on all sides. Round clock outline thick and perfectly smooth. Two clock hands thick and clean.
+Background: completely transparent, including the entire clock face interior and all cutout gaps. No white painted clock face. No backdrop.
+Constraints: all foreground ink is pure black #000000. Use only alpha antialiasing at contour edges. No outline around ink, no scratches, grain, speckles, distressed texture, stray dots, shadow, glow, gradients, engraving, roman numerals, text, watermark, presentation sheet, labels, extra icons, app container, alarm-clock bells, stopwatch knob.
+
