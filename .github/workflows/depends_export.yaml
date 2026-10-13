@@ -9,7 +9,7 @@ on:
 
 jobs:
   export-dependencies:
-    runs-on: windows-latest
+    runs-on: macos-14
     steps:
       # 签出代码
       - name: Checkout

@@ -30,15 +30,17 @@ jobs:
         run: |
           mkdir -p .runtime/tmp
           export TMPDIR="$PWD/.runtime/tmp"
+          export AALC_DATA_ROOT="$PWD/.runtime/ci-data"
           .venv/bin/python -m pytest -q --basetemp .runtime/tmp/pytest
-          QT_QPA_PLATFORM=offscreen .venv/bin/python main.py --smoke-test
+          .venv/bin/python main.py --smoke-test --ui-check
       - name: Build local app
         run: |
           export TMPDIR="$PWD/.runtime/tmp"
+          export AALC_DATA_ROOT="$PWD/.runtime/ci-data"
           export PYINSTALLER_CONFIG_DIR="$PWD/.runtime/cache/pyinstaller"
           .venv/bin/pyinstaller main_macos.spec --clean --noconfirm
-          QT_QPA_PLATFORM=offscreen dist/AALC.app/Contents/MacOS/AALC --smoke-test
-          QT_QPA_PLATFORM=offscreen dist/AALC.app/Contents/MacOS/AALC --ocr-smoke-test
+          dist/AALC.app/Contents/MacOS/AALC --smoke-test --ui-check
+          dist/AALC.app/Contents/MacOS/AALC --ocr-smoke-test
           tar -czf dist/AALC-macos-arm64.tar.gz -C dist AALC.app
       - uses: actions/upload-artifact@v4
         with:

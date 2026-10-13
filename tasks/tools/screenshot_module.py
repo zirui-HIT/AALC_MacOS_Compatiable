@@ -1,7 +1,7 @@
 import time
 
-from PySide6.QtCore import QThread, Signal
-
+from backend_host.runtime import Signal
+from backend_host.runtime import WorkerThread as QThread
 from module.automation import auto
 from module.backends.base import BackendCancelled
 from module.config import cfg

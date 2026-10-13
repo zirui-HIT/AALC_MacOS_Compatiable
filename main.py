@@ -1,147 +1,38 @@
+"""Select the backend before importing the AppKit frontend."""
+import json
 import os
-import socket
 import sys
-import threading
-
-# 尽早清除 SSLKEYLOGFILE，避免 OpenSSL 在建立 HTTPS 连接时因跨 CRT 边界崩溃。
-# 该变量通常由调试代理（如 Fiddler/Charles/Wireshark）设置，Python 内嵌的 OpenSSL
-# 在 Windows 上不提供 OPENSSL_Applink 符号，一试写文件就会抛错退出。
-# 此处仅清除当前进程的环境变量，不影响系统设置和其他进程。
-_ORIG_SSLKEYLOGFILE = os.environ.pop("SSLKEYLOGFILE", None)
-
-from utils.runtime_paths import prepare_runtime
-
-prepare_runtime()
-
-if sys.platform == "win32":
-    from module.platforms.windows import initialize_windows
-
-    initialize_windows()
-
-# 先配好日志（给 "AALC" logger 挂 handler），再 import 会在 import 期就打日志的 app/config 模块，
-# 否则那些启动日志会丢。
-from module.logger import log
-from module.logger.my_log import Logger
-
-Logger()
-
-from PySide6.QtCore import QObject, Qt, QTimer, Signal
-from PySide6.QtWidgets import QApplication
-
-from app.common.display import readable_ui_scale  # noqa: E402 - initialize portable paths before app imports
-from app.language_manager import LanguageManager
-from app.my_app import MainWindow
-from module.config import cfg
-
-QApplication.setHighDpiScaleFactorRoundingPolicy(Qt.HighDpiScaleFactorRoundingPolicy.PassThrough)
-QApplication.setAttribute(Qt.AA_DontCreateNativeWidgetSiblings)
 
 
-# 创建一个辅助类用于在主线程处理信号
-class ArgumentSignaler(QObject):
-    arguments_received = Signal(list)
-
-
-def start_socket_server(port, signaler):
-    """后台线程：监听新实例发来的参数"""
-    with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
-        s.bind(("127.0.0.1", port))
-        s.listen(5)
-        while True:
-            conn, addr = s.accept()
-            with conn:
-                data = conn.recv(1024).decode("utf-8")
-                if data:
-                    # 收到参数后通过信号发送给主线程处理
-                    signaler.arguments_received.emit(data.split("|"))
-
-
-def send_args_to_existing_instance(port, args):
-    """尝试将参数发送给已存在的实例"""
-    try:
-        with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
-            s.settimeout(1.0)  # 设置 1 秒超时
-            s.connect(("127.0.0.1", port))
-            s.sendall("|".join(args).encode("utf-8"))
-        return True
-    except ConnectionRefusedError:
-        return False
-    except Exception:
-        return False
-
-
-if __name__ == "__main__":
-    if _ORIG_SSLKEYLOGFILE is not None:
-        log.warning(f"检测到冲突的环境变量 SSLKEYLOGFILE={_ORIG_SSLKEYLOGFILE}，"
-                     f"已在进程内清除，避免 OpenSSL 崩溃")
-
-    # 定义一个唯一的端口号（建议选择 1024-65535 之间的随机数）
-    APP_PORT = 62333
-
-    # 1. 尝试发送参数给已有实例
-    if not any(flag in sys.argv for flag in ("--smoke-test", "--ocr-smoke-test")) and send_args_to_existing_instance(APP_PORT, sys.argv[1:]):
-        sys.exit(0)
-
-    # 2. 如果发送失败，说明是第一个实例，开始初始化
-    ui_scale = readable_ui_scale(cfg.zoom_scale)
-    if ui_scale != cfg.zoom_scale:
-        cfg.set_value("zoom_scale", ui_scale)
-    if ui_scale != 0:
-        os.environ["QT_SCALE_FACTOR"] = str(ui_scale / 100)
-
-    lang_manager = LanguageManager()
-    lang = lang_manager.init_language()
-
-    app = QApplication(sys.argv)
-    app.setAttribute(Qt.AA_DontCreateNativeWidgetSiblings)
-
+def main():
+    os.environ.pop("SSLKEYLOGFILE", None)
+    if getattr(sys, "frozen", False) and "AALC_DATA_ROOT" not in os.environ:
+        from pathlib import Path
+        settings = Path(sys._MEIPASS) / "assets/config/native-launch.json"
+        if settings.is_file():
+            os.environ["AALC_DATA_ROOT"] = json.loads(settings.read_text())["data_root"]
+    from utils.runtime_paths import prepare_runtime
+    prepare_runtime()
+    if "--backend" in sys.argv:
+        from backend_host.main import run
+        return run()
     if "--ocr-smoke-test" in sys.argv:
         from PIL import Image, ImageDraw, ImageFont
 
+        from module.logger.my_log import Logger
         from module.ocr import ocr
         from utils.runtime_paths import resource_path
-
+        Logger()
         fixture = Image.new("RGB", (640, 120), "white")
         font = ImageFont.truetype(str(resource_path("assets/app/fonts/ChineseFont.ttf")), 48)
         ImageDraw.Draw(fixture).text((20, 20), "Win Rate", fill="black", font=font)
         result = ocr.run(fixture)
         if "winrate" not in "".join(result.txts or []).replace(" ", "").lower():
             raise RuntimeError("Offline OCR smoke failed")
-        log.info("Offline OCR smoke passed")
-        sys.exit(0)
+        return 0
+    from frontend_appkit.application import run
+    return run(sys.argv[1:])
 
-    # 创建主窗口
-    ui = MainWindow(sys.argv)
 
-    if "--smoke-test" in sys.argv:
-        QTimer.singleShot(1000, app.quit)
-        sys.exit(app.exec())
-
-    # 3. 设置参数监听信号
-    signaler = ArgumentSignaler()
-
-    def handle_args(args):
-        # 处理新参数的逻辑
-        args.insert(0, "aalc")
-        ui.command_start(args)
-        if sys.platform == "darwin":
-            ui.restore_window()
-        else:
-            ui.showNormal()
-            ui.activateWindow()
-            ui.raise_()
-        # 如果需要，可以在这里调用 ui.open_file(args[0]) 等
-
-    signaler.arguments_received.connect(handle_args)
-
-    # 4. 在后台启动 Socket 服务器（非阻塞主线程）
-    # 注意：这里需要捕获 bind 异常，防止极短时间内双击导致的竞争
-    try:
-        threading.Thread(target=start_socket_server, args=(APP_PORT, signaler), daemon=True).start()
-    except OSError:
-        # 如果走到这说明刚才的 bind 突然成功了但又瞬间失败，通常直接退出即可
-        sys.exit(1)
-
-    QTimer.singleShot(50, lambda: lang_manager.set_language(lang))
-
-    sys.exit(app.exec())
+if __name__ == "__main__":
+    raise SystemExit(main())

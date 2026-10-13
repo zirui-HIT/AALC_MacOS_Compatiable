@@ -54,13 +54,8 @@ def test_mac_updater_never_selects_or_installs_windows_assets(monkeypatch):
     assert thread.get_download_url_from_assets([{"name": "AALC.7z", "browser_download_url": "https://invalid/Windows.7z"}]) is None
     import pytest
 
-    with patch("subprocess.Popen") as spawn, patch("requests.get") as request:
-        with pytest.raises(NotImplementedError):
-            check_update.update("https://invalid/Windows.7z")
-        with pytest.raises(NotImplementedError):
-            check_update.start_update("Windows.7z")
-    spawn.assert_not_called()
-    request.assert_not_called()
+    assert not hasattr(check_update, "update")
+    assert not hasattr(check_update, "start_update")
 
 
 def test_updated_general_images_remain_below_ios_overlay(tmp_path, monkeypatch):
@@ -86,23 +81,6 @@ def test_updated_general_images_remain_below_ios_overlay(tmp_path, monkeypatch):
     _, profile = image_utils.ImageUtils.load_image("button.png", resize=False, return_path=True)
     assert profile == "default/en"
     assert image_utils.ImageUtils.resolve_path(profile, "button.png") == updated
-
-
-def test_macos_image_sync_does_not_require_windows_software_update(monkeypatch):
-    from unittest.mock import Mock
-
-    from app import resource_sync_coordinator as coordinator
-
-    window = Mock()
-    version = Mock(is_prerelease=False, is_current_version_latest=False)
-    monkeypatch.setattr(coordinator.sys, "platform", "darwin")
-    assert coordinator.ResourceSyncCoordinator._is_resource_sync_version_ready(
-        window, coordinator.UpdateStatus.FAILURE, version, notify_user=False,
-    )
-    monkeypatch.setattr(coordinator.sys, "platform", "win32")
-    assert not coordinator.ResourceSyncCoordinator._is_resource_sync_version_ready(
-        window, coordinator.UpdateStatus.FAILURE, version, notify_user=False,
-    )
 
 
 @pytest.mark.parametrize("dark_overlay", [False, True])

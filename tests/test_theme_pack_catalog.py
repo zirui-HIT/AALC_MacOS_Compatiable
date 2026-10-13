@@ -21,7 +21,7 @@ from ruamel.yaml import YAML
 
 REPO_ROOT: Path = Path(__file__).resolve().parents[1]
 CATALOG_PATH: Path = REPO_ROOT / "assets" / "config" / "theme_pack_list.example.yaml"
-INTERFACE_PATH: Path = REPO_ROOT / "app" / "theme_pack_setting_interface.py"
+INTERFACE_PATH: Path = REPO_ROOT / "frontend_appkit" / "theme_data.py"
 COVER_DIR: Path = REPO_ROOT / "assets" / "app" / "theme_packs"
 
 

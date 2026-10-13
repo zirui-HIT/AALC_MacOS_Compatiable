@@ -2,9 +2,9 @@ from datetime import datetime
 from threading import Event
 from time import sleep, time
 
-from PySide6.QtCore import QMutex, QThread
+from backend_host.runtime import Mutex as QMutex, WorkerThread as QThread
 
-from app import mediator
+from backend_host.notifications import mediator
 from module.automation import auto
 from module.backends.base import BackendCancelled
 from module.config import TeamSetting, cfg

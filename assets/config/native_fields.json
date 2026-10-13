@@ -1,0 +1,1068 @@
+{
+  "TeamSetting": {
+    "team_system": {
+      "label": "队伍使用的体系",
+      "type": "int"
+    },
+    "team_number": {
+      "label": "使用的队伍序号",
+      "type": "int"
+    },
+    "shop_strategy": {
+      "label": "商店策略",
+      "type": "int"
+    },
+    "sinners_be_select": {
+      "label": "有几名罪人被选中",
+      "type": "int"
+    },
+    "chosen_sinners": {
+      "label": "有哪几名罪人被选中",
+      "type": "List[int]"
+    },
+    "sinner_order": {
+      "label": "罪人被选中的顺序",
+      "type": "List[int]"
+    },
+    "system_burn": {
+      "label": "弃置燃烧饰品",
+      "type": "bool"
+    },
+    "system_bleed": {
+      "label": "弃置流血饰品",
+      "type": "bool"
+    },
+    "system_tremor": {
+      "label": "弃置震颤饰品",
+      "type": "bool"
+    },
+    "system_rupture": {
+      "label": "弃置破裂饰品",
+      "type": "bool"
+    },
+    "system_poise": {
+      "label": "弃置呼吸饰品",
+      "type": "bool"
+    },
+    "system_sinking": {
+      "label": "弃置沉沦饰品",
+      "type": "bool"
+    },
+    "system_charge": {
+      "label": "弃置充能饰品",
+      "type": "bool"
+    },
+    "system_slash": {
+      "label": "弃置斩击饰品",
+      "type": "bool"
+    },
+    "system_pierce": {
+      "label": "弃置穿刺饰品",
+      "type": "bool"
+    },
+    "system_blunt": {
+      "label": "弃置打击饰品",
+      "type": "bool"
+    },
+    "do_not_heal": {
+      "label": "不治疗",
+      "type": "bool"
+    },
+    "do_not_buy": {
+      "label": "不购买",
+      "type": "bool"
+    },
+    "do_not_fuse": {
+      "label": "不合成",
+      "type": "bool"
+    },
+    "do_not_sell": {
+      "label": "不出售",
+      "type": "bool"
+    },
+    "do_not_enhance": {
+      "label": "不升级",
+      "type": "bool"
+    },
+    "only_aggressive_fuse": {
+      "label": "合成只采取激进策略",
+      "type": "bool"
+    },
+    "do_not_system_fuse": {
+      "label": "不合成体系饰品",
+      "type": "bool"
+    },
+    "only_system_fuse": {
+      "label": "只合成体系饰品",
+      "type": "bool"
+    },
+    "avoid_skill_3": {
+      "label": "避免使用3技能",
+      "type": "bool"
+    },
+    "prioritize_skill_3": {
+      "label": "优先使用3技能",
+      "type": "bool"
+    },
+    "re_formation_each_floor": {
+      "label": "每个楼层重新编队",
+      "type": "bool"
+    },
+    "normal_to_hard_floor": {
+      "label": "进入困难模式的楼层",
+      "type": "int"
+    },
+    "use_starlight": {
+      "label": "开局星光换钱",
+      "type": "bool"
+    },
+    "aggressive_also_enhance": {
+      "label": "激进合成期间也升级饰品",
+      "type": "bool"
+    },
+    "aggressive_save_systems": {
+      "label": "激进合成保留体系饰品",
+      "type": "bool"
+    },
+    "defense_first_round": {
+      "label": "第一回合全员防御",
+      "type": "bool"
+    },
+    "defense_for_solo": {
+      "label": "小指良单通杀家人",
+      "type": "bool"
+    },
+    "defense_for_solo_turns": {
+      "label": "小指良连续全员防御回合数",
+      "type": "int"
+    },
+    "fixed_team_use": {
+      "label": "固定队伍用途",
+      "type": "bool"
+    },
+    "fixed_team_use_select": {
+      "label": "固定队伍用途的选择项",
+      "type": "int"
+    },
+    "reward_cards": {
+      "label": "奖励卡优先度",
+      "type": "bool"
+    },
+    "reward_cards_select": {
+      "label": "自定义奖励卡优先度",
+      "type": "int"
+    },
+    "opening_bonus": {
+      "label": "开局星光加成：0 未选中，1 基础，2 +，3 ++",
+      "type": "List[int]"
+    },
+    "after_level_IV": {
+      "label": "自定义合成四级后的操作",
+      "type": "bool"
+    },
+    "after_level_IV_select": {
+      "label": "合成四级后的操作",
+      "type": "int"
+    },
+    "shopping_strategy": {
+      "label": "自定义购物策略",
+      "type": "bool"
+    },
+    "shopping_strategy_select": {
+      "label": "购物策略",
+      "type": "int"
+    },
+    "opening_items": {
+      "label": "自定义开局道具",
+      "type": "bool"
+    },
+    "opening_items_select": {
+      "label": "开局道具选择顺序",
+      "type": "int"
+    },
+    "opening_items_system": {
+      "label": "开局道具体系",
+      "type": "int"
+    },
+    "second_system": {
+      "label": "启用第二体系",
+      "type": "bool"
+    },
+    "second_system_select": {
+      "label": "第二体系",
+      "type": "int"
+    },
+    "second_system_setting": {
+      "label": "第二体系启用时间",
+      "type": "int"
+    },
+    "second_system_action": {
+      "label": "第二体系行动模式",
+      "type": "List[int]"
+    },
+    "observe_ego_gift": {
+      "label": "是否启用观测EGO饰品",
+      "type": "bool"
+    },
+    "observe_ego_gift_selected": {
+      "label": "用户选择的观测EGO饰品列表",
+      "type": "List[str]"
+    },
+    "skill_replacement": {
+      "label": "自定义技能替换",
+      "type": "bool"
+    },
+    "skill_replacement_select": {
+      "label": "技能替换设置",
+      "type": "int"
+    },
+    "skill_replacement_mode": {
+      "label": "技能替换模式",
+      "type": "int"
+    },
+    "ignore_shop": {
+      "label": "忽略商店楼层",
+      "type": "List[int]"
+    },
+    "max_keyword_refresh": {
+      "label": "每次商店定向刷新最大次数",
+      "type": "int"
+    },
+    "max_normal_refresh": {
+      "label": "每次商店普通刷新最大次数",
+      "type": "int"
+    },
+    "remark_name": {
+      "label": "队伍备注名",
+      "type": "Optional[str]"
+    },
+    "use_custom_theme_pack_weight": {
+      "label": "启用队伍自定义主题包权重",
+      "type": "bool"
+    },
+    "use_team_code": {
+      "label": "是否使用编队码自动组队",
+      "type": "bool"
+    },
+    "team_code": {
+      "label": "编队码字符串",
+      "type": "str"
+    },
+    "total_mirror_time_hard": {
+      "label": "困难镜牢总用时",
+      "type": "List[float]"
+    },
+    "mirror_hard_count": {
+      "label": "困难镜牢次数",
+      "type": "int"
+    },
+    "total_mirror_time_normal": {
+      "label": "普通镜牢总用时",
+      "type": "List[float]"
+    },
+    "mirror_normal_count": {
+      "label": "普通镜牢次数",
+      "type": "int"
+    }
+  },
+  "ConfigModel": {
+    "config_version": {
+      "label": "配置文件版本号（时间戳）",
+      "type": "int"
+    },
+    "game_title_name": {
+      "label": "游戏窗口标题",
+      "type": "str"
+    },
+    "game_process_name": {
+      "label": "游戏进程名",
+      "type": "str"
+    },
+    "game_path": {
+      "label": "游戏启动路径",
+      "type": "str"
+    },
+    "after_completion_actions": {
+      "label": "脚本结束后的前置动作（可多选）：exit_game/exit_emulator/exit_aalc",
+      "type": "List[str]"
+    },
+    "after_completion_power_action": {
+      "label": "脚本结束后的最终动作（单选）：none/sleep/hibernate/lock/shutdown",
+      "type": "str"
+    },
+    "keep_after_completion": {
+      "label": "是否保持脚本结束后的操作",
+      "type": "bool"
+    },
+    "language_in_program": {
+      "label": "程序语言",
+      "type": "str"
+    },
+    "shutdown_hotkey": {
+      "label": "关闭快捷键",
+      "type": "str"
+    },
+    "pause_hotkey": {
+      "label": "暂停快捷键",
+      "type": "str"
+    },
+    "resume_hotkey": {
+      "label": "继续快捷键",
+      "type": "str"
+    },
+    "announcement": {
+      "label": "公告板时间戳",
+      "type": "float"
+    },
+    "memory_protection": {
+      "label": "内存占用保护",
+      "type": "bool"
+    },
+    "background_click": {
+      "label": "是否使用后台点击",
+      "type": "bool"
+    },
+    "win_input_type": {
+      "label": "键鼠操控方式",
+      "type": "str"
+    },
+    "auto_hard_mirror": {
+      "label": "周四自动切换困难镜牢",
+      "type": "bool"
+    },
+    "last_auto_change": {
+      "label": "上次自动切换困难镜牢的时间戳",
+      "type": "float"
+    },
+    "hard_mirror_chance": {
+      "label": "困难镜牢剩余次数",
+      "type": "int"
+    },
+    "zoom_scale": {
+      "label": "缩放比例",
+      "type": "int"
+    },
+    "window_position_x": {
+      "label": "窗口位置x",
+      "type": "int"
+    },
+    "window_position_y": {
+      "label": "窗口位置y",
+      "type": "int"
+    },
+    "theme_mode": {
+      "label": "应用主题：AUTO, LIGHT, DARK",
+      "type": "str"
+    },
+    "autostart": {
+      "label": "自启动",
+      "type": "bool"
+    },
+    "autodaily": {
+      "label": "启用定时执行",
+      "type": "bool"
+    },
+    "autodaily_task": {
+      "label": "定时任务列表",
+      "type": "List[bool]"
+    },
+    "autodaily_task_exit": {
+      "label": "定时任务退出列表: [exit_game, exit_aalc, sleep, hibernate, shutdown, lock, exit_emulator]",
+      "type": "List[bool]"
+    },
+    "autodaily_time": {
+      "label": "定时执行时间（HH:mm）",
+      "type": "str"
+    },
+    "autodaily2": {
+      "label": "启用定时执行2",
+      "type": "bool"
+    },
+    "autodaily2_task": {
+      "label": "定时任务2列表",
+      "type": "List[bool]"
+    },
+    "autodaily2_task_exit": {
+      "label": "定时任务2退出列表: [exit_game, exit_aalc, sleep, hibernate, shutdown, lock, exit_emulator]",
+      "type": "List[bool]"
+    },
+    "autodaily_time2": {
+      "label": "定时执行时间2（HH:mm）",
+      "type": "str"
+    },
+    "autodaily3": {
+      "label": "启用定时执行3",
+      "type": "bool"
+    },
+    "autodaily3_task": {
+      "label": "定时任务3列表",
+      "type": "List[bool]"
+    },
+    "autodaily3_task_exit": {
+      "label": "定时任务3退出列表: [exit_game, exit_aalc, sleep, hibernate, shutdown, lock, exit_emulator]",
+      "type": "List[bool]"
+    },
+    "autodaily_time3": {
+      "label": "定时执行时间3（HH:mm）",
+      "type": "str"
+    },
+    "autodaily4": {
+      "label": "启用定时执行4",
+      "type": "bool"
+    },
+    "autodaily4_task": {
+      "label": "定时任务4列表",
+      "type": "List[bool]"
+    },
+    "autodaily4_task_exit": {
+      "label": "定时任务4退出列表: [exit_game, exit_aalc, sleep, hibernate, shutdown, lock, exit_emulator]",
+      "type": "List[bool]"
+    },
+    "autodaily_time4": {
+      "label": "定时执行时间4（HH:mm）",
+      "type": "str"
+    },
+    "minimize_to_tray": {
+      "label": "最小化到托盘",
+      "type": "bool"
+    },
+    "screenshot_interval": {
+      "label": "截图间隔时间",
+      "type": "float"
+    },
+    "mouse_action_interval": {
+      "label": "鼠标操作间隔时间",
+      "type": "float"
+    },
+    "mouse_down_duration": {
+      "label": "鼠标按下持续时间",
+      "type": "float"
+    },
+    "use_post_message": {
+      "label": "是否使用PostMessage进行输入",
+      "type": "bool"
+    },
+    "experimental_keep_screen_awake": {
+      "label": "运行期间阻止系统与显示器休眠，任务结束自动恢复",
+      "type": "bool"
+    },
+    "experimental_hdr_warning": {
+      "label": "任务启动时检测游戏显示器 HDR 状态并提示潜在识别问题",
+      "type": "bool"
+    },
+    "backend": {
+      "label": "backend",
+      "type": "str"
+    },
+    "game_profile": {
+      "label": "game_profile",
+      "type": "str"
+    },
+    "playcover_host": {
+      "label": "playcover_host",
+      "type": "str"
+    },
+    "playcover_port": {
+      "label": "playcover_port",
+      "type": "int"
+    },
+    "playcover_app_path": {
+      "label": "playcover_app_path",
+      "type": "str"
+    },
+    "playcover_bundle_id": {
+      "label": "playcover_bundle_id",
+      "type": "str"
+    },
+    "playcover_capture_method": {
+      "label": "playcover_capture_method",
+      "type": "str"
+    },
+    "playcover_logical_width": {
+      "label": "playcover_logical_width",
+      "type": "int"
+    },
+    "playcover_logical_height": {
+      "label": "playcover_logical_height",
+      "type": "int"
+    },
+    "simulator": {
+      "label": "是否使用模拟器",
+      "type": "bool"
+    },
+    "simulator_type": {
+      "label": "0:mumu, 1:BlueStacks 5, 10:其他",
+      "type": "int"
+    },
+    "simulator_host": {
+      "label": "BlueStacks 或其他模拟器的 ADB 主机名或 IP 地址",
+      "type": "str"
+    },
+    "simulator_port": {
+      "label": "BlueStacks 或其他模拟器的 ADB 端口",
+      "type": "int"
+    },
+    "mumu_instance_number": {
+      "label": "mumu模拟器的实例编号",
+      "type": "int"
+    },
+    "bluestacks_instance_name": {
+      "label": "BlueStacks 5 的内部实例名；留空时按端口或唯一实例自动选择",
+      "type": "str"
+    },
+    "start_emulator_timeout": {
+      "label": "启动模拟器超时时间",
+      "type": "int"
+    },
+    "adb_reconnect_on_error": {
+      "label": "ADB或minitouch连接失效时自动重连",
+      "type": "bool"
+    },
+    "check_update": {
+      "label": "检查更新",
+      "type": "bool"
+    },
+    "update_prerelease_enable": {
+      "label": "启用预发布版更新",
+      "type": "bool"
+    },
+    "update_source": {
+      "label": "更新源",
+      "type": "str"
+    },
+    "mirrorchyan_cdk": {
+      "label": "Mirror酱 CDK",
+      "type": "str"
+    },
+    "image_resource_sync": {
+      "label": "是否启用图片资源自动同步",
+      "type": "bool"
+    },
+    "image_resource_source": {
+      "label": "图片资源同步源",
+      "type": "str"
+    },
+    "default_page": {
+      "label": "保存启动后的页面",
+      "type": "int"
+    },
+    "set_windows": {
+      "label": "是否进行自动窗口设置",
+      "type": "bool"
+    },
+    "set_win_size": {
+      "label": "设置使用的分辨率",
+      "type": "int"
+    },
+    "set_win_position": {
+      "label": "是否自动设置窗口的位置",
+      "type": "str"
+    },
+    "set_reduce_miscontact": {
+      "label": "是否防止误触",
+      "type": "bool"
+    },
+    "select_team_by_order": {
+      "label": "是否按顺序（而非名称）选择队伍",
+      "type": "bool"
+    },
+    "daily_task": {
+      "label": "是否进行日常本",
+      "type": "bool"
+    },
+    "set_EXP_count": {
+      "label": "设置经验本的次数",
+      "type": "int"
+    },
+    "set_thread_count": {
+      "label": "设置纽本的次数",
+      "type": "int"
+    },
+    "daily_teams": {
+      "label": "设置日常本使用的队伍",
+      "type": "int"
+    },
+    "targeted_teaming_EXP": {
+      "label": "经验本指定队伍",
+      "type": "bool"
+    },
+    "EXP_day_1_2": {
+      "label": "周一/二经验本队伍",
+      "type": "int"
+    },
+    "EXP_day_3_4": {
+      "label": "周三/四经验本队伍",
+      "type": "int"
+    },
+    "EXP_day_5_6": {
+      "label": "周五/六经验本队伍",
+      "type": "int"
+    },
+    "EXP_day_7": {
+      "label": "周日经验本队伍",
+      "type": "int"
+    },
+    "targeted_teaming_thread": {
+      "label": "纽本指定队伍",
+      "type": "bool"
+    },
+    "use_continuous_combat": {
+      "label": "是否使用连续作战",
+      "type": "bool"
+    },
+    "use_continuous_combat_select": {
+      "label": "一场连续作战的最大次数",
+      "type": "int"
+    },
+    "thread_day_1": {
+      "label": "周一纽本队伍",
+      "type": "int"
+    },
+    "thread_day_2": {
+      "label": "周二纽本队伍",
+      "type": "int"
+    },
+    "thread_day_3": {
+      "label": "周三纽本队伍",
+      "type": "int"
+    },
+    "thread_day_4": {
+      "label": "周四纽本队伍",
+      "type": "int"
+    },
+    "thread_day_5": {
+      "label": "周五纽本队伍",
+      "type": "int"
+    },
+    "thread_day_6": {
+      "label": "周六纽本队伍",
+      "type": "int"
+    },
+    "thread_day_7": {
+      "label": "周日纽本队伍",
+      "type": "int"
+    },
+    "get_reward": {
+      "label": "是否进行获取奖励",
+      "type": "bool"
+    },
+    "set_get_prize": {
+      "label": "奖励领取模式",
+      "type": "int"
+    },
+    "buy_enkephalin": {
+      "label": "是否自动购买体力",
+      "type": "bool"
+    },
+    "set_lunacy_to_enkephalin": {
+      "label": "购买体力次数",
+      "type": "int"
+    },
+    "Dr_Grandet_mode": {
+      "label": "葛朗台模式",
+      "type": "bool"
+    },
+    "skip_enkephalin": {
+      "label": "跳过换体",
+      "type": "bool"
+    },
+    "mirror": {
+      "label": "是否进行自动镜牢",
+      "type": "bool"
+    },
+    "set_mirror_count": {
+      "label": "镜牢的次数",
+      "type": "int"
+    },
+    "hard_mirror": {
+      "label": "进行困难镜牢",
+      "type": "int | bool"
+    },
+    "no_weekly_bonuses": {
+      "label": "不使用每周加成",
+      "type": "int | bool"
+    },
+    "floor_3_exit": {
+      "label": "只打三层",
+      "type": "bool"
+    },
+    "infinite_dungeons": {
+      "label": "无限刷牢",
+      "type": "bool"
+    },
+    "save_rewards": {
+      "label": "保存奖励不领",
+      "type": "bool"
+    },
+    "hard_mirror_single_bonuses": {
+      "label": "困难镜牢使用单次加成",
+      "type": "bool"
+    },
+    "select_event_pack": {
+      "label": "第五层选择活动卡包",
+      "type": "bool"
+    },
+    "skip_event_pack": {
+      "label": "第五层跳过活动卡包",
+      "type": "bool"
+    },
+    "re_claim_rewards": {
+      "label": "再次执行领取奖励任务",
+      "type": "bool"
+    },
+    "fight_to_last_man": {
+      "label": "战斗直到全灭",
+      "type": "bool"
+    },
+    "teams_be_select_num": {
+      "label": "被选中的队伍数量",
+      "type": "int"
+    },
+    "teams_be_select": {
+      "label": "被选中的队伍",
+      "type": "List[bool]"
+    },
+    "teams_order": {
+      "label": "队伍的顺序",
+      "type": "List[int]"
+    },
+    "teams_active_queue": {
+      "label": "镜牢启用队伍的执行队列（单一事实源）",
+      "type": "List[int]"
+    },
+    "teams": {
+      "label": "队伍设置",
+      "type": "dict[str, TeamSetting]"
+    }
+  },
+  "options": {
+    "all_systems": [
+      [
+        "烧伤",
+        0
+      ],
+      [
+        "流血",
+        1
+      ],
+      [
+        "震颤",
+        2
+      ],
+      [
+        "破裂",
+        3
+      ],
+      [
+        "呼吸",
+        4
+      ],
+      [
+        "沉沦",
+        5
+      ],
+      [
+        "充能",
+        6
+      ],
+      [
+        "斩击",
+        7
+      ],
+      [
+        "突刺",
+        8
+      ],
+      [
+        "打击",
+        9
+      ]
+    ],
+    "shop_strategy": [
+      [
+        "出售",
+        0
+      ],
+      [
+        "合成",
+        1
+      ],
+      [
+        "合成：四级优先",
+        2
+      ]
+    ],
+    "after_fuse_level_IV": [
+      [
+        "商店策略改为出售",
+        0
+      ],
+      [
+        "商店策略改为普通合成",
+        1
+      ],
+      [
+        "合成第二体系四级饰品",
+        2
+      ],
+      [
+        "跳过商店",
+        3
+      ]
+    ],
+    "reward_cards": [
+      [
+        "星光→饰品→钱→饰品/钱→罪孽",
+        0
+      ],
+      [
+        "星光→钱→饰品→饰品/钱→罪孽",
+        1
+      ],
+      [
+        "钱→饰品→饰品/钱→罪孽→星光",
+        2
+      ],
+      [
+        "饰品→钱→饰品/钱→罪孽→星光",
+        3
+      ]
+    ],
+    "fixed_team_use": [
+      [
+        "困难镜牢",
+        0
+      ],
+      [
+        "普通镜牢",
+        1
+      ]
+    ],
+    "shopping_strategy": [
+      [
+        "仅购买回血饰品",
+        0
+      ],
+      [
+        "启用四级优先时：仅购买所有3-4级饰品",
+        1
+      ],
+      [
+        "仅购买体系饰品",
+        2
+      ],
+      [
+        "不购买体系饰品",
+        3
+      ],
+      [
+        "不购买回血饰品",
+        4
+      ],
+      [
+        "启用四级优先时：不购买所有3-4级饰品",
+        5
+      ]
+    ],
+    "start_gift": [
+      [
+        "1→2→3",
+        0
+      ],
+      [
+        "1→3→2",
+        1
+      ],
+      [
+        "2→1→3",
+        2
+      ],
+      [
+        "2→3→1",
+        3
+      ],
+      [
+        "3→1→2",
+        4
+      ],
+      [
+        "3→2→1",
+        5
+      ]
+    ],
+    "second_systems": [
+      [
+        "合成第一体系四级饰品后",
+        0
+      ],
+      [
+        "一直",
+        1
+      ]
+    ],
+    "skill_replacement_sinner": [
+      [
+        "配队首位",
+        0
+      ],
+      [
+        "配队前3",
+        1
+      ],
+      [
+        "配队前7",
+        2
+      ],
+      [
+        "所有选中的人",
+        3
+      ]
+    ],
+    "skill_replacement_mode": [
+      [
+        "1→3",
+        0
+      ],
+      [
+        "2→3",
+        1
+      ],
+      [
+        "1→2",
+        2
+      ]
+    ],
+    "set_get_prize_options": [
+      [
+        "邮件+日/周常",
+        0
+      ],
+      [
+        "日/周常",
+        1
+      ],
+      [
+        "邮件",
+        2
+      ]
+    ],
+    "set_lunacy_to_enkephalin_options": [
+      [
+        "不换",
+        0
+      ],
+      [
+        "换第一次",
+        1
+      ],
+      [
+        "换第二次",
+        2
+      ],
+      [
+        "换第三次",
+        3
+      ]
+    ]
+  },
+  "theme_names": {
+    "forgot": "遗忘",
+    "gambl": "赌徒",
+    "nagel": "钉与锤",
+    "faith": "信仰",
+    "unconf": "无作为",
+    "workshop": "工坊",
+    "tearful": "落泪",
+    "lake": "湖的",
+    "dregs": "宅邸",
+    "certain": "某个世界",
+    "chick": "地狱鸡",
+    "s.e.a": "海·边",
+    "miracle&&bokgak": "区的奇&&复刻",
+    "miracle": "区的奇",
+    "bullet": "句点",
+    "cleaved": "当斩",
+    "penetra": "穿刺者",
+    "pierced": "当贯",
+    "crushers": "粉碎者",
+    "repression": "情感压迫",
+    "addict": "沉迷的",
+    "seduct": "情感困惑",
+    "dolen": "情感懒",
+    "devoured": "吞噬的",
+    "cravi": "情感饥渴",
+    "degraded": "落的忧",
+    "subserv": "情感屈从",
+    "nsignif": "寒微",
+    "judgment": "情感评判",
+    "outcast": "无归属",
+    "crushed": "当碎",
+    "automated": "自动",
+    "spring": "琢春",
+    "unloving": "无慈悲",
+    "flowers": "落花",
+    "abyss": "伏行",
+    "bones&&bokgak": "骨断&&复刻",
+    "bones": "骨断",
+    "time&&bokgak": "时间杀人&&复刻",
+    "time": "时间杀人",
+    "warp": "谋杀",
+    "violet": "紫罗兰",
+    "dicers": "斩切",
+    "repressed": "压抑的",
+    "treadwheel": "空转",
+    "flood": "沉溺者",
+    "vain": "虚张声势",
+    "check": "体检",
+    "sweep": "清扫",
+    "Hatred": "绝望",
+    "Wander": "彷徨",
+    "dusk": "黄昏",
+    "thread": "绞丝",
+    "compassion": "巡礼",
+    "mnestic": "经验",
+    "unknown": "未知",
+    "seismic": "地震",
+    "external": "破坏性",
+    "thunder": "电闪雷鸣",
+    "sanguine": "渗出的",
+    "dizzying": "缭乱的",
+    "pang": "沉于",
+    "sigh": "叹息",
+    "supply": "动力",
+    "four": "家族",
+    "opening": "开园",
+    "procession": "无尽的",
+    "unchanging": "无改变",
+    "evil": "定义为",
+    "heartb": "心意相",
+    "line 3&&termin": "3号线&&终点",
+    "line 1&&mad": "1号线&&疯狂",
+    "line 1": "1号线",
+    "line 2": "2号线",
+    "line 3": "3号线",
+    "line 4&&section&&#3": "4号线&&3区段",
+    "line 4&&section&&#4": "4号线&&4区段",
+    "line 5": "5号线",
+    "line": "号线",
+    "unbound": "解放的",
+    "tangling": "束缚的",
+    "inert": "停滞的",
+    "excessive": "漫溢的",
+    "sunk": "沉溺的",
+    "pride": "自以为",
+    "pitiful": "凄惨的",
+    "haze": "摇曳",
+    "season": "盛火",
+    "corpses": "血海",
+    "might": "破竹",
+    "deluge": "沉沦泛",
+    "poised": "循环呼",
+    "ending": "终焉",
+    "witnessing": "观望",
+    "Text": "教材",
+    "Blade": "刀与作",
+    "Unsever": "割舍",
+    "Theb": "凤·皇"
+  }
+}

@@ -28,7 +28,7 @@ def application_root() -> Path:
 
 
 APP_ROOT = application_root()
-DATA_ROOT = APP_ROOT / ".runtime"
+DATA_ROOT = Path(os.environ.get("AALC_DATA_ROOT", APP_ROOT / ".runtime")).expanduser().resolve()
 
 
 def resource_path(path: str | Path) -> Path:

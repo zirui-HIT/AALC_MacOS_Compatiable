@@ -105,7 +105,7 @@ def make_enkephalin_module(cancel=True, skip=True, *, task_name: str = "体力�
                 log.warning(msg)
                 last_log_time = now_time
         if now_time - start_time > 60:
-            from app import mediator
+            from backend_host.notifications import mediator
 
             if first_popup_warning and (last_log_time is None or now_time - last_log_time > 5):
                 # only do it once

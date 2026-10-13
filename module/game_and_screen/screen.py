@@ -5,7 +5,7 @@ import win32api
 import win32con
 import win32gui
 
-from app import mediator
+from backend_host.notifications import mediator
 from module.config import cfg
 from module.logger import log
 from utils.singletonmeta import SingletonMeta

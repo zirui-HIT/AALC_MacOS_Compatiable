@@ -5,8 +5,8 @@ from __future__ import annotations
 from dataclasses import dataclass
 from enum import Enum
 
-from PySide6.QtCore import QThread, Signal
-
+from backend_host.runtime import Signal
+from backend_host.runtime import WorkerThread as QThread
 from module.resource_sync.service import (
     ResourceCheckResult,
     ResourceCheckStatus,

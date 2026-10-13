@@ -1,4 +1,4 @@
-"""Exercise the original completion path and real Qt exit in isolated processes."""
+"""Exercise original completion and host exit only after worker cleanup."""
 
 import json
 import os
@@ -36,9 +36,9 @@ from module.backends import factory
 from module.platforms import macos
 from module import system_actions
 from tasks.base import script_task_scheme as task
-from app import mediator
-from PySide6.QtCore import QTimer
-from PySide6.QtWidgets import QApplication
+from backend_host.notifications import mediator
+from backend_host.runtime import events
+from backend_host.service import BackendService
 
 actions, suspended, game_failure, full_window, late_delivery = json.loads(sys.argv[1])
 cfg.config = cfg.config.model_copy(update={
@@ -75,46 +75,36 @@ def awake(enable):
 task.apply_power_keep_awake = awake
 macos.hotkeys_available = lambda: False
 mediator.kill_signal.connect(lambda: marks.append('exit_requested'))
-app = QApplication(['completion-test'])
-if full_window:
-    from app.my_app import MainWindow
-    window = MainWindow(['--smoke-test'])
-    left = window.farming_interface.interface_left
-else:
-    from app.farming_interface import FarmingInterfaceLeft
-    left = FarmingInterfaceLeft()
-left.after_completion_selector.apply_selection(actions, 'none', False)
+def published(event, data):
+    if event == 'exit' or (event == 'state' and not data['state']['running'] and not should_exit):
+        marks.append('quit_after_cleanup' if 'disconnected' in marks else 'quit_too_early')
+service = BackendService(published, hotkeys=False)
+cfg.unsaved_set_value('after_completion_actions', actions)
+cfg.unsaved_set_value('after_completion_power_action', 'none')
 system_actions.suspend_completion_actions(suspended)
 should_exit = 'exit_aalc' in actions and not suspended and not game_failure
-left.my_script = task.my_script_task()
-left.my_script.finished.connect(lambda: marks.append('worker_finished'))
-if not should_exit:
-    left.my_script.finished.connect(app.quit)
-app.aboutToQuit.connect(lambda: marks.append('quit_after_cleanup' if 'disconnected' in marks else 'quit_too_early'))
-def timeout():
-    marks.append('timeout')
-    app.quit()
-QTimer.singleShot(5000, timeout)
+worker = task.my_script_task()
+worker.finished.connect(lambda: marks.append('worker_finished'))
+service._launch(worker, 'task')
 if late_delivery:
-    left.my_script.start()
-    assert left.my_script.wait(2000)
-else:
-    QTimer.singleShot(0, left.my_script.start)
-assert app.exec() == 0
-assert left.my_script.wait(2000)
+    assert worker.wait(2000)
+deadline = time.monotonic() + 5
+while 'quit_after_cleanup' not in marks and 'quit_too_early' not in marks and time.monotonic() < deadline:
+    events.drain(timeout=0.05)
+assert worker.wait(2000)
 assert 'timeout' not in marks, marks
 assert 'quit_after_cleanup' in marks and 'quit_too_early' not in marks, marks
 assert 'awake_released' in marks and 'worker_finished' in marks, marks
 assert ('exit_requested' in marks) == should_exit, marks
 assert ('game_stopped' in marks) == ('exit_game' in actions and not suspended and not game_failure), marks
-assert getattr(left.my_script, 'exception', None) is None
+assert getattr(worker, 'exception', None) is None
 assert warnings == [], warnings  # Successful completion never opens a warning dialog.
 sys.stdout.write('COMPLETION_CHECK_PASSED\\n')
 """
     result = subprocess.run(
         [sys.executable, "-c", script, json.dumps([actions, suspended, game_failure, full_window, late_delivery])],
         cwd=SOURCE_ROOT,
-        env={**os.environ, "QT_QPA_PLATFORM": "offscreen", "AALC_TEST_CONFIG_PATH": str(tmp_path / "config.yaml")},
+        env={**os.environ, "AALC_TEST_CONFIG_PATH": str(tmp_path / "config.yaml")},
         capture_output=True, text=True, timeout=20,
     )
     assert result.returncode == 0, result.stdout + result.stderr
