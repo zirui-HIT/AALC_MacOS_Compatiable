@@ -535,7 +535,7 @@
       "type": "str"
     },
     "image_resource_sync": {
-      "label": "是否启用图片资源自动同步",
+      "label": "图片资源自动同步",
       "type": "bool"
     },
     "image_resource_source": {

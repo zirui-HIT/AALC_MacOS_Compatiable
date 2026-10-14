@@ -5,7 +5,22 @@ import subprocess
 import sys
 from pathlib import Path
 
+import psutil
+
 ROOT = Path(__file__).resolve().parents[1]
+
+
+def ensure_bundle_stopped(bundle):
+    """Lazy PYZ imports reopen the executable using the running app's old offsets."""
+    executable = (bundle / 'Contents/MacOS/AALC').resolve()
+    running = []
+    for process in psutil.process_iter(['pid', 'exe', 'cmdline']):
+        paths = [process.info['exe'], *(process.info['cmdline'] or [])[:1]]
+        if any(path and Path(path).resolve() == executable for path in paths):
+            running.append(str(process.info['pid']))
+    if running:
+        raise SystemExit(f'Quit AALC (PIDs {", ".join(running)}) before replacing {bundle}. '
+                         'Updating a running bundle breaks subsequent task imports.')
 
 
 def main():
@@ -14,6 +29,7 @@ def main():
     arguments = parser.parse_args()
     if sys.platform != 'darwin':
         raise SystemExit('The AppKit frontend requires macOS')
+    ensure_bundle_stopped(ROOT / 'dist/AALC.app')
     env = {**os.environ, 'PYINSTALLER_CONFIG_DIR': str(ROOT / '.runtime/cache/pyinstaller'), 'TMPDIR': str(ROOT / '.runtime/tmp')}
     subprocess.run([sys.executable, '-m', 'PyInstaller', str(ROOT / 'main_macos.spec'), '--clean', '--noconfirm'], cwd=ROOT, env=env, check=True)
     bundle = ROOT / 'dist/AALC.app'
@@ -32,6 +48,7 @@ def main():
             shutil.rmtree(staged)
         subprocess.run(['/usr/bin/ditto', str(bundle), str(staged)], check=True)
         subprocess.run(['/usr/bin/codesign', '--verify', '--deep', '--strict', str(staged)], check=True)
+        ensure_bundle_stopped(destination)
         previous = destination.with_name('.AALC-previous-' + uuid.uuid4().hex + '.app')
         if destination.exists():
             destination.rename(previous)

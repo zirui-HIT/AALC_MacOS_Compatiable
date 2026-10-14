@@ -423,7 +423,7 @@ class ConfigModel(BaseModel):
     """Mirror酱 CDK"""
 
     image_resource_sync: bool
-    """是否启用图片资源自动同步"""
+    """图片资源自动同步"""
 
     image_resource_source: str
     """图片资源同步源"""

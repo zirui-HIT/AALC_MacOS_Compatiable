@@ -178,11 +178,16 @@ macOS 等待线程结束后使用排队关闭，并补查线程是否已结束�
 .venv/bin/python -m pytest -q --basetemp .runtime/tmp/pytest-all
 QT_QPA_PLATFORM=offscreen .venv/bin/python main.py --smoke-test
 .venv/bin/python main.py --ocr-smoke-test
-export PYINSTALLER_CONFIG_DIR="$PWD/.runtime/cache/pyinstaller"
-.venv/bin/pyinstaller main_macos.spec --clean --noconfirm
+.venv/bin/python scripts/build.py --install
 dist/AALC.app/Contents/MacOS/AALC --smoke-test
 dist/AALC.app/Contents/MacOS/AALC --ocr-smoke-test
 ```
+
+更新前须完全退出 AALC，包括后台进程；关闭主窗口只会隐藏应用。
+构建脚本在重建 `dist/AALC.app` 和替换 `/Applications/AALC.app` 前检查相关进程，
+仍在运行时中止更新。2026-10-14 已复现：覆盖运行中的 PyInstaller 应用后，
+旧进程以旧索引读取新包内的延迟加载模块，定时任务会报
+`Error -3 while decompressing data: incorrect header check`；完整退出后重新打开新包即可恢复。
 
 默认测试使用合成图像/本地假服务，不连接游戏。脱敏实机截图回放在
 `tests/fixtures/playcover/`，记录版本、语言、原始/逻辑/触控尺寸与脱敏范围。
