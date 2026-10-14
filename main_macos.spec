@@ -1,16 +1,23 @@
 # macOS arm64 directory bundle; build and writable runtime remain in the workspace.
 import json
+import sys
 from pathlib import Path
 
 from PyInstaller.utils.hooks import collect_data_files
 
 project_root = Path(SPECPATH)
+sys.path.insert(0, str(project_root))
+from utils.build_provenance import build_provenance
+
 launch_config = project_root / "build/native-launch.json"
 launch_config.parent.mkdir(parents=True, exist_ok=True)
 launch_config.write_text(json.dumps({"data_root": str(project_root / ".runtime")}))
+build_config = project_root / "build/native-build.json"
+build_config.write_text(json.dumps(build_provenance(project_root), ensure_ascii=True))
 datas = collect_data_files("rapidocr")
 datas.append((str(project_root / "pyproject.toml"), "."))
 datas.append((str(launch_config), "assets/config"))
+datas.append((str(build_config), "assets/config"))
 for directory in ("assets", "i18n"):
     for path in (project_root / directory).rglob("*"):
         if path.is_file() and "minitouch" not in path.parts and path.suffix.lower() not in {".exe", ".dll", ".bat", ".pyc", ".qm"}:

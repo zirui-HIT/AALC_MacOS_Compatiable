@@ -28,6 +28,7 @@ class BackendService:
         self.resource_payload = None
         self.hotkey_token = None
         self.background = set()
+        self.update_check = None
         self.startup_pending = False
         self.startup_args = []
         self.pending_apply = False
@@ -571,7 +572,7 @@ class BackendService:
             self.publish("warning", {"message": str(exc)})
         if cfg.check_update:
             try:
-                self.check_updates()
+                self.check_updates(automatic=True)
             except Exception as exc:
                 self.publish("warning", {"message": str(exc)})
         try:
@@ -619,13 +620,41 @@ class BackendService:
         elif self.startup_pending and not self.awaiting_resource_choice:
             self.continue_startup()
 
-    def check_updates(self):
-        from module.update.check_update import UpdateThread
+    def check_updates(self, automatic=False):
+        from backend_host.git_update import GitUpdateCheck
 
-        worker = UpdateThread(10, False)
-        worker.updateSignal.connect(lambda status: self.publish("update", {"status": status.name, "version": worker.new_version, "title": getattr(worker, "title", ""), "content": getattr(worker, "content", ""), "message": worker.error_msg}), queued=True)
+        active = getattr(self, "update_check", None)
+        if active is not None:
+            if not automatic:
+                active["automatic"] = False
+            return None
+        worker = GitUpdateCheck(10)
+        context = {"automatic": automatic}
+        self.update_check = context
+
+        def checked(result):
+            if self.update_check is context and "result" not in context:
+                context["result"] = result
+
+        def finished():
+            if self.update_check is not context:
+                return
+            if worker.isRunning():
+                events.later(10, finished)
+                return
+            self.update_check = None
+            if "result" in context:
+                result, is_automatic = context["result"], context["automatic"]
+                self.publish("update" if not is_automatic or result["status"] == "UPDATE_AVAILABLE" else "update_status", {**result, "automatic": is_automatic})
+
+        worker.result.connect(checked, queued=True)
+        worker.finished.connect(finished, queued=True)
         # Checks own no game connection and can run alongside resource checks.
-        self._start_background(worker)
+        try:
+            self._start_background(worker)
+        except Exception:
+            finished()
+            raise
         return None
 
     def _start_background(self, worker):
