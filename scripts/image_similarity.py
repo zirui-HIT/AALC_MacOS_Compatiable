@@ -14,12 +14,14 @@ import csv
 import hashlib
 import html
 import math
+import os
 import re
 import sys
 import time
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from dataclasses import dataclass
 from pathlib import Path
+from urllib.parse import quote
 
 import cv2
 import numpy as np
@@ -47,6 +49,7 @@ class ImageEntry:
     width: int
     height: int
     black_ratio: float
+    crop_assets: bool = True
 
 
 @dataclass(frozen=True)
@@ -213,6 +216,7 @@ def prepare_entry(
         width=width,
         height=height,
         black_ratio=black_ratio(image),
+        crop_assets=crop_assets,
     )
     return entry, naming_issues_for(relative_name, image, is_assets, bbox, enforce_path_layout)
 
@@ -255,6 +259,8 @@ def bbox_for_model(
 def positioned_assets_score(screenshot_entry: ImageEntry, template_entry: ImageEntry, model: str) -> float | None:
     if template_entry.bbox is None:
         return None
+    if not template_entry.crop_assets:
+        return score_one(screenshot_entry.image, template_entry.template)
     search_bbox = bbox_for_model(template_entry.bbox, screenshot_entry.image, model)
     if search_bbox is None:
         return score_one(screenshot_entry.image, template_entry.template)
@@ -287,9 +293,16 @@ def name_relation(left_name: str, right_name: str) -> str:
     return "same-target" if target_name(left_name) == target_name(right_name) else "different-target"
 
 
-def image_link(name: str) -> str:
-    path = f"assets/images/{name}"
-    return f"[`{name}`]({path})"
+def report_href(path: Path, output_path: Path) -> str:
+    try:
+        relative = Path(os.path.relpath(path.resolve(), output_path.resolve().parent)).as_posix()
+    except ValueError:
+        return path.resolve().as_uri()
+    return quote(relative, safe="/")
+
+
+def image_link(name: str, folder: Path, output_path: Path) -> str:
+    return f"[`{name}`]({report_href(folder / name, output_path)})"
 
 
 def html_link(label: str, href: str) -> str:
@@ -482,14 +495,15 @@ def write_report(
 
     with output_path.open("w", encoding="utf-8") as file:
         file.write("# 图片相似度与命名规范报告\n\n")
-        file.write("依据：[`assets/doc/zh/image_recognition.md`](assets/doc/zh/image_recognition.md)。\n\n")
+        documentation = Path(__file__).resolve().parents[1] / "assets/doc/zh/image_recognition.md"
+        file.write(f"依据：[`assets/doc/zh/image_recognition.md`]({report_href(documentation, output_path)})。\n\n")
         if html_report_path is not None:
             file.write(
-                f"勾选整理请使用可记忆版：[`{html_report_path.as_posix()}`]({html_report_path.as_posix()})。\n\n"
+                f"勾选整理请使用可记忆版：[`{html_report_path.as_posix()}`]({report_href(html_report_path, output_path)})。\n\n"
             )
         file.write("## 汇总\n\n")
         folder_path = folder.as_posix()
-        file.write(f"- 图片目录：[`{folder_path}`]({folder_path})\n")
+        file.write(f"- 图片目录：[`{folder_path}`]({report_href(folder, output_path)})\n")
         file.write(f"- 图片数量：{len(images)}\n")
         file.write(f"- 阈值：max(score) >= {threshold}\n")
         file.write("- score 格式：clam / normal\n")
@@ -511,14 +525,14 @@ def write_report(
                 file.write(f"### {ISSUE_TITLES.get(kind, kind)}\n\n")
                 for issue in issues:
                     file.write(markdown_item_line(issue.detail))
-                    file.write(f"  - {image_link(issue.name)}\n")
+                    file.write(f"  - {image_link(issue.name, folder, output_path)}\n")
                 file.write("\n")
 
-        write_relation_section(file, "B", "同名高相似", grouped_pairs["same-target"])
-        write_relation_section(file, "C", "不同名高相似", grouped_pairs["different-target"])
+        write_relation_section(file, "B", "同名高相似", grouped_pairs["same-target"], folder, output_path)
+        write_relation_section(file, "C", "不同名高相似", grouped_pairs["different-target"], folder, output_path)
 
 
-def write_relation_section(file, section: str, title: str, grouped_by_kind: dict[str, list]) -> None:
+def write_relation_section(file, section: str, title: str, grouped_by_kind: dict[str, list], folder: Path, output_path: Path) -> None:
     file.write(f"## {section}. {title}\n\n")
     file.write("同名指文件名相同，不考虑所在路径；不同名则通常需要人工判断是否能合并或是否存在误识别风险。\n\n")
     write_kind_section(
@@ -526,17 +540,19 @@ def write_relation_section(file, section: str, title: str, grouped_by_kind: dict
         "assets-assets：位置敏感匹配",
         "这类包含 `_assets` 和 `_bbox` 后缀图片，使用 `find_element` 风格的 bbox 限定区域；本次报告模式见汇总。",
         grouped_by_kind["assets-assets"],
+        folder, output_path,
     )
-    write_kind_section(file, "non-assets：核心图匹配", "", grouped_by_kind["non-assets"])
+    write_kind_section(file, "non-assets：核心图匹配", "", grouped_by_kind["non-assets"], folder, output_path)
     write_kind_section(
         file,
         "mixed：assets 与非 assets 核心相似",
         "这类只说明核心视觉相似；因调用语义不同，不能直接按同图删除。",
         grouped_by_kind["mixed"],
+        folder, output_path,
     )
 
 
-def write_kind_section(file, title: str, description: str, pairs: list[SimilarityPair]) -> None:
+def write_kind_section(file, title: str, description: str, pairs: list[SimilarityPair], folder: Path, output_path: Path) -> None:
     file.write(f"### {title}（{len(pairs)} 对）\n\n")
     if description:
         file.write(f"{description}\n\n")
@@ -545,8 +561,8 @@ def write_kind_section(file, title: str, description: str, pairs: list[Similarit
         return
     for left, right, max_score, clam_score, normal_score, kind, relation in pairs:
         file.write(markdown_item_line(f"score={score_label(clam_score, normal_score)}"))
-        file.write(f"  - {image_link(left)}\n")
-        file.write(f"  - {image_link(right)}\n")
+        file.write(f"  - {image_link(left, folder, output_path)}\n")
+        file.write(f"  - {image_link(right, folder, output_path)}\n")
     file.write("\n")
 
 
@@ -591,12 +607,11 @@ def write_html_report(
         )
         file.write("</style>\n</head>\n<body>\n")
         file.write("<h1>图片相似度与命名规范报告</h1>\n")
-        file.write(
-            f"<p>依据：{html_link('assets/doc/zh/image_recognition.md', 'assets/doc/zh/image_recognition.md')}。</p>\n"
-        )
+        documentation = Path(__file__).resolve().parents[1] / "assets/doc/zh/image_recognition.md"
+        file.write(f"<p>依据：{html_link('assets/doc/zh/image_recognition.md', report_href(documentation, output_path))}。</p>\n")
         file.write("<p class=\"hint\">勾选状态会自动保存在本机浏览器 localStorage，重新打开此 HTML 文件后会恢复。</p>\n")
         file.write("<h2>汇总</h2>\n<ul class=\"summary\">\n")
-        file.write(f"<li>图片目录：{html_link(folder_path, folder_path)}</li>\n")
+        file.write(f"<li>图片目录：{html_link(folder_path, report_href(folder, output_path))}</li>\n")
         file.write(f"<li>图片数量：{len(images)}</li>\n")
         file.write(f"<li>阈值：max(score) &gt;= {threshold}</li>\n")
         file.write("<li>score 格式：clam / normal</li>\n")
@@ -622,12 +637,12 @@ def write_html_report(
                 for issue in issues:
                     key = checkbox_key("issue", issue.kind, issue.name)
                     file.write(f"<li>{html_checkbox_html(key, issue.detail)}\n<ul>\n")
-                    file.write(f"<li>{html_link(issue.name, f'assets/images/{issue.name}')}</li>\n")
+                    file.write(f"<li>{html_link(issue.name, report_href(folder / issue.name, output_path))}</li>\n")
                     file.write("</ul>\n</li>\n")
                 file.write("</ul>\n")
 
-        write_html_relation_section(file, "B", "同名高相似", grouped_pairs["same-target"])
-        write_html_relation_section(file, "C", "不同名高相似", grouped_pairs["different-target"])
+        write_html_relation_section(file, "B", "同名高相似", grouped_pairs["same-target"], folder, output_path)
+        write_html_relation_section(file, "C", "不同名高相似", grouped_pairs["different-target"], folder, output_path)
         file.write(
             "<script>\n"
             "const prefix='image-similarity-report:';\n"
@@ -650,7 +665,7 @@ def html_checkbox_html(key: str, text: str) -> str:
     return f'<label><input type="checkbox" data-check-key="{escaped_key}"><span class="score">{escaped_text}</span></label>'
 
 
-def write_html_relation_section(file, section: str, title: str, grouped_by_kind: dict[str, list]) -> None:
+def write_html_relation_section(file, section: str, title: str, grouped_by_kind: dict[str, list], folder: Path, output_path: Path) -> None:
     file.write(f"<h2>{section}. {html.escape(title)}</h2>\n")
     file.write("<p>同名指文件名相同，不考虑所在路径；不同名则通常需要人工判断是否能合并或是否存在误识别风险。</p>\n")
     write_html_kind_section(
@@ -658,17 +673,19 @@ def write_html_relation_section(file, section: str, title: str, grouped_by_kind:
         "assets-assets：位置敏感匹配",
         "这类包含 `_assets` 和 `_bbox` 后缀图片，使用 `find_element` 风格的 bbox 限定区域；本次报告模式见汇总。",
         grouped_by_kind["assets-assets"],
+        folder, output_path,
     )
-    write_html_kind_section(file, "non-assets：核心图匹配", "", grouped_by_kind["non-assets"])
+    write_html_kind_section(file, "non-assets：核心图匹配", "", grouped_by_kind["non-assets"], folder, output_path)
     write_html_kind_section(
         file,
         "mixed：assets 与非 assets 核心相似",
         "这类只说明核心视觉相似；因调用语义不同，不能直接按同图删除。",
         grouped_by_kind["mixed"],
+        folder, output_path,
     )
 
 
-def write_html_kind_section(file, title: str, description: str, pairs: list[SimilarityPair]) -> None:
+def write_html_kind_section(file, title: str, description: str, pairs: list[SimilarityPair], folder: Path, output_path: Path) -> None:
     file.write(f"<h3>{html.escape(title)}（{len(pairs)} 对）</h3>\n")
     if description:
         file.write(f"<p>{html.escape(description)}</p>\n")
@@ -679,8 +696,8 @@ def write_html_kind_section(file, title: str, description: str, pairs: list[Simi
     for left, right, max_score, clam_score, normal_score, kind, relation in pairs:
         key = checkbox_key("pair", left, right, kind)
         file.write(f"<li>{html_checkbox_html(key, f'score={score_label(clam_score, normal_score)}')}\n<ul>\n")
-        file.write(f"<li>{html_link(left, f'assets/images/{left}')}</li>\n")
-        file.write(f"<li>{html_link(right, f'assets/images/{right}')}</li>\n")
+        file.write(f"<li>{html_link(left, report_href(folder / left, output_path))}</li>\n")
+        file.write(f"<li>{html_link(right, report_href(folder / right, output_path))}</li>\n")
         file.write("</ul>\n</li>\n")
     file.write("</ul>\n")
 

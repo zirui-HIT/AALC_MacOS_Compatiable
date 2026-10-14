@@ -1,4 +1,4 @@
-from time import sleep
+from backend_host.runtime import worker_sleep as sleep
 
 from module.automation import auto
 from module.decorator.decorator import begin_and_finish_time_log
@@ -41,12 +41,14 @@ def get_pass_prize():
         update_model_for_retry(loop_count, normal_at=10, aggressive_at=5)
         if loop_count < 0:
             if last_try is False:
+                last_try = True
                 from module.config import cfg
                 scale = cfg.set_win_size / 1440
                 mail_pos = auto.find_element("home/mail_assets.png")
-                auto.mouse_click(mail_pos[0], mail_pos[1]+200*scale)
-                loop_count+=1
-                continue
+                if mail_pos is not None:
+                    auto.mouse_click(mail_pos[0], mail_pos[1]+200*scale)
+                    loop_count+=1
+                    continue
             log.error("无法收取日常/周常")
             return
     auto.click_element("pass/weekly_assets.png")

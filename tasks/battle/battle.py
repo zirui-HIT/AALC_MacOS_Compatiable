@@ -2,7 +2,7 @@ import random
 import re
 import time
 from dataclasses import dataclass
-from time import sleep
+from backend_host.runtime import worker_sleep as sleep
 from typing import Callable, Optional
 
 import cv2
@@ -127,6 +127,7 @@ class Battle:
             first_turn and defense_first_round and not defense_for_solo_used_this_turn
         )
         limited_defense_succeeded = False
+        msg = "未识别到左齿轮，等待下一次识别"
         if (use_limited_defense or use_first_round_defense) and auto.find_element(
             "battle/gear_left.png", threshold=0.9
         ):

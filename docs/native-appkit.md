@@ -34,7 +34,9 @@
 
 现有 `module/`、`tasks/`、`utils/` 保留路径。任务及识别文件仅修改依赖导入；`BattleWorker` 原类体完整保留，移除同文件内 QWidget 窗口。线程、锁和信号适配在 `backend_host/runtime.py`，没有伪造 PySide6 模块。工具取消、互斥、清理和保持唤醒属于宿主/平台边界。
 
-当前执行 AST 冻结记录在 `tests/fixtures/native_execution_baseline.json`，仅忽略 import。上游原始流程检查仍在，移除的两份 Qt 界面 AST 哈希记录到 `retired_frontend_files`，没有重算任何任务预期。原启动校验、命令参数解析及主题中英文/OCR 别名同步规则已提取；新增测试验证其控制边界。
+当前执行 AST 冻结记录在 `tests/fixtures/native_execution_baseline.json`，仅忽略 import。2026-10-14 维护的明确差异记录在 `native_execution_adaptations.json`：PlayCover 连接成功后才提交已验证 PID；删除无调用者的 macOS OCR `run_line`；OCR 缓存失效与读取共用现有锁；新手势等待结束后核验识别帧的几何版本；默认点击时长读取现有配置；macOS 定时命令添加行结束符以完整传输；商店图像规则扫描正确的 `default/share` 目录与可写覆盖层，资源失效时更新现有列表对象，成功同步后不回退加载已删除的内置模板；PlayCover 配置移除 Windows 的缩放禁用标记，原自动战斗窗口适配保留该平台语义；PlayCover 点击间隔复用既有取消信号；未识别到守备齿轮时仅初始化诊断消息，保留原分支与动作调用。测试先精确还原这些差异再核验原哈希，其余执行体继续冻结。任务等待仅替换 sleep 的平台入口，原分支与未取消时的等待时长保持，macOS 宿主停止信号可唤醒等待。原生配置入口恢复任务所需的布尔开关类型，不改寻路或第二体系策略。上游原始流程检查同样精确还原维护差异，移除的两份 Qt 界面 AST 哈希记录到 `retired_frontend_files`，没有重算任何任务预期。原启动校验、命令参数解析及主题中英文/OCR 别名同步规则已提取；新增测试验证其控制边界。
+
+2026-10-14 后续指令将工作限定为修复当前已确认的 bug，完成验证后停止审查；不再启动 subagent，不使用 computer use。此次修正已复现的配置保存/迁移/备份、资源路径与发布布局、领奖兜底、接续战斗计数、商店选人/升级/刷新计数、第二体系奖励开关与时机、镜牢重开难度状态。每项源码差异均精确记录到 `native_execution_adaptations.json`，原始两份哈希基线保持；其他任务顺序和策略继续冻结。验证使用隔离配置、固定图像与模拟输入，不操作实际游戏。
 
 ## 当前功能
 

@@ -2,7 +2,7 @@ import heapq
 import time
 from enum import Enum
 from functools import lru_cache
-from time import sleep
+from backend_host.runtime import worker_sleep as sleep
 
 import cv2
 

@@ -64,7 +64,7 @@ class Config(metaclass=SingletonMeta):
 
         # 镜牢历史数据格式转换
         if saved_version < 1768403022:
-            team_num = len(self.get_value("teams_be_select", []))
+            team_num = len(loaded_config.get("teams_be_select", []))
 
             def _calculate_time_history(time_list: list[float], count: int) -> list[float]:
                 """从每局都记录转换为只记录三种平均值"""
@@ -116,29 +116,29 @@ class Config(metaclass=SingletonMeta):
 
         # 旧配置类型转换
         if saved_version < 1771413380:
-            if self.get_value("set_win_position", True) is True:
+            if loaded_config.get("set_win_position", True) is True:
                 loaded_config["set_win_position"] = "free"
         if saved_version < 1771965838:
-            if self.get_value("background_click", True) is True:
+            if loaded_config.get("background_click", True) is True:
                 loaded_config["win_input_type"] = "background"
             else:
                 loaded_config["win_input_type"] = "foreground"
         if saved_version < 1772205660:
             # 迁移旧版结束后动作配置，按字段独立迁移，避免覆盖用户已设置的新字段
             # 映射表统一由 module.after_completion_types 维护；config 层只负责迁移与落盘。
-            legacy_value = int(self.get_value("after_completion", 0) or 0)
+            legacy_value = int(loaded_config.get("after_completion", 0) or 0)
             legacy_actions, legacy_power = LEGACY_AFTER_COMPLETION_TO_CONFIG.get(legacy_value, ((), POWER_ACTION_NONE))
             migrated = False
 
             # 仅在 actions 字段缺失或类型错误时补写
-            current_actions = self.get_value("after_completion_actions")
+            current_actions = loaded_config.get("after_completion_actions")
             if not isinstance(current_actions, list):
                 # 配置文件保持字符串协议，不直接持久化内部 Enum。
                 loaded_config["after_completion_actions"] = serialize_after_actions(legacy_actions)
                 migrated = True
 
             # 仅在 power_action 字段缺失或类型错误时补写（与 actions 独立判断）
-            current_power = self.get_value("after_completion_power_action")
+            current_power = loaded_config.get("after_completion_power_action")
             if not isinstance(current_power, str):
                 loaded_config["after_completion_power_action"] = serialize_power_action(legacy_power)
                 migrated = True
@@ -211,140 +211,81 @@ class Config(metaclass=SingletonMeta):
         except FileNotFoundError:
             sys.exit("默认配置文件未找到")
 
+    def _restore_backup_config(self) -> bool:
+        files = sorted(
+            (file for file in self.backup_path.glob("*.yaml") if file.is_file()),
+            key=lambda file: file.stat().st_birthtime,
+            reverse=True,
+        )
+        last_error = None
+        for file in files:
+            try:
+                self._load_config(file)
+                log.info(f"已从备份文件 {file.name} 恢复配置")
+                return True
+            except (FileNotFoundError, ValidationError, ValueError, TypeError, YAMLError) as exc:
+                last_error = exc
+                log.warning(f"备份文件 {file.name} 无法恢复，尝试较早备份: {exc}")
+        if last_error is not None:
+            raise last_error
+        return False
+
     def _load_config(self, path: str | Path | None = None) -> None:
         """加载用户配置文件，如未找到则保存默认配置"""
-        if isinstance(path, str):
-            path = Path(path)
-        path = path or self.config_path
+        path = Path(path) if path is not None else self.config_path
         try:
-            if not path.exists():
-                if self.backup_path.exists():
-                    backup_files = [f for f in self.backup_path.iterdir() if f.is_file() and f.suffix == ".yaml"]
-                    if backup_files:
-                        backup_files.sort(key=lambda f: f.stat().st_birthtime, reverse=True)
-                        log.info("配置文件不存在，存在备份配置，尝试从备份文件恢复配置")
-                        self._load_config(backup_files[0])
-                        return
-                self._save_config()
-                return
             with open(path, "r", encoding="utf-8") as file:
-                loaded_config: dict = self.yaml.load(file)
-                if loaded_config is None:
-                    log.error("读取到的设置文件为空, 请确认是否因为罕见情况丢失了数据")
-                    if self.backup_path.exists():
-                        backup_files = [f for f in self.backup_path.iterdir() if f.is_file() and f.suffix == ".yaml"]
-                    else:
-                        backup_files = []
-                    if backup_files:
-                        backup_files.sort(key=lambda f: f.stat().st_birthtime, reverse=True)
-                        with open(backup_files[0], "r", encoding="utf-8") as backup_file:
-                            loaded_config = self.yaml.load(backup_file) or {}
-                        if loaded_config:
-                            log.info(f"已从最新的备份文件 {backup_files[0].name} 恢复配置")
-                        else:
-                            log.error(
-                                f"最新的备份文件 {backup_files[0].name} 无法读取到有效配置，请自行通过 {self.backup_path.name} 文件夹下其他文件恢复数据"
-                            )
-                            loaded_config = ConfigModel(**self._defaults).model_dump()
-                    else:
-                        loaded_config = ConfigModel(**self._defaults).model_dump()
-                if not isinstance(loaded_config.get("config_version", 0), int):
-                    raise TypeError("配置文件版本号不是 int 类型")
-                if loaded_config.get("config_version", 0) < self.config.config_version:
-                    saved_version = loaded_config.get("config_version", 0)
-                    loaded_config["config_version"] = self.config.config_version
-                    self._old_version_cfg_upgrade(saved_version, loaded_config)
-                # 使用更新后的配置初始化 Config 对象
-                loaded_config = migrate_backend(loaded_config)
-                self.config = ConfigModel(**{**self._defaults, **loaded_config})
-                queue_in_loaded_config = loaded_config.get("teams_active_queue")
-                if queue_in_loaded_config is None:
-                    normalized_queue = self._normalize_team_queue(self.migrate_legacy_team_queue())
-                else:
-                    normalized_queue = self._normalize_team_queue(queue_in_loaded_config)
-                self._sync_legacy_team_state(normalized_queue)
-                # 成功加载后保存当前文件为备份
-                self.backup_config()
-                self._save_config()
-        except FileNotFoundError:
-            if self.backup_path.exists():
-                backup_files = [f for f in self.backup_path.iterdir() if f.is_file() and f.suffix == ".yaml"]
-                if backup_files:
-                    backup_files.sort(key=lambda f: f.stat().st_birthtime, reverse=True)
-                    log.info("配置文件不存在，尝试从备份文件恢复配置")
-                    self._load_config(backup_files[0])
+                loaded_config = self.yaml.load(file)
+            if loaded_config is None:
+                if path != self.config_path:
+                    raise ValueError("备份配置文件为空")
+                log.error("读取到的设置文件为空，尝试恢复备份")
+                if self._restore_backup_config():
                     return
+                loaded_config = ConfigModel(**self._defaults).model_dump()
+            if not isinstance(loaded_config, dict):
+                raise TypeError("配置文件根节点必须是映射")
+            if not isinstance(loaded_config.get("config_version", 0), int):
+                raise TypeError("配置文件版本号不是 int 类型")
+            if loaded_config.get("config_version", 0) < self.config.config_version:
+                saved_version = loaded_config.get("config_version", 0)
+                loaded_config["config_version"] = self.config.config_version
+                self._old_version_cfg_upgrade(saved_version, loaded_config)
+            loaded_config = migrate_backend(loaded_config)
+            self.config = ConfigModel(**{**self._defaults, **loaded_config})
+            queue_in_loaded_config = loaded_config.get("teams_active_queue")
+            if queue_in_loaded_config is None:
+                normalized_queue = self._normalize_team_queue(self.migrate_legacy_team_queue())
+            else:
+                normalized_queue = self._normalize_team_queue(queue_in_loaded_config)
+            self._sync_legacy_team_state(normalized_queue)
+            self.backup_config()
             self._save_config()
-        except (ValidationError, ValueError, TypeError) as e:
-            if path == self.config_path:
-                log.error("配置文件数据非法，尝试使用备份文件恢复配置")
-                if self.backup_path.exists():
-                    backup_files = [f for f in self.backup_path.iterdir() if f.is_file() and f.suffix == ".yaml"]
-                    if not backup_files:
-                        log.error("备份目录下没有可用的备份文件，无法恢复配置")
-                        raise
-                    backup_files.sort(key=lambda f: f.stat().st_birthtime, reverse=True)
-                    for i, backup_file in enumerate(backup_files):
-                        try:
-                            self._load_config(backup_file)
-                            if i > 0:
-                                log.info(f"已从较早的备份文件 {backup_file.name} 恢复配置")
-                            break
-                        except (ValidationError, ValueError, TypeError):
-                            if i < len(backup_files) - 1:
-                                log.info(f"备份文件 {backup_file.name} 恢复失败，尝试下一个备份文件")
-                            else:
-                                log.error("所有备份文件均无法恢复配置")
-                                raise
-                else:
-                    log.error("备份目录不存在，无法恢复配置")
-                    raise
-            else:
-                log.error(f"配置文件 {path} 数据非法，错误信息：{e}", exc_info=True)
+        except FileNotFoundError:
+            if path != self.config_path:
                 raise
-        except YAMLError as e:
-            log.error(f"配置文件 {path} 解析错误: {e}", exc_info=True)
-            if path == self.config_path:
-                log.error("配置文件解析错误，尝试使用备份文件恢复配置")
-                if self.backup_path.exists():
-                    backup_files = [f for f in self.backup_path.iterdir() if f.is_file() and f.suffix == ".yaml"]
-                    if not backup_files:
-                        log.error("备份目录下没有可用的备份文件，无法恢复配置")
-                        raise
-                    backup_files.sort(key=lambda f: f.stat().st_birthtime, reverse=True)
-                    for i, backup_file in enumerate(backup_files):
-                        try:
-                            self._load_config(backup_file)
-                            if i > 0:
-                                log.info(f"已从较早的备份文件 {backup_file.name} 恢复配置")
-                            break
-                        except YAMLError:
-                            if i < len(backup_files) - 1:
-                                log.info(f"备份文件 {backup_file.name} 恢复失败，尝试下一个备份文件")
-                            else:
-                                log.error("所有备份文件均无法恢复配置")
-                                raise
-                else:
-                    log.error("备份目录不存在，无法恢复配置")
-                    raise
-            else:
+            if not self._restore_backup_config():
+                self._save_config()
+        except (ValidationError, ValueError, TypeError, YAMLError) as exc:
+            log.error(f"配置文件 {path} 数据非法: {exc}")
+            if path != self.config_path or not self._restore_backup_config():
                 raise
-        except Exception as e:
-            log.error(f"配置文件{path}加载错误: {e}", exc_info=True)
+        except Exception as exc:
+            log.error(f"配置文件 {path} 加载错误: {exc}", exc_info=True)
             raise
 
     def _save_config(self) -> None:
         """保存到配置文件（立即写盘）"""
-        # 拷贝快照后在锁外写盘，避免长时间持锁
+        # 快照、YAML 实例和写盘共用同一把锁，避免旧写入覆盖新配置。
         with self._lock:
             snapshot = self.config.model_dump()
-        example_yaml = self._load_default_config()
-        # 从快照更新到yaml对象，保持注释不变
-        example_yaml.update(snapshot)
+            example_yaml = self._load_default_config()
+            # 从快照更新到yaml对象，保持注释不变
+            example_yaml.update(snapshot)
 
-        self.config_path.parent.mkdir(parents=True, exist_ok=True)
-        with open(self.config_path, "w", encoding="utf-8") as file:
-            self.yaml.dump(example_yaml, file)
+            self.config_path.parent.mkdir(parents=True, exist_ok=True)
+            with open(self.config_path, "w", encoding="utf-8") as file:
+                self.yaml.dump(example_yaml, file)
 
     def get_value(self, key: str, default: Any = None, *, config_obj: Optional[BaseModel] = None) -> Any:
         """获取配置项的值, 如果是可变对象，则返回其指针"""
@@ -536,22 +477,25 @@ class Config(metaclass=SingletonMeta):
                 except Exception:
                     pass
                 self._save_timer = None
-            pending = self._pending_save
+            pending = self._pending_save or self._writer_event.is_set()
             self._pending_save = False
-        if pending:
-            self._save_config()
+            self._writer_event.clear()
+            if pending:
+                self._save_config()
 
     def _writer_loop(self) -> None:
         """后台写盘线程：收到事件后把当前config写入文件"""
         while True:
             self._writer_event.wait()
-            try:
-                self._save_config()
-            except Exception as e:
-                log.error(f"配置保存失败，错误信息：{e}")
-
-            # 等待下一次
-            self._writer_event.clear()
+            with self._lock:
+                if not self._writer_event.is_set():
+                    continue
+                self._writer_event.clear()
+                try:
+                    self._save_config()
+                except Exception as e:
+                    self._pending_save = True
+                    log.error(f"配置保存失败，错误信息：{e}")
 
     def just_load_config(self, path: Optional[Path | str] = None) -> None:
         """仅加载配置文件，不保存"""
@@ -614,7 +558,7 @@ class Config(metaclass=SingletonMeta):
             files.sort(key=lambda f: f.stat().st_birthtime)
             # 确保上次保存的文件日期不同于今天，避免重复备份
             latest_time = localtime(files[-1].stat().st_birthtime)
-            if latest_time.tm_mday != now_time.tm_mday:
+            if latest_time[:3] != now_time[:3]:
                 backup_file = self.backup_path / f"config_{strftime('%Y%m%d_%H%M%S', now_time)}.yaml"
                 with open(backup_file, "w", encoding="utf-8") as f:
                     self.yaml.dump(self.config.model_dump(), f)

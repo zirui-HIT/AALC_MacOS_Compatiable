@@ -29,6 +29,7 @@ class PlayCoverInput(AbstractInput):
         super().__init__()
         self.transport, self._geometry, self.cancel = transport, geometry, cancel
         self.timing = timing or GestureTiming()
+        self._configured_click_hold = timing is None
         self._gesture_lock = threading.RLock()
         self._local = threading.local()
         self.active_contacts: dict[int, tuple[int, int]] = {}
@@ -46,7 +47,11 @@ class PlayCoverInput(AbstractInput):
             self._local.geometry = previous
 
     def _current_geometry(self) -> Geometry:
-        return getattr(self._local, "geometry", None) or self._geometry()
+        geometry = getattr(self._local, "geometry", None)
+        current = self._geometry()
+        if geometry is not None and geometry.version != current.version:
+            raise RuntimeError("Geometry changed; capture and recognize the page again")
+        return geometry or current
 
     def check_cancel(self) -> None:
         if self.cancel.is_set():
@@ -96,7 +101,12 @@ class PlayCoverInput(AbstractInput):
     def mouse_click(self, x, y, times=1, move_back=False) -> bool:
         for index in range(times):
             with self._gesture((x, y)):
-                self._wait(self.timing.click_hold)
+                hold = self.timing.click_hold
+                if self._configured_click_hold:
+                    from module.config import cfg
+
+                    hold = cfg.mouse_down_duration
+                self._wait(hold)
             if index + 1 < times:
                 self._wait(self.timing.repeat_interval)
         return True

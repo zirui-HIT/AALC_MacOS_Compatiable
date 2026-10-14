@@ -135,8 +135,11 @@ def textfield(parent, value, frame, callback, targets, *, numeric=False):
     if numeric:
         formatter = A.NSNumberFormatter.alloc().init()
         formatter.setAllowsFloats_(isinstance(value, float))
+        if isinstance(value, float):
+            formatter.setMaximumFractionDigits_(16)
         formatter.setUsesGroupingSeparator_(False)
         control.setFormatter_(formatter)
+        control.setObjectValue_(value)
     action(control, callback, targets, text=True)
     parent.addSubview_(control)
     return control

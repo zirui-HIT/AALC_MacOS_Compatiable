@@ -1,7 +1,5 @@
 """Native typed forms shared by config pages and team drafts."""
 
-import copy
-
 import AppKit as A
 
 from frontend_appkit.observe_selection import (
@@ -42,7 +40,6 @@ for suffix in ("", "2", "3", "4"):
 class Form:
     def __init__(self, parent, values, keys, targets, on_change, *, team=False, start=16, text=lambda s: s, sections=None, grouped=False):
         self.parent, self.targets, self.on_change = parent, targets, on_change
-        self.original = copy.deepcopy(values)
         self.getters, self.controls = {}, {}
         self.text = text
         self.y = start
@@ -171,7 +168,14 @@ class Form:
             elif numeric and not self.grouped:
                 frame = ((self.control_x, self.y), (124, 28))
             control = textfield(self.container, value, frame, lambda sender: self.changed(key), self.targets, numeric=numeric)
-            getter = (lambda: float(control.stringValue())) if isinstance(value, float) else (lambda: int(control.stringValue())) if isinstance(value, int) else (lambda: str(control.stringValue()))
+            if numeric:
+                def getter():
+                    number = control.formatter().numberFromString_(control.stringValue())
+                    if number is None:
+                        raise ValueError("数值无效")
+                    return float(number) if isinstance(value, float) else int(number)
+            else:
+                getter = (lambda: str(control.stringValue()) or None) if value is None else (lambda: str(control.stringValue()))
         control.setFont_(A.NSFont.systemFontOfSize_(13))
         tooltip(control, title)
         control.setAutoresizingMask_(A.NSViewWidthSizable if stacked else A.NSViewMinXMargin if self.grouped else 0 if numeric and key not in OPTIONS else A.NSViewWidthSizable)
@@ -305,5 +309,7 @@ class Form:
             control.selectItemAtIndex_(next((i for i, item in enumerate(OPTIONS[key]) if item[1] == value), 0))
         elif isinstance(value, bool):
             control.setState_(int(value))
+        elif control.formatter() is not None:
+            control.setObjectValue_(value)
         else:
             control.setStringValue_("" if value is None else str(value))

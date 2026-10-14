@@ -37,8 +37,8 @@ class PlayCoverSession:
             raise ValueError("Choose a game .app or set its verified Bundle ID before connecting")
         previous_pid = self._pid
         process = self.lifecycle.process()
-        self._pid = process.pid if process else None
         self.transport.connect(self.lifecycle.bundle_id)
+        self._pid = process.pid if process else None
         if previous_pid is not None and previous_pid != self._pid and self._geometry is not None:
             # A replacement process invalidates recognition, even at the same size.
             from dataclasses import replace

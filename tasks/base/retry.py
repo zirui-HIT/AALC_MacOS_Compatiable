@@ -1,7 +1,7 @@
 import os
 import platform
 import time
-from time import sleep
+from backend_host.runtime import worker_sleep as sleep
 
 import psutil
 

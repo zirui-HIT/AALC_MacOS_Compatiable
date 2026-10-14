@@ -4,10 +4,18 @@ from __future__ import annotations
 
 from dataclasses import asdict, dataclass, field
 import json
+from pathlib import PurePosixPath, PureWindowsPath
 from typing import Any, Mapping
 
 # 资源清单协议版本仍保持为 1，并统一承载整包同步所需的元数据字段。
 RESOURCE_SYNC_SCHEMA_VERSION = 1
+
+
+def validate_image_path(path: str) -> None:
+    relative = PurePosixPath(path)
+    if (not path or path == "." or relative.is_absolute() or ".." in relative.parts
+            or "\\" in path or PureWindowsPath(path).drive):
+        raise ValueError(f"图片资源路径必须位于资源目录中: {path}")
 
 
 def _reject_unknown_keys(payload: Mapping[str, Any], allowed_keys: set[str]) -> None:
@@ -33,6 +41,9 @@ class ResourceFileEntry:
     sha256: str
     # 保存文件字节数，便于后续同步逻辑展示统计信息并识别明显异常。
     size: int
+
+    def __post_init__(self):
+        validate_image_path(self.path)
 
     def to_dict(self) -> dict[str, Any]:
         """将文件条目转换为可直接写入 JSON 的字典。

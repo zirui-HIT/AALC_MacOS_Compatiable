@@ -11,6 +11,7 @@ from PIL import Image
 
 from module.config import cfg
 from module.logger import log
+from utils.image_catalog import synced_image_tree
 from utils.path_manager import path_manager
 from utils.runtime_paths import data_path, resource_path
 
@@ -71,7 +72,7 @@ class ImageUtils:
             if overlay.exists():
                 return overlay
         updated = data_path(f"resources/images/{profile}/{image_path}")
-        return updated if updated.exists() else resource_path(f"assets/images/{profile}/{image_path}")
+        return updated if updated.exists() or synced_image_tree() else resource_path(f"assets/images/{profile}/{image_path}")
 
     @staticmethod
     def load_image(image_path, resize=True, return_path=False):

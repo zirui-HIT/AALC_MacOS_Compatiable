@@ -126,19 +126,6 @@ class OCR(metaclass=SingletonMeta):
             self.log_results(result)
         return result
 
-    def run_line(self, image: Image.Image) -> str | None:
-        """Recognize a known single-line ROI, including isolated floor digits.
-
-        Use the existing recognition model directly without changing RapidOCR's
-        shared detection flags, which are also used by the monitor thread.
-        """
-        pixels = np.asarray(image.convert("RGB"))
-        with self._inference_lock:
-            result = self.engine.get_rec_res([pixels])
-        if result.txts and result.scores and result.scores[0] >= 0.7:
-            return result.txts[0]
-        return None
-
     def log_results(self, ocr_results: RapidOCROutput) -> None:
         """记录OCR识别记录"""
         self.logger.debug(f"OCR识别结果：{ocr_results.txts}")

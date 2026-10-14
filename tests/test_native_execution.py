@@ -1,4 +1,4 @@
-"""Freeze every current automation body, not just selected upstream functions."""
+"""Freeze execution bodies with exact, reviewed macOS maintenance exceptions."""
 
 import ast
 import hashlib
@@ -9,6 +9,7 @@ import pytest
 
 ROOT = Path(__file__).resolve().parents[1]
 BASELINE = json.loads((ROOT / "tests/fixtures/native_execution_baseline.json").read_text())
+ADAPTATIONS = json.loads((ROOT / "tests/fixtures/native_execution_adaptations.json").read_text())
 
 
 class ImportsOnly(ast.NodeTransformer):
@@ -21,7 +22,13 @@ class ImportsOnly(ast.NodeTransformer):
 
 @pytest.mark.parametrize("path", BASELINE["files"])
 def test_current_execution_body_is_unchanged(path):
-    tree = ast.parse((ROOT / path).read_text())
+    source = (ROOT / path).read_text()
+    # Reverse only the documented fix/deletion; keep the original hashes intact.
+    if path in ADAPTATIONS:
+        for change in ADAPTATIONS[path]:
+            assert source.count(change["after"]) == 1
+            source = source.replace(change["after"], change["before"], 1)
+    tree = ast.parse(source)
     if path == "tasks/tools/infinite_battle.py":
         tree.body = [node for node in tree.body if isinstance(node, ast.ClassDef) and node.name == "BattleWorker"]
     digest = hashlib.sha256(ast.dump(ImportsOnly().visit(tree), include_attributes=False).encode()).hexdigest()

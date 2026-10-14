@@ -3,6 +3,7 @@ from unittest.mock import Mock, patch
 import pytest
 
 from module.backends.base import BackendCancelled
+from module.backends.playcover.geometry import Geometry
 from module.backends.playcover.session import PlayCoverSession
 from module.backends.playcover.transport import ProtocolError
 from tests.playcover.fake_server import FakeServer
@@ -69,6 +70,41 @@ def test_unknown_process_after_lost_contact_blocks_recovery():
         with pytest.raises(RuntimeError, match="verify the process"):
             session.connect()
         assert not session.transport.connected
+
+
+@pytest.mark.parametrize("failed_pid,current_pid", [(23, 23), (24, 24), (None, 23)],
+                         ids=["same_process", "replacement_process", "temporarily_unobserved_process"])
+def test_failed_connection_preserves_verified_pid_until_recovery(failed_pid, current_pid, monkeypatch):
+    session = PlayCoverSession(settings(1717))
+    session._pid = 23
+    geometry = Geometry((1920, 1080), (1920, 1080), (0, 0, 1920, 1080), version=5)
+    session._geometry = geometry
+    session.input.active_contacts[0] = (4, 3)
+    monkeypatch.setattr(session.lifecycle, "process", Mock(side_effect=[
+        Mock(pid=failed_pid) if failed_pid is not None else None,
+        Mock(pid=current_pid),
+    ]))
+    connect = Mock(side_effect=[ConnectionRefusedError("service not ready"), None])
+    touch = Mock()
+    monkeypatch.setattr(session.transport, "connect", connect)
+    monkeypatch.setattr(session.transport, "touch", touch)
+
+    with pytest.raises(ConnectionRefusedError):
+        session.connect()
+    assert session._pid == 23
+    assert session._geometry is geometry
+    assert session.input.active_contacts == {0: (4, 3)}
+    touch.assert_not_called()
+
+    session.connect()
+    assert session._pid == current_pid
+    assert not session.input.active_contacts
+    if current_pid == 23:
+        assert session._geometry is geometry
+        touch.assert_called_once_with(3, 4, 3, 0)
+    else:
+        assert session._geometry.version == geometry.version + 1
+        touch.assert_not_called()
 
 
 def test_complete_empty_transition_frame_waits_without_replaying_input():

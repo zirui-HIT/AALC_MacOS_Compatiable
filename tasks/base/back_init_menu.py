@@ -1,4 +1,6 @@
-from time import monotonic, sleep
+from time import monotonic
+
+from backend_host.runtime import worker_sleep as sleep
 
 from module.automation import auto
 from module.decorator.decorator import begin_and_finish_time_log

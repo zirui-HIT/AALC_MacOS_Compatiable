@@ -22,6 +22,7 @@ def matcher(monkeypatch):
         monkeypatch.setattr(module.path_manager, name, value)
     auto = object.__new__(module.Automation)
     auto._screenshot_lock = threading.RLock()
+    auto._ocr_lock = threading.RLock()
     auto.memory_protection = False
     auto.img_cache, auto._ocr_regions, auto._unavailable_feature_templates = {}, {}, set()
     pixels = np.random.default_rng(42).integers(0, 256, (60, 80), dtype=np.uint8)

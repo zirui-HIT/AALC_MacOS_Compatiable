@@ -4,7 +4,10 @@
 class PlayCoverWindow:
     def set_win(self):
         # PlayCover captures/touches in its existing logical geometry.
-        pass
+        from module.config import cfg
+
+        if cfg.background_click:
+            cfg.set_value("background_click", False)
 
     def reset_win(self, activate=True):
         return True

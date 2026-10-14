@@ -1,15 +1,12 @@
 """Validate launchd registration and the existing scheduled task entry without game input."""
 
-import os
 import plistlib
 import subprocess
-import sys
 from types import SimpleNamespace
 
 import pytest
 
 from utils import schedule_helper
-from utils.runtime_paths import SOURCE_ROOT
 
 
 @pytest.fixture
@@ -47,7 +44,7 @@ def test_source_and_bundle_use_resident_protocol_and_only_run_at_calendar_time(s
         path = helper.directory / f"{helper._labels[name]}.plist"
         definition = plistlib.loads(path.read_bytes())
         assert definition["ProgramArguments"] == ["/bin/sh", "-c",
-            f"printf '%s' 'start|--exit|{slot}' | /usr/bin/nc -w 2 -G 1 127.0.0.1 62333"]
+            f"printf '%s\\n' 'start|--exit|{slot}' | /usr/bin/nc -w 2 -G 1 127.0.0.1 62333"]
         assert definition["StartCalendarInterval"] == {"Hour": hour, "Minute": 0}
         assert "RunAtLoad" not in definition and "KeepAlive" not in definition
         assert definition["LimitLoadToSessionType"] == "Aqua"

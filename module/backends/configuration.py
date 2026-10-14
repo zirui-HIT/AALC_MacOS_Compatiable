@@ -27,6 +27,8 @@ def migrate_backend(values: dict[str, Any], platform: str | None = None) -> dict
     if backend == "playcover":
         result["game_profile"] = "ios_zh_cn" if result.get("game_profile") == "ios_zh_cn" else "ios_en"
         result["set_win_size"] = 1080
+        # The legacy flag disables wheel zoom. PlayCover supports map pinch.
+        result["background_click"] = False
         validate_endpoint(result.get("playcover_host", "127.0.0.1"), result.get("playcover_port", 1717))
         if result.get("playcover_capture_method", "bgr") not in {"bgr", "scrn"}:
             raise ValueError("PlayCover capture must be bgr or scrn")

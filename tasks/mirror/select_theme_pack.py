@@ -1,4 +1,4 @@
-from time import sleep
+from backend_host.runtime import worker_sleep as sleep
 
 from module.automation import TextMatchResult, auto
 from module.backends.base import BackendCancelled

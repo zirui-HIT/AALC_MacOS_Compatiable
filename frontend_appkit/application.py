@@ -52,7 +52,6 @@ from frontend_appkit.widgets import (
 from native_contract import FIELDS, GROUPS, HIDDEN_TEAM, STATS, TASK_KEYS
 from utils.runtime_paths import data_path, resource_path
 
-PAGE_NAMES = ["日常任务", "领取奖励", "狂气换体", "镜牢设置", "队伍", "主题包", "设置", "工具"]
 PAGE_KEYS = ["daily", "reward", "energy", "mirror", "teams", "theme", "settings", "tools"]
 HIDDEN_APP_FIELDS = {"update_prerelease_enable"}  # Release channels don't apply to Git ancestry checks.
 
@@ -147,6 +146,8 @@ class Editor:
 class Application:
     def __init__(self, arguments, listener=None):
         self.arguments, self.listener = arguments, listener
+        self.deleting_team = False
+        self.team_generation = 0
         self.smoke = "--smoke-test" in arguments
         self.started_at = time.monotonic()
         self.smoke_delay = float(os.environ.get("AALC_SMOKE_DELAY", "2"))
@@ -508,13 +509,27 @@ class Application:
         while not self.backend_closed:
             try:
                 connection, _ = self.listener.accept()
-                with connection:
-                    connection.settimeout(1)
-                    payload = connection.recv(65536).decode("utf-8")
-                args = payload.split("|") if payload else []
-                self.client.incoming.put({"event": "command", "data": args})
             except OSError:
                 return
+            with connection:
+                try:
+                    connection.settimeout(1)
+                    parts, size = [], 0
+                    while True:
+                        part = connection.recv(65536)
+                        if not part:
+                            break
+                        size += len(part)
+                        if size > 65536:
+                            raise ValueError("Resident command is too long")
+                        parts.append(part)
+                        if b"\n" in part:
+                            break
+                    payload = b"".join(parts).partition(b"\n")[0].decode("utf-8")
+                except (OSError, ValueError):
+                    continue
+            args = payload.split("|") if payload else []
+            self.client.incoming.put({"event": "command", "data": args})
 
     def poll(self):
         if self.polling:
@@ -798,7 +813,8 @@ class Application:
                 enable_tree(child, enabled)
 
         if PAGE_KEYS[self.page_index] in {"daily", "reward", "energy", "mirror", "teams", "tools", "theme"}:
-            enable_tree(self.page, not running)
+            deleting_team = self.page_index == 4 and getattr(self, "deleting_team", False)
+            enable_tree(self.page, not running and not deleting_team)
         restricted = set(TASK_KEYS + GROUPS["playcover"] + sum([GROUPS[k] for k in ("daily", "reward", "energy", "mirror", "completion")], []))
         for form in self.forms:
             for name, controls in form.controls.items():
@@ -806,7 +822,7 @@ class Application:
                     for control in controls if isinstance(controls, list) else [controls]:
                         enable_tree(control, not running if name in restricted else True)
         for control, number in self.team_order_controls:
-            control.setEnabled_(not running and number in config["teams_active_queue"])
+            control.setEnabled_(not running and not getattr(self, "deleting_team", False) and number in config["teams_active_queue"])
         for control in getattr(self, "connection_controls", []):
             control.setEnabled_(not running)
         summaries = [f"{self.text('经验')} {config['set_EXP_count']} · {self.text('纽本')} {config['set_thread_count']}", str(next((self.text(title) for title, value in FIELDS["options"]["set_get_prize_options"] if value == config["set_get_prize"]), "")), self.text("购买次数") + f" · {config['set_lunacy_to_enkephalin']}", self.text("镜牢次数") + f" · {config['set_mirror_count']}"]
@@ -848,15 +864,41 @@ class Application:
         self.page.setFrameSize_((self.page.frame().size.width, y + 20))
 
     def delete_team(self, number):
-        if confirm("删除队伍？", f"删除预设 {number} 及其专属主题包权重。"):
-            self.client.request("team.delete", {"number": number})
+        if getattr(self, "deleting_team", False) or not confirm("删除队伍？", f"删除预设 {number} 及其专属主题包权重。"):
+            return
+        self.deleting_team = True
+        self.team_generation = getattr(self, "team_generation", 0) + 1
+
+        def finished(_):
+            self.deleting_team = False
+            self.update_state()
+
+        def failed(message):
+            finished(None)
+            self.error(message)
+
+        try:
+            self.update_state()
+            for editor in list(self.editors):
+                scope = getattr(editor, "team_scope", getattr(editor, "theme_scope", None))
+                if not editor.closed and scope is not None and scope >= number:
+                    if not editor.close_window(editor.window):
+                        finished(None)
+                        return
+            self.client.request("team.delete", {"number": number}, finished, on_error=failed)
+        except Exception:
+            finished(None)
+            raise
 
     def edit_team(self, number):
+        if getattr(self, "deleting_team", False):
+            return
         if self.team_editor and not self.team_editor.closed:
             self.team_editor.window.makeKeyAndOrderFront_(None)
             return
         draft = TeamDraft(self.data["config"]["teams"][str(number)])
         editor = Editor(self, f"队伍预设 {number}", team=True)
+        editor.team_scope = number
         self.team_editor = editor
         self.client.request("draft", {"open": True})
         sinner_controls = []
@@ -959,7 +1001,8 @@ class Application:
             values = json.loads(code[len(prefix):])
             if not isinstance(values, dict):
                 raise ValueError("队伍配置码必须包含设置对象")
-            self.client.request("team.save", {"number": number, "values": {key: value for key, value in values.items() if key not in STATS and key not in {"use_team_code", "team_code"}}}, lambda result: self.team_editor.close())
+            editor = self.team_editor
+            self.client.request("team.save", {"number": number, "values": {key: value for key, value in values.items() if key not in STATS and key not in {"use_team_code", "team_code"}}}, lambda result: editor.close())
         except (ValueError, TypeError) as exc:
             self.error(str(exc))
 
@@ -1043,9 +1086,17 @@ class Application:
         self.page.setFrameSize_((self.page.frame().size.width, 254))
 
     def open_theme(self, number=None):
+        if number is not None and getattr(self, "deleting_team", False):
+            return
         if self.focus_theme_editor(number):
             return
-        self.client.request("theme.get", {"number": number}, lambda values: self.edit_theme(number, values))
+        generation = getattr(self, "team_generation", 0)
+
+        def received(values):
+            if number is None or generation == getattr(self, "team_generation", 0):
+                self.edit_theme(number, values)
+
+        self.client.request("theme.get", {"number": number}, received)
 
     def focus_theme_editor(self, number):
         for editor in self.editors:
@@ -1055,6 +1106,8 @@ class Application:
         return False
 
     def edit_theme(self, number, values):
+        if number is not None and getattr(self, "deleting_team", False):
+            return
         if self.focus_theme_editor(number):
             return
         draft = ThemeDraft(values)
@@ -1071,16 +1124,21 @@ class Application:
                 draft.config_data["preferred_thresholds"] = value
                 draft._has_unsaved_changes = True
 
-        label(editor.root, "优选阈值", ((20, 62), (96, 22)))
-        threshold = textfield(editor.root, draft.config_data.get("preferred_thresholds", 0), ((116, 58), (76, 28)), threshold_changed, editor.targets, numeric=True)
-        subtitle(editor.root, "-10 至 10，数值越高越优先", ((208, 64), (560, 18)))
+        threshold = None
+        if number is None:
+            label(editor.root, "优选阈值", ((20, 62), (96, 22)))
+            threshold = textfield(editor.root, draft.config_data.get("preferred_thresholds", 0), ((116, 58), (76, 28)), threshold_changed, editor.targets, numeric=True)
+            subtitle(editor.root, "-10 至 10，数值越高越优先", ((208, 64), (560, 18)))
+        else:
+            subtitle(editor.root, self.text("优选阈值") + " · " + self.text("全局主题包权重"), ((20, 64), (760, 18)))
         editor.scroller.setFrame_(((0, 98), (800, 522)))
         targets = []
         inputs = []
 
         def commit():
             editor.window.makeFirstResponder_(None)
-            threshold_changed(threshold)
+            if threshold is not None:
+                threshold_changed(threshold)
             for pack, control, hard in inputs:
                 weight = int(control.stringValue())
                 if not -10 <= weight <= 10:
@@ -1098,7 +1156,8 @@ class Application:
                 view.removeFromSuperview()
             targets.clear()
             inputs.clear()
-            threshold.setStringValue_(str(draft.config_data.get("preferred_thresholds", 0)))
+            if threshold is not None:
+                threshold.setObjectValue_(draft.config_data.get("preferred_thresholds", 0))
             mapping = THEME_PACK_NAME_MAP | THEME_PACK_HARD_NAME_MAP if mode[0] else THEME_PACK_NAME_MAP
             images = THEME_PACK_IMAGE_MAP | THEME_PACK_HARD_IMAGE_MAP if mode[0] else THEME_PACK_IMAGE_MAP
             policy_key = ("hard" if mode[0] else "normal") + "_" + str(floor[0])
@@ -1193,7 +1252,7 @@ class Application:
         if number is not None:
             entries.append(("拉取全局", lambda: (commit(), self.client.request("theme.get", callback=lambda data: self.replace_theme(draft, data, render)))))
             for i, title in enumerate(["导出 YAML", "导入 YAML", "复制配置码", "粘贴配置码"]):
-                entries.append((title, lambda i=i: self.theme_transfer(number, i, draft, render, commit)))
+                entries.append((title, lambda i=i: self.theme_transfer(number, i, draft, render, commit, editor)))
         menu_button(editor.root, "更多", ((244, 14), (100, 30)), entries, editor.targets)
         editor.dirty = lambda: draft._has_unsaved_changes
         render()
@@ -1212,7 +1271,14 @@ class Application:
         draft._has_unsaved_changes = True
         render()
 
-    def theme_transfer(self, number, index, draft, render, commit):
+    def theme_transfer(self, number, index, draft, render, commit, editor):
+        generation = getattr(self, "team_generation", 0)
+
+        def current():
+            return not editor.closed and generation == getattr(self, "team_generation", 0)
+
+        if not current():
+            return
         commit()
         if index in {0, 1}:
             path = choose_path(save=index == 0)
@@ -1225,17 +1291,24 @@ class Application:
             action_, params = "paste", {"code": A.NSPasteboard.generalPasteboard().stringForType_(A.NSPasteboardTypeString) or ""}
 
         def transfer_done(result):
+            if not current():
+                return
             if index == 2:
                 board = A.NSPasteboard.generalPasteboard()
                 board.clearContents()
                 board.setString_forType_(result or "", A.NSPasteboardTypeString)
             elif index in {1, 3}:
-                self.client.request("theme.get", {"number": number}, lambda data: self.replace_theme(draft, data, render))
+                def received(data):
+                    if current():
+                        self.replace_theme(draft, data, render)
+
+                self.client.request("theme.get", {"number": number}, received)
 
         def transfer(result):
-            self.client.request("theme.transfer", {"number": number, "action": action_, **params}, transfer_done)
+            if current():
+                self.client.request("theme.transfer", {"number": number, "action": action_, **params}, transfer_done)
 
-        if index in {0, 2}:
+        if index in {0, 2} and current():
             self.client.request("theme.save", {"number": number, "values": draft.config_data}, transfer)
         else:
             transfer(None)
@@ -1391,13 +1464,14 @@ def run(arguments):
     if "--smoke-test" not in arguments:
         try:
             listener = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+            listener.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
             listener.bind(("127.0.0.1", 62333))
             listener.listen(5)
         except OSError:
             if listener:
                 listener.close()
             with socket.create_connection(("127.0.0.1", 62333), timeout=2) as connection:
-                connection.sendall("|".join(arguments).encode() or b"|")
+                connection.sendall(("|".join(arguments).encode() or b"|") + b"\n")
             return 0
     app = Application(arguments, listener)
     AppHelper.runEventLoop()

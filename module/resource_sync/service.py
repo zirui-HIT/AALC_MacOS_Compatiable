@@ -14,7 +14,7 @@ from urllib.parse import quote, urljoin
 import requests
 
 from module.logger import log
-from module.resource_sync.manifest import ResourceFileEntry, ResourceManifest, ResourcePackageEntry
+from module.resource_sync.manifest import ResourceFileEntry, ResourceManifest, ResourcePackageEntry, validate_image_path
 from module.resource_sync.source import ResourceSource, get_default_sources
 from module.resource_sync.state import LOCAL_STATE_PATH, ResourceSyncState
 from utils.archive_7z import extract_7z_archive
@@ -135,6 +135,14 @@ class ResourceSyncService:
         self.temp_dir = Path(temp_dir)
         # 资源源定义表。
         self.sources = sources or get_default_sources()
+
+    @staticmethod
+    def _image_path(root: Path, relative: str) -> Path:
+        validate_image_path(relative)
+        target = root / relative
+        if not target.resolve().is_relative_to(root.resolve()):
+            raise ValueError(f"图片资源路径超出资源目录: {relative}")
+        return target
 
     @staticmethod
     def _quote_repository_path(resource_path: str) -> str:
@@ -378,7 +386,7 @@ class ResourceSyncService:
         hasher = hashlib.sha256()
         file_count = 0
         for relative_path in self._iter_local_files():
-            local_path = self.assets_dir / relative_path
+            local_path = self._image_path(self.assets_dir, relative_path)
             stat_result = local_path.stat()
             hasher.update(f"{relative_path}\t{stat_result.st_size}\t{stat_result.st_mtime_ns}\n".encode("utf-8"))
             file_count += 1
@@ -455,7 +463,7 @@ class ResourceSyncService:
 
         # 第二步：逐项比较远端清单与本地文件，识别新增和内容变更。
         for relative_path, entry in remote_entries.items():
-            local_path = self.assets_dir / relative_path
+            local_path = self._image_path(self.assets_dir, relative_path)
             if not local_path.exists():
                 plan.files_to_add.append(entry)
                 continue
@@ -607,6 +615,10 @@ class ResourceSyncService:
         download_entries = sync_plan.download_entries
         has_download_entries = bool(download_entries)
         deletion_candidates = list(sync_plan.files_to_delete)
+        for entry in download_entries:
+            self._image_path(self.assets_dir, entry.path)
+        for relative_path in deletion_candidates:
+            self._image_path(self.assets_dir, relative_path)
         package_entry = self._ensure_package_metadata(check_result.remote_manifest) if has_download_entries else None
 
         # 第二步：仅在存在新增或变更文件时，才准备资源包下载与解压环境。
@@ -651,13 +663,13 @@ class ResourceSyncService:
                     progress_callback(current_step, total_steps)
                 if extract_dir is None:
                     raise ValueError("存在待下载文件时未准备资源包解压目录")
-                extracted_path = extract_dir / entry.path
+                extracted_path = self._image_path(extract_dir, entry.path)
                 if not extracted_path.is_file():
                     raise ValueError(f"资源包中缺少清单要求的文件: {entry.path}")
                 if sha256_file(extracted_path) != entry.sha256:
                     raise ValueError(f"资源包内文件校验失败: {entry.path}")
 
-                target_path = self.assets_dir / entry.path
+                target_path = self._image_path(self.assets_dir, entry.path)
                 target_path.parent.mkdir(parents=True, exist_ok=True)
                 shutil.copy2(extracted_path, target_path)
                 downloaded_count += 1
@@ -670,7 +682,7 @@ class ResourceSyncService:
                 current_step += 1
                 if progress_callback:
                     progress_callback(current_step, total_steps)
-                target_path = self.assets_dir / relative_path
+                target_path = self._image_path(self.assets_dir, relative_path)
                 if target_path.exists():
                     target_path.unlink()
                     deleted_count += 1

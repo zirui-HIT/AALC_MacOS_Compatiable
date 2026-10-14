@@ -1,6 +1,8 @@
 from datetime import datetime
 from threading import Event
-from time import sleep, time
+from time import time
+
+from backend_host.runtime import worker_sleep as sleep
 
 from backend_host.runtime import Mutex as QMutex, WorkerThread as QThread
 
@@ -390,7 +392,12 @@ def script_task() -> None | int:
     # 如果是战斗中，先处理战斗
     get_reward = None
     if auto.click_element("battle/turn_assets.png", take_screenshot=True):
-        get_reward = battle.fight()
+        previous_first_battle = battle.first_battle
+        battle.first_battle = True
+        try:
+            get_reward = battle.fight()
+        finally:
+            battle.first_battle = previous_first_battle
 
     task_list = []
     # 执行日常刷本任务

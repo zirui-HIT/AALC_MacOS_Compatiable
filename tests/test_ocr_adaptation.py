@@ -2,6 +2,7 @@
 
 import logging
 import threading
+from concurrent.futures import ThreadPoolExecutor
 from importlib import import_module
 from types import SimpleNamespace
 from unittest.mock import Mock
@@ -34,6 +35,43 @@ def recognition(monkeypatch):
     auto._ocr_regions = {}
     auto._ocr_lock = threading.RLock()
     return auto, engines, module
+
+
+def test_cache_invalidation_waits_for_an_in_progress_ocr_lookup(recognition):
+    auto, engines, module = recognition
+    reading, resume, clearing, cleared = (threading.Event() for _ in range(4))
+    result = output("cached")
+
+    class PausedLookup(dict):
+        def __getitem__(self, key):
+            reading.set()
+            assert resume.wait(2)
+            return super().__getitem__(key)
+
+    auto._ocr_image = auto.screenshot
+    auto._ocr_regions = PausedLookup({(None, "rapid", module.cfg.game_profile): result})
+    auto.img_cache = {}
+    auto._unavailable_feature_templates = set()
+
+    def invalidate():
+        clearing.set()
+        auto.clear_img_cache()
+        cleared.set()
+
+    with ThreadPoolExecutor(max_workers=2) as workers:
+        lookup = workers.submit(auto._ocr_screenshot)
+        try:
+            assert reading.wait(2)
+            invalidation = workers.submit(invalidate)
+            assert clearing.wait(2)
+            assert not cleared.wait(0.1)
+        finally:
+            resume.set()
+        assert lookup.result(timeout=2) is result
+        invalidation.result(timeout=2)
+    assert auto._ocr_image is None
+    assert not auto._ocr_regions
+    engines.run.assert_not_called()
 
 
 def test_owned_uses_header_for_both_engines_without_changing_coordinates(recognition):

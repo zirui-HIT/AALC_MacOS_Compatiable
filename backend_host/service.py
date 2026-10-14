@@ -38,7 +38,13 @@ class BackendService:
             cfg.set_value("language_in_program", "zh_cn")
         for key in ("hard_mirror", "no_weekly_bonuses"):
             if cfg.get_value(key) < 2:
-                cfg.set_value(key, 0)
+                cfg.set_value(key, False)
+        if cfg.backend == "playcover":
+            actions = [value for value in cfg.after_completion_actions if value != "exit_emulator"]
+            if actions != cfg.after_completion_actions:
+                cfg.set_value("after_completion_actions", actions)
+            if cfg.after_completion_power_action != "none":
+                cfg.set_value("after_completion_power_action", "none")
         if not cfg.keep_after_completion:
             cfg.unsaved_set_value("after_completion_actions", [])
             cfg.unsaved_set_value("after_completion_power_action", "none")
@@ -46,6 +52,7 @@ class BackendService:
         # Clear its obsolete preference at the migration boundary; the original
         # capability check and all formation/party execution code stay intact.
         for team in cfg.config.teams.values():
+            self._adapt_team_flags(team)
             if team.use_team_code:
                 cfg.set_value("use_team_code", False, config_obj=team)
                 log.info("已移除 PlayCover 不支持的编队码开关，保留现有角色编队设置")
@@ -64,13 +71,19 @@ class BackendService:
 
             self.hotkey_token = global_hotkeys.register(lambda: {
                 cfg.shutdown_hotkey: lambda: events.post(self.stop),
-                cfg.pause_hotkey: lambda: events.post(self.pause),
-                cfg.resume_hotkey: lambda: events.post(self.pause),
+                cfg.pause_hotkey: lambda: events.post(self._set_paused, True),
+                cfg.resume_hotkey: lambda: events.post(self._set_paused, False),
             })
 
     def _connect(self, signal, callback):
         signal.connect(callback, queued=True)
         self._connections.append((signal, callback))
+
+    @staticmethod
+    def _adapt_team_flags(team):
+        if (cfg.backend == "playcover" and len(team.second_system_action) == 4
+                and all(value in (0, 1) for value in team.second_system_action)):
+            team.second_system_action = [bool(value) for value in team.second_system_action]
 
     def busy(self):
         return self.worker is not None
@@ -122,6 +135,9 @@ class BackendService:
 
     def patch(self, values):
         validate_fields(values)
+        values = {key: bool(value) if key in {"hard_mirror", "no_weekly_bonuses"} and value < 2 else value
+                  for key, value in values.items()}
+        previous_profile = cfg.game_profile
         if self.busy() and any(key in GROUPS["playcover"] or key in TASK_KEYS or key in sum([GROUPS[k] for k in ("daily", "reward", "energy", "mirror", "completion")], []) for key in values):
             raise ValueError("Stop the current task before changing task settings")
         if any(key.endswith("_hotkey") for key in values):
@@ -150,6 +166,15 @@ class BackendService:
                 cfg.unsaved_set_value(key, value)
             else:
                 cfg.set_value(key, value)
+        if any(key in GROUPS["playcover"] for key in values):
+            for team in cfg.config.teams.values():
+                self._adapt_team_flags(team)
+        if cfg.game_profile != previous_profile:
+            from module.automation import auto
+            from utils.path_manager import path_manager
+
+            path_manager.initialize_paths()
+            auto.clear_img_cache()
         if any(key.endswith("_hotkey") for key in values) and self.hotkey_token is not None:
             from module.hotkey_listener import global_hotkeys
 
@@ -236,6 +261,12 @@ class BackendService:
 
         auto.set_pause()
         self.changed()
+
+    def _set_paused(self, paused):
+        from module.automation import auto
+
+        if auto.input_handler and auto.check_pause() != paused:
+            self.pause()
 
     def _finished(self, worker):
         if worker is not self.worker:
@@ -368,6 +399,7 @@ class BackendService:
         # Keep statistics from the saved configuration rather than an old draft.
         for key in STATS:
             setattr(team, key, getattr(previous, key))
+        self._adapt_team_flags(team)
         cfg.set_value(str(number), team, config_obj=cfg.config.teams)
         self.draft_open = False
         self.changed()
@@ -441,10 +473,18 @@ class BackendService:
         team, weight, missing = import_team_settings(path, int(number))
         if team is None:
             raise ValueError("; ".join(map(str, missing)))
+        if weight is not None:
+            from backend_host.validation import validate_theme
+
+            validate_theme(weight)
         if missing and not confirm:
             return {"missing": missing}
         team.use_team_code = False
         validate_fields({key: value for key, value in team.model_dump().items() if key not in STATS}, team=True)
+        previous = cfg.config.teams[str(number)]
+        for key in STATS:
+            setattr(team, key, getattr(previous, key))
+        self._adapt_team_flags(team)
         apply_team_settings(int(number), team, weight)
         self.changed()
         return {"missing": []}
@@ -457,11 +497,9 @@ class BackendService:
 
     def save_theme(self, number, values):
         self._idle()
-        if not isinstance(values, dict):
-            raise ValueError("Theme weights must be a mapping")
-        for key in ("theme_pack_list", "theme_pack_list_hard", "theme_pack_list_cn", "theme_pack_list_hard_cn"):
-            if any(type(weight) is not int or not -10 <= weight <= 10 for weight in values.get(key, {}).values()):
-                raise ValueError("Theme weight must be -10–10")
+        from backend_host.validation import validate_theme
+
+        validate_theme(values)
         path = theme_list.theme_pack_list_path if number is None else theme_list.build_team_weight_path(int(number))
         theme_list.save_config(path, values)
         if number is None:
@@ -482,12 +520,26 @@ class BackendService:
         action = params["action"]
         if action == "export":
             result = transfer.export_theme_pack_weight(number, params["path"])
-        elif action == "import":
-            result = transfer.import_theme_pack_weight(params["path"], number)
         elif action == "copy":
             result = transfer.export_theme_pack_weight_to_base64(number)
-        elif action == "paste":
-            result = transfer.import_theme_pack_weight_from_base64(params["code"], number)
+        elif action in {"import", "paste"}:
+            import base64
+            from pathlib import Path
+
+            from ruamel.yaml import YAML
+
+            from backend_host.validation import validate_theme
+
+            text = Path(params["path"]).read_text(encoding="utf-8") if action == "import" else base64.b64decode(params["code"]).decode("utf-8")
+            data = YAML().load(text)
+            if not data:
+                return True
+            validate_theme(data)
+            path, existing = transfer._load_existing_theme_pack_weight(number)
+            merged = transfer._deep_merge_dicts(existing, data)
+            validate_theme(merged)
+            theme_list.save_config(str(path), merged)
+            result = True
         else:
             raise ValueError("Unknown theme transfer")
         if result is False or result is None:
@@ -513,7 +565,8 @@ class BackendService:
         # Same resident protocol, start delay, FIFO and completion suppression.
         args = list(args)
         start_flag = "start" in args
-        if start_flag and (self.busy() or self.scheduled is not None or self.startup_pending):
+        if start_flag and (self.busy() or self.scheduled is not None or self.startup_pending
+                           or self.auxiliary is not None and self.auxiliary[0] == "resources.apply"):
             self.pending.append(args)
             self._suppress_completion(True)
             self.changed()
@@ -522,20 +575,21 @@ class BackendService:
 
         start_flag, completion = parse_command(["aalc", *args])
         if completion is not None:
-            actions, power = completion
+            from module.after_completion_types import normalize_after_completion_config
+
+            actions, power = normalize_after_completion_config(*completion)
             cfg.unsaved_set_value("keep_after_completion", False)
             cfg.unsaved_set_value("after_completion_actions", actions)
             cfg.unsaved_set_value("after_completion_power_action", power)
         if start_flag:
             self.scheduled = args
-            events.later(3000, self._scheduled_start)
+            events.later(3000, self._scheduled_start, args)
         self.changed()
 
-    def _scheduled_start(self):
-        if self.closing:
+    def _scheduled_start(self, command):
+        if self.closing or self.scheduled is not command:
             return
-        command = self.scheduled
-        if self.busy():
+        if self.busy() or self.auxiliary is not None and self.auxiliary[0] == "resources.apply":
             if command is not None:
                 self.pending.insert(0, command)
                 self._suppress_completion(True)
@@ -554,7 +608,8 @@ class BackendService:
     def _next_command(self):
         if self.closing:
             return
-        if self.busy() or self.scheduled is not None:
+        if (self.busy() or self.scheduled is not None
+                or self.auxiliary is not None and self.auxiliary[0] == "resources.apply"):
             events.later(250, self._next_command)
         elif self.pending:
             self.command(self.pending.pop(0))
@@ -619,6 +674,8 @@ class BackendService:
             self.apply_resources()
         elif self.startup_pending and not self.awaiting_resource_choice:
             self.continue_startup()
+        elif not self.startup_pending and self.pending and self.scheduled is None:
+            self._next_command()
 
     def check_updates(self, automatic=False):
         from backend_host.git_update import GitUpdateCheck

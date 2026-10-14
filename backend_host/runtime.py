@@ -2,8 +2,20 @@
 
 import logging
 import queue
+import sys
 import threading
 import time
+
+
+def worker_sleep(seconds):
+    """Let native worker cancellation wake a wait; ordinary waits keep their duration."""
+    interrupted = getattr(threading.current_thread(), "_aalc_interrupted", None)
+    if sys.platform != "darwin" or interrupted is None or seconds <= 0:
+        return time.sleep(seconds)
+    if interrupted.wait(seconds):
+        from module.backends.base import BackendCancelled
+
+        raise BackendCancelled("Worker stopped during wait")
 
 
 class EventLoop:
@@ -102,6 +114,7 @@ class WorkerThread:
             raise RuntimeError("Worker is already running")
         self._interrupted.clear()
         self._thread = threading.Thread(target=self._entry, daemon=True)
+        self._thread._aalc_interrupted = self._interrupted
         self._thread.start()
 
     def _entry(self):

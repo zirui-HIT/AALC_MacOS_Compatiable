@@ -11,6 +11,16 @@ def test_missing_backend_migrates_and_explicit_backend_wins(values, platform, ba
         assert migrated["game_profile"] == "ios_en"
         assert migrated["set_win_size"] == 1080
         assert migrated["simulator"] is False
+        assert migrated["background_click"] is False
+
+
+@pytest.mark.parametrize("backend", ["windows", "android_mumu", "android_adb", "playcover"])
+@pytest.mark.parametrize("background", [False, True])
+def test_background_input_zoom_restriction_only_migrates_for_playcover(backend, background):
+    values = {"backend": backend, "background_click": background}
+    migrated = migrate_backend(values)
+    assert migrated["background_click"] is (False if backend == "playcover" else background)
+    assert values["background_click"] is background
 
 
 @pytest.mark.parametrize("invalid", [{"playcover_host": "0.0.0.0"}, {"playcover_port": 0}, {"playcover_capture_method": "mtl"}, {"playcover_logical_height": 1440}])

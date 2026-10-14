@@ -382,7 +382,14 @@ class Automation(metaclass=SingletonMeta):
         if self.last_click_time == 0:
             self.last_click_time = time.time()
         wait_time = max(0, interval - (time.time() - self.last_click_time))
-        time.sleep(wait_time)
+        if cfg.backend == "playcover":
+            from module.backends.factory import get_playcover_session
+
+            session = get_playcover_session()
+            session.cancel.wait(wait_time)
+            session.input.check_cancel()
+        else:
+            time.sleep(wait_time)
 
         # 计算传入的位置
         self._interaction_gate.wait(timeout=GATE_WAIT_TIMEOUT)
@@ -1028,9 +1035,14 @@ class Automation(metaclass=SingletonMeta):
         """清除图片缓存"""
         self.img_cache.clear()
         self._reset_frame_cache()
-        self._ocr_image = None
-        self._ocr_regions.clear()
+        with self._ocr_lock:
+            self._ocr_image = None
+            self._ocr_regions.clear()
         self._unavailable_feature_templates.clear()
+        if sys.platform == "darwin":
+            from utils.image_catalog import refresh_shop_image_catalogs
+
+            refresh_shop_image_catalogs()
         gc.collect()  # 强制垃圾回收，清理内存
         log.debug("图片缓存已清除", stacklevel=2)
 

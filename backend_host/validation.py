@@ -5,6 +5,28 @@ from module.logger import log
 from utils.utils import check_hard_mirror_time
 
 
+def validate_theme(values):
+    if not isinstance(values, dict):
+        raise ValueError("Theme weights must be a mapping")
+    for key in ("theme_pack_list", "theme_pack_list_hard", "theme_pack_list_cn", "theme_pack_list_hard_cn"):
+        weights = values.get(key, {})
+        if not isinstance(weights, dict) or any(
+            not isinstance(pack, str) or not pack or not isinstance(weight, int) or isinstance(weight, bool) or not -10 <= weight <= 10
+            for pack, weight in weights.items()
+        ):
+            raise ValueError("Theme weights must map names to integers from -10 to 10")
+    threshold = values.get("preferred_thresholds", 0)
+    if not isinstance(threshold, int) or isinstance(threshold, bool) or not -10 <= threshold <= 10:
+        raise ValueError("Preferred threshold must be an integer from -10 to 10")
+    forbidden = values.get("forbidden_theme_packs", {})
+    if not isinstance(forbidden, dict) or any(
+        not isinstance(scope, str) or not isinstance(names, list)
+        or any(not isinstance(name, str) or not name for name in names)
+        for scope, names in forbidden.items()
+    ):
+        raise ValueError("Forbidden theme packs must map scopes to lists of names")
+
+
 def check_setting():
     self = _Translations()
     if cfg.mirror:

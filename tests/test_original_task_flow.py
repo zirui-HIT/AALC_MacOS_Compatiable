@@ -46,6 +46,26 @@ def test_original_battle_branch_obeys_flags_without_forcing_links(
         fighter._defense_this_round.assert_not_called()
 
 
+def test_unrecognized_gear_in_defense_mode_only_logs_without_changing_actions(monkeypatch):
+    task = import_module('tasks.battle.battle')
+    automation = Mock()
+    automation.find_element.return_value = None
+    actions = Mock()
+    logger = Mock()
+    monkeypatch.setattr(task, 'auto', automation)
+    monkeypatch.setattr(task, 'get_game_actions', lambda: actions)
+    monkeypatch.setattr(task, 'log', logger)
+    fighter = task.Battle()
+    fighter.defense_all_time = True
+    fighter._defense_this_round = Mock()
+    assert fighter._battle_operation(False, False, False) is False
+    automation.mouse_click_blank.assert_called_once_with()
+    fighter._defense_this_round.assert_not_called()
+    actions.select_win_rate.assert_not_called()
+    actions.start_turn.assert_not_called()
+    logger.debug.assert_called_once()
+
+
 @pytest.mark.parametrize('avoid,prioritize,defense', [
     (False, False, False), (False, False, True), (True, False, False), (False, True, False),
 ])
@@ -137,6 +157,30 @@ def test_mirror_shop_keeps_original_optional_operations(monkeypatch):
     dungeon.shop = Mock()
     dungeon.in_shop()
     dungeon.shop.in_shop.assert_called_once_with(3)
+
+
+def test_migrated_playcover_config_reaches_existing_zoom_fallback(monkeypatch):
+    from module.backends.configuration import migrate_backend
+    from module.config import cfg
+    from tasks.mirror import mirror
+
+    values = migrate_backend(cfg.config.model_dump() | {"backend": "playcover", "background_click": True})
+    monkeypatch.setattr(cfg, "config", type(cfg.config)(**values))
+    automation = Mock()
+    automation.click_element.return_value = False
+    nearest = Mock(return_value=False)
+    farthest = Mock(return_value=True)
+    monkeypatch.setattr(mirror, "auto", automation)
+    monkeypatch.setattr(mirror, "search_road_default_distance", nearest)
+    monkeypatch.setattr(mirror, "search_road_farthest_distance", farthest)
+    monkeypatch.setattr(mirror, "retry", lambda: True)
+    monkeypatch.setattr(mirror, "sleep", lambda _: None)
+    dungeon = mirror.Mirror(cfg.config.teams["1"], 1)
+    dungeon.mirror_map = Mock()
+    dungeon.mirror_map.get_next_step.return_value = None
+    assert dungeon.search_road() is True
+    assert nearest.call_count == 3
+    farthest.assert_called_once_with()
 
 
 @pytest.mark.parametrize("used,target", [(0, 1), (0, 2), (0, 3), (1, 2), (2, 2), (3, 2)])

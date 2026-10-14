@@ -84,6 +84,7 @@ def editor_app():
     app.team_editor = None
     app.client = Mock()
     app.error = Mock()
+    app.update_state = Mock()
     yield app
     for editor in list(app.editors):
         editor.close()
@@ -91,6 +92,85 @@ def editor_app():
 
 def theme_values():
     return {"preferred_thresholds": 0, "theme_pack_list": {"nagel": 0, "nag": 0}, "theme_pack_list_cn": {"钉与锤": 0}, "theme_pack_list_hard": {}, "forbidden_theme_packs": {}}
+
+
+@pytest.mark.parametrize("key,value", [("screenshot_interval", 0.01), ("mouse_action_interval", 0.25), ("mouse_down_duration", 1.25)])
+def test_float_form_preserves_fraction_when_editing_ends(key, value):
+    changes = []
+    form = Form(view(), {key: 0.5}, [key], [], lambda name, result: changes.append((name, result)))
+    control = form.controls[key]
+    window = A.NSWindow.alloc().initWithContentRect_styleMask_backing_defer_(((0, 0), (780, 500)), A.NSWindowStyleMaskTitled, A.NSBackingStoreBuffered, False)
+    window.setReleasedWhenClosed_(False)
+    window.setContentView_(form.parent)
+    try:
+        window.makeKeyAndOrderFront_(None)
+        assert window.makeFirstResponder_(control)
+        control.currentEditor().setString_(str(value))
+        assert window.makeFirstResponder_(None)
+        assert form.values()[key] == value
+        assert changes[-1] == (key, value)
+    finally:
+        window.orderOut_(None)
+        window.close()
+
+
+def test_deletion_closes_only_editors_whose_presets_will_be_reindexed(editor_app, monkeypatch):
+    monkeypatch.setattr("frontend_appkit.application.confirm", lambda *args, **kwargs: True)
+    editors = []
+    for attribute, scope in [("team_scope", 1), ("team_scope", 2), ("theme_scope", 3), ("theme_scope", None)]:
+        editor = Mock(closed=False, spec=["closed", "window", "close_window", attribute])
+        setattr(editor, attribute, scope)
+        editor.close_window.return_value = True
+        editors.append(editor)
+    editor_app.editors = editors
+    editor_app.delete_team(2)
+    editors[0].close_window.assert_not_called()
+    editors[1].close_window.assert_called_once_with(editors[1].window)
+    editors[2].close_window.assert_called_once_with(editors[2].window)
+    editors[3].close_window.assert_not_called()
+    assert editor_app.deleting_team
+    request = editor_app.client.request.call_args
+    assert request.args[:2] == ("team.delete", {"number": 2})
+    request.args[2](None)
+    assert not editor_app.deleting_team
+    editor_app.editors = []
+
+
+def test_cancelled_editor_close_prevents_preset_deletion(editor_app, monkeypatch):
+    monkeypatch.setattr("frontend_appkit.application.confirm", lambda *args, **kwargs: True)
+    editor = Mock(closed=False, team_scope=2)
+    editor.close_window.return_value = False
+    editor_app.editors = [editor]
+    editor_app.delete_team(1)
+    editor_app.client.request.assert_not_called()
+    assert not editor_app.deleting_team
+    editor_app.editors = []
+
+
+@pytest.mark.parametrize("success", [True, False])
+def test_deletion_invalidates_old_theme_replies_and_blocks_new_preset_editors(editor_app, monkeypatch, success):
+    monkeypatch.setattr("frontend_appkit.application.confirm", lambda *args, **kwargs: True)
+    editor_app.open_theme(2)
+    old_reply = editor_app.client.request.call_args.args[2]
+    editor_app.delete_team(1)
+    deletion = editor_app.client.request.call_args
+    editor_app.client.request.reset_mock()
+    editor_app.open_theme(2)
+    editor_app.edit_team(2)
+    editor_app.client.request.assert_not_called()
+    old_reply(theme_values())
+    assert not editor_app.editors
+    if success:
+        deletion.args[2](None)
+    else:
+        deletion.kwargs["on_error"]("deletion failed")
+        editor_app.error.assert_called_once_with("deletion failed")
+    assert not editor_app.deleting_team
+    old_reply(theme_values())
+    assert not editor_app.editors
+    editor_app.open_theme(2)
+    editor_app.client.request.call_args.args[2](theme_values())
+    assert len(editor_app.editors) == 1
 
 
 def open_theme(app):
@@ -197,6 +277,102 @@ def test_team_code_with_non_object_json_reports_a_normal_error(values):
     app.client.request.assert_not_called()
 
 
+def test_old_paste_reply_does_not_close_a_new_dirty_team_editor(editor_app):
+    editor_app.data["config"]["teams"] = {"1": team_values(), "2": team_values()}
+    editor_app.edit_team(1)
+    original = editor_app.team_editor
+    code = base64.b64encode(("||AALC_TEAM_SETTING||" + json.dumps(team_values())).encode()).decode()
+    with patch("frontend_appkit.application.A.NSPasteboard") as pasteboard:
+        pasteboard.generalPasteboard.return_value.stringForType_.return_value = code
+        editor_app.paste_team(1, None, None)
+    reply = editor_app.client.request.call_args.args[2]
+    original.close()
+    editor_app.edit_team(2)
+    current = editor_app.team_editor
+    field = next(control for control in descendants(current.document) if isinstance(control, A.NSTextField)
+                 and control.isEditable() and control.formatter() is None)
+    field.setStringValue_("unsaved preset 2")
+    assert current.dirty()
+    reply(None)
+    assert not current.closed
+    assert current in editor_app.editors
+
+
+@pytest.mark.parametrize("invalidated", ["closed", "reindexed"])
+@pytest.mark.parametrize("stage", ["save", "transfer", "refresh"])
+def test_theme_transfer_drops_late_replies_for_closed_or_reindexed_editors(editor_app, monkeypatch, invalidated, stage):
+    editor_app.edit_theme(2, theme_values())
+    editor = editor_app.editors[-1]
+    index = 2 if stage == "save" else 1
+    monkeypatch.setattr("frontend_appkit.application.choose_path", lambda **kwargs: "/tmp/weights.yaml")
+    board = Mock()
+    monkeypatch.setattr("frontend_appkit.application.A.NSPasteboard", Mock(generalPasteboard=Mock(return_value=board)))
+    invoke_menu_item(more_menu(editor), "复制配置码" if index == 2 else "导入 YAML")
+    reply = editor_app.client.request.call_args.args[2]
+    if stage == "refresh":
+        reply(True)
+        assert editor_app.client.request.call_args.args[:2] == ("theme.get", {"number": 2})
+        reply = editor_app.client.request.call_args.args[2]
+    if invalidated == "closed":
+        editor.close()
+    else:
+        editor_app.team_generation = 1
+    before = editor_app.client.request.call_count
+    weight = weight_field(editor)
+    reply({**theme_values(), "theme_pack_list": {"nagel": 7, "nag": 7}} if stage == "refresh" else True)
+    assert editor_app.client.request.call_count == before
+    assert weight.stringValue() == "0"
+    board.clearContents.assert_not_called()
+    board.setString_forType_.assert_not_called()
+
+
+def test_current_theme_transfer_still_saves_then_copies_its_own_code(editor_app, monkeypatch):
+    editor_app.edit_theme(2, theme_values())
+    editor = editor_app.editors[-1]
+    board = Mock()
+    monkeypatch.setattr("frontend_appkit.application.A.NSPasteboard", Mock(generalPasteboard=Mock(return_value=board)))
+    invoke_menu_item(more_menu(editor), "复制配置码")
+    save = editor_app.client.request.call_args
+    assert save.args[:2] == ("theme.save", {"number": 2, "values": theme_values() | {
+        "forbidden_theme_packs": {"normal_1": []},
+    }})
+    save.args[2](None)
+    transfer = editor_app.client.request.call_args
+    assert transfer.args[:2] == ("theme.transfer", {"number": 2, "action": "copy"})
+    transfer.args[2]("own preset code")
+    board.clearContents.assert_called_once()
+    board.setString_forType_.assert_called_once_with("own preset code", A.NSPasteboardTypeString)
+
+
+def test_nullable_remark_does_not_make_an_untouched_team_dirty(editor_app):
+    editor_app.data["config"]["teams"] = {"1": {**team_values(), "remark_name": None}}
+    editor_app.edit_team(1)
+    editor = editor_app.team_editor
+    assert not editor.dirty()
+
+
+def test_preset_theme_editor_uses_the_global_threshold_without_an_editable_override(editor_app):
+    editor_app.edit_theme(1, {**theme_values(), "preferred_thresholds": 10})
+    editor = editor_app.editors[-1]
+    assert not any(isinstance(control, A.NSTextField) and control.isEditable() for control in editor.root.subviews())
+    assert any(isinstance(control, A.NSTextField) and "全局主题包权重" in str(control.stringValue()) for control in editor.root.subviews())
+
+
+@pytest.mark.parametrize("locale", ["fr_FR", "de_DE"])
+def test_float_form_reads_localized_numbers_and_rejects_invalid_input(locale):
+    from Foundation import NSLocale
+
+    form = Form(view(), {"screenshot_interval": 0.5}, ["screenshot_interval"], [], lambda *_: None)
+    control = form.controls["screenshot_interval"]
+    control.formatter().setLocale_(NSLocale.alloc().initWithLocaleIdentifier_(locale))
+    form.set_value("screenshot_interval", 0.25)
+    assert control.stringValue() == "0,25"
+    assert form.values() == {"screenshot_interval": 0.25}
+    control.setStringValue_("0,25junk")
+    with pytest.raises(ValueError):
+        form.values()
+
+
 def connection_app():
     app = Application.__new__(Application)
     app.data = {"config": {"playcover_port": 1718, "language_in_program": "zh_cn"}}
@@ -236,6 +412,7 @@ def test_connection_invalid_numeric_input_never_sends_a_request():
 
 def state_app():
     app = Application.__new__(Application)
+    app.editors = []
     config = {**dict.fromkeys(TASK_KEYS, False), "language_in_program": "zh_cn", "set_EXP_count": 1, "set_thread_count": 1, "set_get_prize": 0, "set_lunacy_to_enkephalin": 1, "set_mirror_count": 1, "theme_mode": "AUTO"}
     state = {"running": True, "stopping": False, "startup": False, "kind": "task", "paused": False, "queued": 0}
     app.data = {"config": config, "state": state, "version": "test"}
@@ -332,7 +509,10 @@ def test_team_list_more_commands_disabled_state_language_and_compact_geometry(mo
     with patch("frontend_appkit.application.confirm", return_value=True):
         for title in ("上移", "下移", "复制", "删除"):
             invoke_menu_item(menus[0], title)
-    assert [call.args for call in app.client.request.call_args_list] == [("team.order", {"number": 1, "offset": -1}), ("team.order", {"number": 1, "offset": 1}), ("team.add", {"copy_from": 1}), ("team.delete", {"number": 1})]
+    assert [call.args[:2] for call in app.client.request.call_args_list] == [("team.order", {"number": 1, "offset": -1}), ("team.order", {"number": 1, "offset": 1}), ("team.add", {"copy_from": 1}), ("team.delete", {"number": 1})]
+    assert all(not menu.isEnabled() for menu in menus)
+    app.client.request.call_args.args[2](None)
+    assert all(menu.isEnabled() for menu in menus)
 
     app.data["state"]["running"] = True
     app.update_state()

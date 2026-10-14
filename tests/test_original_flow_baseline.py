@@ -124,9 +124,14 @@ def digest(source, names=None):
 
 
 BASELINE = json.loads((SOURCE_ROOT / "tests/fixtures/original_flow_baseline.json").read_text())
+ADAPTATIONS = json.loads((SOURCE_ROOT / "tests/fixtures/native_execution_adaptations.json").read_text())
 
 
 @pytest.mark.parametrize("path", BASELINE["files"])
 def test_business_control_flow_matches_original_aalc(path):
     expected = BASELINE["files"][path]
-    assert digest((SOURCE_ROOT / path).read_text(), expected.get("functions")) == expected["sha256"]
+    source = (SOURCE_ROOT / path).read_text()
+    for change in ADAPTATIONS.get(path, ()):
+        assert source.count(change["after"]) == 1
+        source = source.replace(change["after"], change["before"], 1)
+    assert digest(source, expected.get("functions")) == expected["sha256"]

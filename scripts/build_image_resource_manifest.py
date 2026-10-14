@@ -265,7 +265,7 @@ def main() -> int:
     args = parser.parse_args()
 
     # 第二步：生成 manifest 与 7z 资源包两类构建产物。
-    manifest = build_manifest_artifacts(
+    build_manifest_artifacts(
         source_dir=args.source_dir,
         output_manifest_path=args.output_manifest_path,
         output_package_path=args.output_package_path,

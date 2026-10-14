@@ -1,6 +1,6 @@
 import re
 import time
-from time import sleep
+from backend_host.runtime import worker_sleep as sleep
 
 import numpy as np
 
@@ -1198,6 +1198,9 @@ class Mirror:
         msg = f"满 身 疮 痍 ！ 重 开 ！此次战败耗时{time.time() - self.start_time}"
         log.info(msg)
         self.first_battle = True
+        self.hard_mode = cfg.hard_mirror
+        self.mirror_map.hard_mode = self.hard_mode
+        self.hard_reward_eligible = self.hard_mode
         self.start_time = time.time()
         self.floor = 0
         self.theme_pack_timing_start_count = 0
@@ -1417,9 +1420,9 @@ class Mirror:
                             my_list.insert(0, gift_candidate)
                             system_nums += 1
                         else:
-                            if self.second_system and (
-                                self.second_system_setting == 0
-                                or (self.second_system_setting == 1 and self.shop.fuse_IV)
+                            if self.second_system and self.shop.second_system_action[2] and (
+                                self.second_system_setting == 1
+                                or (self.second_system_setting == 0 and self.shop.fuse_IV)
                             ):
                                 if auto.find_element(
                                     f"mirror/road_in_mir/acquire_ego_gift/{all_systems[self.second_system_select]}.png",

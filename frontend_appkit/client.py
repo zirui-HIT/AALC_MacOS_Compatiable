@@ -21,7 +21,6 @@ class BackendClient:
         self.outgoing = queue.Queue()
         self.ids = itertools.count(1)
         self.callbacks = {}
-        self.closed = False
         self.stderr = []
         self.wake = None
         threading.Thread(target=self._read, daemon=True).start()
@@ -47,10 +46,11 @@ class BackendClient:
             message = self.outgoing.get()
             if message is None:
                 return
+            line = json.dumps(message, ensure_ascii=False) + "\n"
             try:
-                self.process.stdin.write(json.dumps(message, ensure_ascii=False) + "\n")
+                self.process.stdin.write(line)
                 self.process.stdin.flush()
-            except (BrokenPipeError, OSError) as exc:
+            except (BrokenPipeError, OSError, ValueError) as exc:
                 self.incoming.put({"event": "disconnected", "data": str(exc)})
                 return
 
@@ -82,6 +82,5 @@ class BackendClient:
                     callback(message.get("result"))
 
     def close_pipes(self):
-        self.closed = True
         self.outgoing.put(None)
         self.process.stdin.close()

@@ -113,7 +113,7 @@ class ScheduleHelper_MacOS:
         # Use main.py's existing resident-instance protocol without starting a
         # second Python/app from launchd's macOS privacy context.
         payload = shlex.quote("|".join(shlex.split(cmd_line)))
-        command = f"printf '%s' {payload} | /usr/bin/nc -w 2 -G 1 127.0.0.1 62333"
+        command = f"printf '%s\\n' {payload} | /usr/bin/nc -w 2 -G 1 127.0.0.1 62333"
         return {
             "Label": label,
             "ProgramArguments": ["/bin/sh", "-c", command],

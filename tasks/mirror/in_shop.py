@@ -1,4 +1,4 @@
-from time import sleep
+from backend_host.runtime import worker_sleep as sleep
 
 from PIL import Image
 
@@ -95,7 +95,7 @@ class Shop:
                 auto.model = "aggressive"
             if loop_count < 0:
                 log.error("无法升级ego饰品")
-                break
+                return False
 
     def buy_gifts(self):
         def sort_points(points, complete=0, threshold=40):
@@ -315,6 +315,7 @@ class Shop:
                         else:
                             break
                     keyword_refresh_count += 1
+                    complete_count = 0
                     auto.mouse_click_blank()
                     sleep(3)
                     if retry() is False:
@@ -327,6 +328,7 @@ class Shop:
                 auto.mouse_click_blank(times=3)
                 if auto.click_element("mirror/shop/refresh_assets.png"):
                     normal_refresh_count += 1
+                    complete_count = 0
                     sleep(3)
                     if retry() is False:
                         raise self.RestartGame()
@@ -1096,6 +1098,7 @@ class Shop:
 
             if self.first_gift_enhance is False and system_level_IV is False:
                 if f_gift := auto.find_element(f"mirror/shop/enhance_gifts/big_{self.system}.png"):
+                    auto.mouse_click(f_gift[0], f_gift[1])
                     if self.ego_gift_to_power_up() is False:
                         break
                     else:
@@ -1257,7 +1260,7 @@ class Shop:
         ]  # 人格图像位置硬编码
         sinner_y = 1299 * my_scale
         sinner_nums = {0: 1, 1: 3, 2: 7}.get(self.skill_replacement_select, 12)
-        sinner_indices = [i for i in range(sinner_nums) if (i + 1) in self.sinner_team]
+        sinner_indices = [self.sinner_team.index(i + 1) for i in range(sinner_nums) if (i + 1) in self.sinner_team]
         for i in sinner_indices:
             if auto.find_element("mirror/shop/ID_skill_replace_0_purchased_assets.png"):
                 return

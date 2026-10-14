@@ -3,6 +3,8 @@
 from __future__ import annotations
 
 import argparse
+import json
+import os
 from pathlib import Path
 import shutil
 import sys
@@ -55,6 +57,14 @@ def sync_resource_repo(
     target_manifest_path = repo_root / repo_manifest_relative_path
     target_packages_dir = repo_root / repo_packages_relative_dir
     target_package_path = target_packages_dir / artifact_package_path.name
+    manifest = json.loads(artifact_manifest_path.read_text(encoding="utf-8"))
+    package_relative_path = Path(os.path.relpath(target_package_path, target_manifest_path.parent)).as_posix()
+    package = manifest.get("package")
+    if isinstance(package, dict) and package.get("path") != package_relative_path:
+        package["path"] = package_relative_path
+        manifest_text = json.dumps(manifest, ensure_ascii=False, sort_keys=True, indent=2)
+    else:
+        manifest_text = None
 
     # 第一步：整体替换目标资源包目录，确保仓库中的过期资源包不会残留。
     if target_packages_dir.exists():
@@ -65,7 +75,10 @@ def sync_resource_repo(
 
     # 第二步：单独覆盖 manifest 文件，保持目标仓库中的协议内容始终为最新版本。
     target_manifest_path.parent.mkdir(parents=True, exist_ok=True)
-    shutil.copy2(artifact_manifest_path, target_manifest_path)
+    if manifest_text is None:
+        shutil.copy2(artifact_manifest_path, target_manifest_path)
+    else:
+        target_manifest_path.write_text(manifest_text, encoding="utf-8")
     return target_manifest_path, target_package_path
 
 

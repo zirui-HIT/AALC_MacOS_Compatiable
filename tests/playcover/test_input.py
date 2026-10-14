@@ -1,5 +1,8 @@
 import threading
+from concurrent.futures import ThreadPoolExecutor
 from dataclasses import replace
+from types import SimpleNamespace
+from unittest.mock import Mock
 
 import pytest
 
@@ -36,6 +39,20 @@ def test_click_repeats_complete_touch_sequences():
     assert not handler.active_contacts
 
 
+def test_default_click_hold_follows_live_settings_without_replacing_the_session(monkeypatch):
+    from module.config import cfg
+
+    handler, recorder = make_input()
+    handler = PlayCoverInput(recorder, handler._geometry, handler.cancel)
+    waits = []
+    monkeypatch.setattr(handler, "_wait", waits.append)
+    for duration in (0.25, 0.75):
+        monkeypatch.setattr(cfg, "config", cfg.config.model_copy(update={"mouse_down_duration": duration}))
+        handler.mouse_click(10, 10)
+    assert waits == [0.25, 0.75]
+    assert [event[0] for event in recorder.events] == [0, 3, 0, 3]
+
+
 def test_linked_path_has_one_down_and_one_up_and_fixed_geometry():
     handler, recorder = make_input()
     snapshot = replace(handler._current_geometry(), touch_size=(1920, 1080))
@@ -65,6 +82,50 @@ def test_paused_gesture_waits_until_resume_and_records_restore_time():
     assert not thread.is_alive()
     assert handler.restore_time is not None
     assert [event[0] for event in recorder.events] == [0, 3]
+
+
+@pytest.mark.parametrize("name,args,kwargs", [
+    ("mouse_click", (1440, 810), {}),
+    ("mouse_drag", (1440, 810), {"dx": 10, "drag_time": 0}),
+    ("mouse_drag_link", ([(1440, 810), (1500, 810)],), {"drag_time": 0}),
+    ("mouse_swipe_for_scroll", (1440, 810), {"dx": 10, "duration": 0}),
+    ("mouse_drag_down", (1440, 810), {}),
+    ("pinch", ((960, 540), 400, 200), {"duration": 0}),
+])
+def test_geometry_change_during_pause_rejects_old_frame_before_touch(monkeypatch, name, args, kwargs):
+    from module.automation.automation import Automation
+    from module.backends import factory
+    from module.config import cfg
+
+    monkeypatch.setattr(cfg, "config", cfg.config.model_copy(update={"backend": "playcover"}))
+    handler, recorder = make_input()
+    geometry = [handler._current_geometry()]
+    handler._geometry = lambda: geometry[0]
+    handler.is_pause = True
+    waiting = threading.Event()
+    wait_pause = handler.wait_pause
+
+    def wait():
+        waiting.set()
+        wait_pause()
+
+    monkeypatch.setattr(handler, "wait_pause", wait)
+    session = SimpleNamespace(input=handler, geometry=lambda: geometry[0])
+    monkeypatch.setattr(factory, "get_playcover_session", lambda: session)
+    auto = object.__new__(Automation)
+    auto.invalidate_screenshot_cache = Mock()
+    frame = SimpleNamespace(geometry=geometry[0], geometry_version=geometry[0].version)
+    with ThreadPoolExecutor(max_workers=1) as worker:
+        result = worker.submit(auto._invoke_input, getattr(handler, name), frame, *args, **kwargs)
+        try:
+            assert waiting.wait(2)
+            geometry[0] = Geometry((960, 540), (960, 540), (0, 0, 960, 540), version=2)
+        finally:
+            handler.is_pause = False
+        with pytest.raises(RuntimeError, match="Geometry changed"):
+            result.result(timeout=2)
+    assert not recorder.events
+    assert not handler.active_contacts
 
 
 def test_scroll_has_no_long_endpoint_hold():
