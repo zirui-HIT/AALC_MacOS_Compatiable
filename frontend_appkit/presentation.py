@@ -1,8 +1,10 @@
 """Native layout and material helpers. No configuration or execution state."""
 
 import json
+from html import escape
 
 import AppKit as A
+from markdown_it import MarkdownIt
 from objc import super
 
 from frontend_appkit import widgets
@@ -11,6 +13,42 @@ from frontend_appkit.widgets import FlippedView, action, label
 TOOLBAR_SLOT_WIDTH = 88
 TOOLBAR_HEIGHT = 36
 TOOLBAR_PADDING = 8
+
+
+def announcement_html(data):
+    markdown = MarkdownIt("commonmark", {"html": False, "breaks": True, "linkify": True}).enable("linkify")
+    articles = []
+    for item in data.get("Announcement", []):
+        if not isinstance(item, dict):
+            continue
+        title = escape(str(item.get("title", "")))
+        content = str(item.get("content", ""))
+        body = markdown.render(content) if item.get("contentType", "markdown").lower() == "markdown" else escape(content).replace("\n", "<br>")
+        articles.append(f"<h2>{title}</h2>{body}")
+    body = "<hr>".join(articles) or "<p>" + escape(widgets.translate("暂无公告")) + "</p>"
+    return """<html><head><meta charset="utf-8"><style>
+body { font-family: 'Helvetica Neue', 'PingFang SC', sans-serif; font-size: 13px; line-height: 1.6; margin: 0; }
+h2 { font-size: 17px; margin: 0 0 12px; } h3 { font-size: 15px; }
+p { margin: 0 0 12px; } li { margin-bottom: 6px; } hr { margin: 24px 0; }
+pre, code { font-family: Menlo, monospace; font-size: 12px; }
+</style></head><body>""" + body + "</body></html>"
+
+
+class LogResizeHandle(FlippedView):
+    def drawRect_(self, rect):
+        A.NSColor.separatorColor().setFill()
+        width, height = self.bounds().size
+        A.NSBezierPath.bezierPathWithRoundedRect_xRadius_yRadius_(((width / 2 - 20, height / 2 - 1), (40, 2)), 1, 1).fill()
+
+    def resetCursorRects(self):
+        self.addCursorRect_cursor_(self.bounds(), A.NSCursor.resizeUpDownCursor())
+
+    def mouseDown_(self, event):
+        self.drag_y = event.locationInWindow().y
+        self.drag_height = self.height_getter()
+
+    def mouseDragged_(self, event):
+        self.resize_handler(self.drag_height + event.locationInWindow().y - self.drag_y)
 
 
 def hover_tracking(view, *, moved=False):

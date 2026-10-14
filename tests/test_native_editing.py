@@ -589,14 +589,15 @@ def test_theme_more_routes_keep_scope_and_validate_pending_weights(editor_app):
     assert editor.dirty()
 
 
-def test_two_column_tools_preserve_options_and_disable_nested_actions():
+def test_tool_launchers_disable_nested_actions_while_game_is_busy():
     app = state_app()
     app.page_index = 7
     app.page = view(820)
     app.client = Mock()
+    app.open_tool = Mock()
     app.build_tools()
     controls = [control for control in descendants(app.page) if isinstance(control, A.NSButton)]
-    assert len(controls) == 5
+    assert len(controls) == 2
     app.data["state"].update(running=True, kind="battle")
     app.update_state()
     assert all(not control.isEnabled() for control in controls)
@@ -605,9 +606,8 @@ def test_two_column_tools_preserve_options_and_disable_nested_actions():
     app.data["state"].update(running=False, kind="")
     app.update_state()
     assert all(control.isEnabled() for control in controls)
-    for title, selected in [("无限守备", True), ("第一回合开启守备", False), ("不处理事件", True)]:
-        next(control for control in controls if control.title() == title).setState_(int(selected))
-    for title in ("开始自动战斗", "截图小工具"):
+    for title in ("打开自动战斗…", "打开截图小工具…"):
         control = next(control for control in controls if control.title() == title)
         assert A.NSApplication.sharedApplication().sendAction_to_from_(control.action(), control.target(), control)
-    assert [call.args for call in app.client.request.call_args_list] == [("battle.start", {"defense": True, "defense_on_turn1": False, "not_choose_event": True}), ("screenshot",)]
+    assert [call.args for call in app.open_tool.call_args_list] == [("battle",), ("capture",)]
+    app.client.request.assert_not_called()

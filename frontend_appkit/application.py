@@ -20,8 +20,10 @@ from frontend_appkit.presentation import (
     TOOLBAR_HEIGHT,
     TOOLBAR_SLOT_WIDTH,
     LayoutView,
+    LogResizeHandle,
     SurfaceView,
     TaskRow,
+    announcement_html,
     glass,
     icon,
     menu_button,
@@ -50,6 +52,7 @@ from frontend_appkit.widgets import (
     label,
     popup,
     scroll,
+    tooltip,
 )
 from native_contract import FIELDS, GROUPS, HIDDEN_TEAM, STATS, TASK_KEYS
 from utils.runtime_paths import data_path, resource_path
@@ -169,6 +172,7 @@ class Application:
         self.expanded_schedules = set()
         self.expanded_daily = set()
         self.logs_expanded = False
+        self.log_height = 210
         self.preview_path = None
         self.ui_check = "--ui-check" in arguments
         self.ui_checked = False
@@ -186,6 +190,7 @@ class Application:
                     self.translations[message.findtext("source")] = translation
         self.translations.update({"完成后": "After run", "关闭": "Off", "一场连续作战的最大次数": "Maximum consecutive battles", "经验": "EXP", "纽本": "Thread"})
         self.translations.update({cn: en for cn, en in DISPLAY_LABELS.values()})
+        self.translations.update({"打开自动战斗…": "Open automatic battle…", "打开截图小工具…": "Open screenshot tool…", "截图": "Capture", "点击截图获取当前游戏画面": "Capture to preview the current game view", "更新时间": "Updated", "暂无公告": "No announcements", "更新为当前时间": "Update to now", "拖动调整日志高度": "Drag to resize the log"})
         for number in range(1, 5):
             self.translations[f"定时任务 {number}"] = f"Schedule {number}"
             self.translations[f"启用定时任务 {number}"] = f"Enable schedule {number}"
@@ -345,6 +350,11 @@ class Application:
         self.log_view.setTextContainerInset_((12, 10))
         self.log_scroll.setDocumentView_(self.log_view)
         self.root.addSubview_(self.log_scroll)
+        self.log_resize = LogResizeHandle.alloc().initWithFrame_(((0, 0), (100, 8)))
+        self.log_resize.height_getter = lambda: self.log_scroll.frame().size.height + 38
+        self.log_resize.resize_handler = self.resize_logs
+        tooltip(self.log_resize, "拖动调整日志高度")
+        self.root.addSubview_(self.log_resize)
         self.root.layout_handler = self.layout_window
         self.layout_window()
         self.window.setFrame_display_(((100, 100), (920, 580)), True)
@@ -359,7 +369,7 @@ class Application:
         content_width = width - x - 20
         nested = self.page_index in {0, 2, 3, 4, 5, 6}
         top = 116 if nested else 82
-        log_height = min(210, max(110, height - top - 156)) if self.logs_expanded else 32
+        log_height = max(110, min(getattr(self, "log_height", 210), max(110, height - top - 156))) if self.logs_expanded else 32
         bottom = height - 12 - log_height - 8
         if tasks and self.sidebar.superview() is None:
             self.root.addSubview_(self.sidebar)
@@ -385,6 +395,14 @@ class Application:
         self.log_scroll.setFrame_(((x, log_y + 38), (content_width, max(0, log_height - 38))))
         self.log_scroll.setHidden_(not self.logs_expanded)
         self.log_clear.setHidden_(not self.logs_expanded)
+        self.log_resize.setFrame_(((x, log_y - 8), (content_width, 8)))
+        self.log_resize.setHidden_(not self.logs_expanded)
+
+    def resize_logs(self, height):
+        if self.logs_expanded:
+            self.log_height = height
+            self.layout_window()
+            self.log_height = self.log_scroll.frame().size.height + 38
 
     def toggle_logs(self):
         self.logs_expanded = not self.logs_expanded
@@ -725,6 +743,7 @@ class Application:
         self.connection_controls = []
         self.forms = []
         self.team_order_controls = []
+        self.field_actions = []
         titles = {"daily": ("日常任务", "经验本、纽本与每日配队"), "reward": ("领取奖励", "选择邮件和日常、周常奖励的领取范围"), "energy": ("狂气换体", "配置购买体力次数与换体选项"), "mirror": ("镜牢任务", "配置镜牢、队伍与主题包"), "teams": ("镜牢任务", "配置镜牢、队伍与主题包"), "theme": ("镜牢任务", "配置镜牢、队伍与主题包"), "settings": ("设置", "游戏连接、定时任务与应用偏好"), "tools": ("工具", "自动战斗与截图")}
         title, description = titles[key]
         self.page_title = title, description
@@ -746,7 +765,16 @@ class Application:
             if self.mirror_section == 3:
                 advanced = ["floor_3_exit", "infinite_dungeons", "select_event_pack", "skip_event_pack", "re_claim_rewards", "fight_to_last_man"]
                 form = self.add_form(advanced, sections={"floor_3_exit": "运行策略", "select_event_pack": "活动与战斗"})
-                self.add_form(["select_team_by_order", "auto_hard_mirror", "hard_mirror_chance", "last_auto_change"], start=form.y + 16, sections={"select_team_by_order": "配队与自动困难镜牢"})
+                form = self.add_form(["select_team_by_order", "auto_hard_mirror", "hard_mirror_chance", "last_auto_change"], start=form.y + 16, sections={"select_team_by_order": "配队与自动困难镜牢"})
+                field = form.controls["last_auto_change"]
+                row = field.superview()
+                field.setFrame_(((row.frame().size.width - 316, field.frame().origin.y), (160, 28)))
+                for caption in row.subviews():
+                    if caption.identifier() == FIELDS["ConfigModel"]["last_auto_change"]["label"]:
+                        caption.setFrameSize_((field.frame().origin.x - 32, caption.frame().size.height))
+                update = button(row, "更新为当前时间", ((row.frame().size.width - 148, field.frame().origin.y), (132, 28)), lambda sender: self.update_mirror_timestamp(form), self.page_targets)
+                update.setAutoresizingMask_(A.NSViewMinXMargin)
+                self.field_actions.append((update, field))
             else:
                 self.add_form([name for name in GROUPS[key] if name not in {"floor_3_exit", "infinite_dungeons", "select_event_pack", "skip_event_pack", "re_claim_rewards", "fight_to_last_man"}], sections={"set_mirror_count": "次数与模式", "no_weekly_bonuses": "加成与奖励"})
         elif key == "teams":
@@ -778,6 +806,14 @@ class Application:
         self.forms.append(form)
         self.form = form
         return form
+
+    def update_mirror_timestamp(self, form):
+        value = time.time()
+        field = form.controls["last_auto_change"]
+        if field.currentEditor() is not None:
+            field.currentEditor().setString_(str(value))
+        field.setObjectValue_(value)
+        self.patch({"last_auto_change": value})
 
     def add_collapsible_form(self, keys, title, expanded, key, *, start=16, enable_title=None):
         is_expanded = key in expanded
@@ -842,6 +878,18 @@ class Application:
             control.setEnabled_(not running and not getattr(self, "deleting_team", False) and number in config["teams_active_queue"])
         for control in getattr(self, "connection_controls", []):
             control.setEnabled_(not running)
+        for control, field in getattr(self, "field_actions", []):
+            control.setEnabled_(field.isEnabled())
+        for editor in getattr(self, "editors", []):
+            if not getattr(editor, "tool_kind", None) or editor.closed:
+                continue
+            for control in editor.root.subviews():
+                if isinstance(control, A.NSButton):
+                    control.setEnabled_(not running)
+            if editor.tool_kind == "battle":
+                battle = running and state["kind"] == "battle"
+                editor.start_button.setTitle_(self.text("停止任务" if battle else "开始自动战斗"))
+                editor.start_button.setEnabled_((not running or battle) and not state["stopping"] and not state["startup"])
         summaries = [f"{self.text('经验')} {config['set_EXP_count']} · {self.text('纽本')} {config['set_thread_count']}", str(next((self.text(title) for title, value in FIELDS["options"]["set_get_prize_options"] if value == config["set_get_prize"]), "")), self.text("购买次数") + f" · {config['set_lunacy_to_enkephalin']}", self.text("镜牢次数") + f" · {config['set_mirror_count']}"]
         for view, summary in zip(self.task_summaries, summaries):
             view.setStringValue_(summary)
@@ -1084,26 +1132,58 @@ class Application:
 
     def build_tools(self):
         width = self.page.frame().size.width - 40
-        battle_width = 416
-        row = SurfaceView.alloc().initWithFrame_(((20, 16), (battle_width, 218)))
-        row.kind = "group"
-        row.setAutoresizingMask_(0)
-        self.page.addSubview_(row)
-        label(row, "自动战斗", ((16, 14), (battle_width - 32, 22)), bold=True)
-        subtitle(row, "使用停止按钮或快捷键结束战斗", ((16, 40), (battle_width - 32, 18)))
-        options = []
-        for i, name in enumerate(["无限守备", "第一回合开启守备", "不处理事件"]):
-            options.append(button(row, name, ((16, 68 + i * 32), (battle_width - 32, 28)), lambda sender: None, self.page_targets, checkbox=True))
-        button(row, "开始自动战斗", ((16, 176), (180, 28)), lambda sender: self.client.request("battle.start", dict(zip(["defense", "defense_on_turn1", "not_choose_event"], [bool(control.state()) for control in options]))), self.page_targets)
-        capture_width = width - battle_width - 12
-        capture = SurfaceView.alloc().initWithFrame_(((20 + battle_width + 12, 16), (capture_width, 128)))
-        capture.kind = "group"
-        capture.setAutoresizingMask_(A.NSViewWidthSizable)
-        self.page.addSubview_(capture)
-        label(capture, "截图与预览", ((16, 14), (capture_width - 32, 22)), bold=True)
-        subtitle(capture, "从 PlayCover 获取当前游戏画面", ((16, 40), (capture_width - 32, 18)))
-        button(capture, "截图小工具", ((16, 84), (180, 28)), lambda sender: self.client.request("screenshot"), self.page_targets)
-        self.page.setFrameSize_((self.page.frame().size.width, 254))
+        for index, (kind, title, description, action_title) in enumerate([
+            ("battle", "自动战斗", "使用停止按钮或快捷键结束战斗", "打开自动战斗…"),
+            ("capture", "截图小工具", "从 PlayCover 获取当前游戏画面", "打开截图小工具…"),
+        ]):
+            row = SurfaceView.alloc().initWithFrame_(((20, 16 + index * 112), (width, 96)))
+            row.kind = "group"
+            row.setAutoresizingMask_(A.NSViewWidthSizable)
+            self.page.addSubview_(row)
+            label(row, title, ((16, 14), (width - 240, 22)), bold=True)
+            subtitle(row, description, ((16, 46), (width - 240, 18)))
+            control = button(row, action_title, ((width - 208, 34), (192, 28)), lambda sender, tool=kind: self.open_tool(tool), self.page_targets)
+            control.setAutoresizingMask_(A.NSViewMinXMargin)
+        self.page.setFrameSize_((self.page.frame().size.width, 256))
+
+    def open_tool(self, kind):
+        for editor in self.editors:
+            if not editor.closed and getattr(editor, "tool_kind", None) == kind:
+                editor.window.makeKeyAndOrderFront_(None)
+                return editor
+        editor = Editor(self, self.text("自动战斗" if kind == "battle" else "截图小工具"))
+        editor.tool_kind = kind
+        editor.window.setMinSize_((440, 280) if kind == "battle" else (520, 380))
+        editor.window.setContentSize_((480, 280) if kind == "battle" else (720, 480))
+        editor.scroller.setHidden_(True)
+        if kind == "battle":
+            label(editor.root, "自动战斗", ((20, 16), (440, 24)), size=16, bold=True)
+            subtitle(editor.root, "使用停止按钮或快捷键结束战斗", ((20, 48), (440, 18)))
+            options = [button(editor.root, name, ((20, 80 + index * 32), (440, 28)), lambda sender: None, editor.targets, checkbox=True) for index, name in enumerate(["无限守备", "第一回合开启守备", "不处理事件"])]
+
+            def start_or_stop(sender):
+                if self.data["state"]["running"] and self.data["state"]["kind"] == "battle":
+                    self.client.request("task.stop")
+                else:
+                    self.client.request("battle.start", dict(zip(["defense", "defense_on_turn1", "not_choose_event"], [bool(control.state()) for control in options])))
+            editor.start_button = button(editor.root, "开始自动战斗", ((20, 208), (180, 32)), start_or_stop, editor.targets)
+        else:
+            button(editor.root, "截图", ((20, 16), (132, 32)), lambda sender: self.client.request("screenshot"), editor.targets)
+            editor.bundle_label = subtitle(editor.root, "", ((168, 23), (532, 20)))
+            editor.bundle_label.setIdentifier_(None)
+            editor.image_view = A.NSImageView.alloc().initWithFrame_(((20, 64), (680, 396)))
+            editor.image_view.setImageScaling_(A.NSImageScaleProportionallyUpOrDown)
+            editor.image_view.setImageFrameStyle_(A.NSImageFrameGrayBezel)
+            editor.image_view.setAutoresizingMask_(A.NSViewWidthSizable | A.NSViewHeightSizable)
+            editor.root.addSubview_(editor.image_view)
+            editor.placeholder = subtitle(editor.image_view, "点击截图获取当前游戏画面", ((12, 190), (656, 16)))
+            height = editor.placeholder.intrinsicContentSize().height
+            editor.placeholder.setFrame_(((12, (396 - height) / 2), (656, height)))
+            editor.placeholder.setAlignment_(A.NSTextAlignmentCenter)
+            editor.placeholder.setAutoresizingMask_(A.NSViewWidthSizable | A.NSViewMinYMargin | A.NSViewMaxYMargin)
+        self.update_state()
+        editor.show()
+        return editor
 
     def open_theme(self, number=None):
         if number is not None and getattr(self, "deleting_team", False):
@@ -1334,14 +1414,11 @@ class Application:
             transfer(None)
 
     def show_capture(self, data):
-        editor = Editor(self, "截图预览")
+        editor = self.open_tool("capture")
         image = A.NSImage.alloc().initWithContentsOfFile_(data["path"])
-        view = A.NSImageView.alloc().initWithFrame_(((0, 0), (760, 480)))
-        view.setImage_(image)
-        view.setImageScaling_(A.NSImageScaleProportionallyUpOrDown)
-        editor.document.addSubview_(view)
-        label(editor.root, data.get("bundle_id", data["path"]), ((16, 16), (760, 28)))
-        editor.show()
+        editor.image_view.setImage_(image)
+        editor.placeholder.setHidden_(image is not None)
+        editor.bundle_label.setStringValue_(data.get("bundle_id", data["path"]))
 
     def check_native_pages(self, theme):
         # Opt-in UI QA builds every active page/editor without game commands.
@@ -1385,9 +1462,16 @@ class Application:
         self.editors[-1].close()
         self.edit_theme(number, theme)
         self.editors[-1].close()
+        for kind in ("battle", "capture"):
+            self.open_tool(kind).close()
+        self.show_announcements({"Time": "", "Announcement": [{"title": "公告", "content": "- Markdown\n- **AppKit**", "contentType": "markdown"}]})
+        self.editors[-1].close()
         self.page_index = 7
         self.sync_navigation()
         self.build_page()
+        self.toggle_logs()
+        self.resize_logs(getattr(self, "log_height", 210) + 40)
+        self.toggle_logs()
         self.ui_checked = True
         sys.stderr.write("NATIVE_UI_CHECK_PASSED\n")
 
@@ -1415,15 +1499,29 @@ class Application:
         editor.show()
 
     def show_announcements(self, data):
-        parts = []
-        for key, value in data.items():
-            if key == "Time":
-                continue
-            if isinstance(value, dict):
-                parts.append(str(value.get("title", key)) + "\n" + str(value.get("content", value.get("Content", ""))))
-            else:
-                parts.append(str(value))
-        self.show_text("公告", "\n\n".join(parts))
+        editor = Editor(self, self.text("公告"))
+        editor.window.setMinSize_((520, 340))
+        editor.window.setContentSize_((700, 560))
+        label(editor.root, "公告", ((20, 12), (480, 26)), size=17, bold=True)
+        stamp = subtitle(editor.root, self.text("更新时间") + " · " + str(data.get("Time", "")), ((20, 42), (560, 18)))
+        stamp.setIdentifier_(None)
+        close = button(editor.root, "关闭", ((612, 18), (68, 28)), lambda sender: editor.close(), editor.targets)
+        close.setAutoresizingMask_(A.NSViewMinXMargin)
+        editor.scroller.setFrame_(((0, 72), (700, 488)))
+        view = A.NSTextView.alloc().initWithFrame_(((0, 0), (680, 488)))
+        view.setEditable_(False)
+        view.setSelectable_(True)
+        view.setDrawsBackground_(False)
+        view.setTextContainerInset_((24, 20))
+        view.setAutoresizingMask_(A.NSViewWidthSizable)
+        view.setVerticallyResizable_(True)
+        view.setHorizontallyResizable_(False)
+        view.textContainer().setWidthTracksTextView_(True)
+        view.textStorage().setAttributedString_(attributed_html(announcement_html(data)))
+        view.setTextColor_(A.NSColor.labelColor())
+        editor.scroller.setDocumentView_(view)
+        view.sizeToFit()
+        editor.show()
 
     @staticmethod
     def open_url(url):
