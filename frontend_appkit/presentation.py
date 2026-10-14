@@ -8,6 +8,10 @@ from objc import super
 from frontend_appkit import widgets
 from frontend_appkit.widgets import FlippedView, action, label
 
+TOOLBAR_SLOT_WIDTH = 88
+TOOLBAR_HEIGHT = 36
+TOOLBAR_PADDING = 8
+
 
 def hover_tracking(view, *, moved=False):
     previous = getattr(view, "hover_tracking_area", None)
@@ -147,7 +151,8 @@ def glass(parent, frame):
         content = FlippedView.alloc().initWithFrame_(((0, 0), frame[1]))
         content.setAutoresizingMask_(A.NSViewWidthSizable | A.NSViewHeightSizable)
         panel.addSubview_(content)
-    parent.addSubview_(panel)
+    if parent is not None:
+        parent.addSubview_(panel)
     return panel, content
 
 
@@ -202,40 +207,20 @@ def menu_button(parent, title, frame, entries, targets):
     return control
 
 
-def toolbar_glass(control, *, primary=False):
-    cls = getattr(A, "NSGlassEffectView", None)
+def toolbar_glass(control):
     width, height = control.frame().size
-    if isinstance(control, A.NSButton):
-        if cls is not None:
-            # Public NSBezelStyleGlass (16), available since macOS 26. The
-            # system owns hover, press, focus and disabled rendering together.
-            control.setBezelStyle_(getattr(A, "NSBezelStyleGlass", 16))
-            control.setBorderShape_(1)  # NSControlBorderShapeCapsule
-            control.setTintProminence_(2 if primary else 1)  # primary / none
-        else:
-            control.setBezelStyle_(A.NSBezelStyleAccessoryBarAction)
-            control.setShowsBorderOnlyWhileMouseInside_(True)
-        control.setBordered_(True)
-        control.widthAnchor().constraintEqualToConstant_(width + 16).setActive_(True)
-        control.heightAnchor().constraintEqualToConstant_(36).setActive_(True)
-        control.setFrameSize_((width + 16, 36))
-        return control
-    if cls is None:
-        return control
-    panel = cls.alloc().initWithFrame_(((0, 0), (width + 16, 36)))
+    panel, content = glass(None, ((0, 0), (width + 2 * TOOLBAR_PADDING, TOOLBAR_HEIGHT)))
     # NSToolbar measures custom views through Auto Layout. A glass view with
     # frame-only children has no intrinsic size and otherwise collapses to zero.
-    panel.widthAnchor().constraintEqualToConstant_(width + 16).setActive_(True)
-    panel.heightAnchor().constraintEqualToConstant_(36).setActive_(True)
-    panel.setCornerRadius_(18)
+    panel.widthAnchor().constraintEqualToConstant_(width + 2 * TOOLBAR_PADDING).setActive_(True)
+    panel.heightAnchor().constraintEqualToConstant_(TOOLBAR_HEIGHT).setActive_(True)
+    if hasattr(panel, "setCornerRadius_"):
+        panel.setCornerRadius_(TOOLBAR_HEIGHT / 2)
     if hasattr(panel, "setEffectIsInteractive_"):
         panel.setEffectIsInteractive_(True)
-    content = FlippedView.alloc().initWithFrame_(panel.bounds())
-    content.setAutoresizingMask_(A.NSViewWidthSizable | A.NSViewHeightSizable)
-    control.setFrame_(((8, (36 - height) / 2), (width, height)))
+    control.setFrame_(((TOOLBAR_PADDING, (TOOLBAR_HEIGHT - height) / 2), (width, height)))
     control.setAutoresizingMask_(A.NSViewWidthSizable)
     content.addSubview_(control)
-    panel.setContentView_(content)
     return panel
 
 

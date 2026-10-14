@@ -28,6 +28,7 @@ DISPLAY_LABELS = {
     "playcover_bundle_id": ("游戏标识", "Game identifier"),
     "playcover_capture_method": ("截图方式", "Capture method"),
     "check_update": ("启动时检查官方更新", "Check official updates at launch"),
+    "after_completion_actions": ("完成后操作", "After-run actions"),
 }
 for suffix in ("", "2", "3", "4"):
     DISPLAY_LABELS.update({

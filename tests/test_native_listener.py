@@ -2,14 +2,102 @@
 
 import queue
 import socket
+import time
 from types import SimpleNamespace
 from unittest.mock import MagicMock, Mock
 
 import pytest
 
-pytest.importorskip("AppKit")
+A = pytest.importorskip("AppKit")
+
+from Foundation import NSDate, NSRunLoop  # noqa: E402
 
 from frontend_appkit.application import Application  # noqa: E402
+
+
+@pytest.mark.parametrize("slot", ["autodaily", "autodaily2", "autodaily3", "autodaily4"])
+def test_scheduled_command_reaches_backend_without_restoring_window(slot):
+    app = Application.__new__(Application)
+    app.quitting = False
+    app.client = Mock()
+    app.restore = Mock()
+    arguments = ["start", "--exit", slot]
+
+    app.event("command", arguments)
+
+    app.client.request.assert_called_once_with("command", {"args": arguments})
+    app.restore.assert_not_called()
+
+
+@pytest.mark.parametrize("arguments", [[], ["", ""], ["start"], ["start", "--exit", "5"], ["start", "--exit", "autodaily5"]])
+def test_manual_resident_command_still_restores_window(arguments):
+    app = Application.__new__(Application)
+    app.quitting = False
+    app.client = Mock()
+    app.restore = Mock()
+
+    app.event("command", arguments)
+
+    app.client.request.assert_called_once_with("command", {"args": arguments})
+    app.restore.assert_called_once_with()
+
+
+def test_quitting_app_ignores_scheduled_command():
+    app = Application.__new__(Application)
+    app.quitting = True
+    app.client = Mock()
+    app.restore = Mock()
+
+    app.event("command", ["start", "--exit", "autodaily"])
+
+    app.client.request.assert_not_called()
+    app.restore.assert_not_called()
+
+
+@pytest.mark.parametrize("window_state", ["visible", "hidden", "minimized"])
+def test_scheduled_commands_preserve_native_window_and_dock_state(window_state):
+    app = Application.__new__(Application)
+    app.quitting = False
+    app.client = Mock()
+    app.editors = []
+    app.native = A.NSApplication.sharedApplication()
+    previous_policy = app.native.activationPolicy()
+    app.window = A.NSWindow.alloc().initWithContentRect_styleMask_backing_defer_(
+        ((100, 100), (240, 160)), A.NSWindowStyleMaskTitled | A.NSWindowStyleMaskMiniaturizable,
+        A.NSBackingStoreBuffered, False,
+    )
+    app.window.setReleasedWhenClosed_(False)
+    try:
+        app.native.setActivationPolicy_(A.NSApplicationActivationPolicyRegular)
+        app.window.makeKeyAndOrderFront_(None)
+        app.native.activateIgnoringOtherApps_(True)
+        NSRunLoop.currentRunLoop().runUntilDate_(NSDate.dateWithTimeIntervalSinceNow_(0.05))
+        if window_state == "hidden":
+            app.window.orderOut_(None)
+            app.native.setActivationPolicy_(A.NSApplicationActivationPolicyAccessory)
+        elif window_state == "minimized":
+            app.window.miniaturize_(None)
+        deadline = time.monotonic() + 2
+        expected = (window_state == "visible", window_state == "minimized")
+        while (app.window.isVisible(), app.window.isMiniaturized()) != expected and time.monotonic() < deadline:
+            NSRunLoop.currentRunLoop().runUntilDate_(NSDate.dateWithTimeIntervalSinceNow_(0.05))
+        before = (app.window.isVisible(), app.window.isMiniaturized(), app.native.activationPolicy())
+        assert app.window.isMiniaturized() == (window_state == "minimized")
+        assert app.window.isVisible() == (window_state == "visible")
+
+        for slot in ("autodaily", "autodaily2", "autodaily3", "autodaily4"):
+            app.event("command", ["start", "--exit", slot])
+            assert (app.window.isVisible(), app.window.isMiniaturized(), app.native.activationPolicy()) == before
+
+        app.event("command", [])
+        deadline = time.monotonic() + 2
+        while (not app.window.isVisible() or app.window.isMiniaturized()) and time.monotonic() < deadline:
+            NSRunLoop.currentRunLoop().runUntilDate_(NSDate.dateWithTimeIntervalSinceNow_(0.05))
+        assert app.window.isVisible() and not app.window.isMiniaturized()
+        assert app.native.activationPolicy() == A.NSApplicationActivationPolicyRegular
+    finally:
+        app.window.close()
+        app.native.setActivationPolicy_(previous_policy)
 
 
 @pytest.mark.parametrize("failure", [socket.timeout("idle client"), OSError("client reset"), b"\xff"])

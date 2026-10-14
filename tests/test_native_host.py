@@ -64,6 +64,31 @@ def test_protocol_rejects_bad_request_and_remains_responsive(tmp_path):
     assert responses[2]["result"]["state"]["running"] is False
 
 
+def test_frontend_completion_choices_are_saved_across_backend_restarts(tmp_path):
+    pytest.importorskip("AppKit")
+    from frontend_appkit.application import Application
+
+    app = Application.__new__(Application)
+    app.client = Mock()
+    app.patch({"after_completion_actions": ["exit_game", "exit_aalc"]})
+    method, params = app.client.request.call_args.args
+    env = {**os.environ, "AALC_DATA_ROOT": str(tmp_path)}
+
+    def host(request):
+        result = subprocess.run([sys.executable, "-u", "main.py", "--backend", "--no-hotkeys"],
+            input=json.dumps({"v": 1, "id": 1, **request}) + "\n", cwd=SOURCE_ROOT,
+            env=env, capture_output=True, text=True, timeout=20)
+        assert result.returncode == 0, result.stderr
+        response = next(message for message in map(json.loads, result.stdout.splitlines()) if message.get("id") == 1)
+        assert "error" not in response, response
+        return response["result"]
+
+    host({"method": method, "params": params})
+    restarted = host({"method": "snapshot"})
+    assert restarted["config"]["after_completion_actions"] == ["exit_game", "exit_aalc"]
+    assert restarted["config"]["keep_after_completion"] is True
+
+
 @pytest.mark.parametrize("keep", [False, True])
 @pytest.mark.parametrize("power", ["none", "sleep"])
 def test_native_host_migrates_unavailable_completion_actions(service, monkeypatch, keep, power):
@@ -153,9 +178,10 @@ def test_native_startup_restores_the_original_normal_route_mode(service, monkeyp
 
 @pytest.mark.parametrize("boundary", ["startup", "save", "import", "profile"])
 def test_native_team_flags_keep_the_original_second_system_branch(service, monkeypatch, tmp_path, boundary):
+    from ruamel.yaml import YAML
+
     from backend_host.service import BackendService
     from module.config import TeamSetting, cfg, theme_list
-    from ruamel.yaml import YAML
     from tasks.mirror.in_shop import Shop
 
     values = {"shop_strategy": 2, "after_level_IV": True, "after_level_IV_select": 2,

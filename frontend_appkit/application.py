@@ -17,6 +17,8 @@ from frontend_appkit.client import BackendClient
 from frontend_appkit.edit_models import SINNERS, SYSTEMS, TeamDraft
 from frontend_appkit.forms import DISPLAY_LABELS, Form
 from frontend_appkit.presentation import (
+    TOOLBAR_HEIGHT,
+    TOOLBAR_SLOT_WIDTH,
     LayoutView,
     SurfaceView,
     TaskRow,
@@ -164,6 +166,8 @@ class Application:
         self.settings_section = 0
         self.task_details = {0: 0, 2: 0}
         self.settings_details = {}
+        self.expanded_schedules = set()
+        self.expanded_daily = set()
         self.logs_expanded = False
         self.preview_path = None
         self.ui_check = "--ui-check" in arguments
@@ -182,6 +186,9 @@ class Application:
                     self.translations[message.findtext("source")] = translation
         self.translations.update({"完成后": "After run", "关闭": "Off", "一场连续作战的最大次数": "Maximum consecutive battles", "经验": "EXP", "纽本": "Thread"})
         self.translations.update({cn: en for cn, en in DISPLAY_LABELS.values()})
+        for number in range(1, 5):
+            self.translations[f"定时任务 {number}"] = f"Schedule {number}"
+            self.translations[f"启用定时任务 {number}"] = f"Enable schedule {number}"
         self.translations.update({"更多": "More", "项任务已启用": "tasks enabled", "勾选启用，更多菜单中调整顺序": "Enable presets; reorder in More", "普通与困难镜牢的权重及各层禁选": "Weights and floor bans for both modes", "在队伍配置中编辑各预设的专属权重": "Edit preset weights in Teams", "编辑权重…": "Edit weights…", "队伍配置…": "Teams…", "出战罪人": "Sinners", "使用停止按钮或快捷键结束战斗": "Use Stop or a hotkey to end battle", "截图与预览": "Capture & preview", "从 PlayCover 获取当前游戏画面": "Capture the current PlayCover game view", "-10 至 10，数值越高越优先": "−10 to 10; higher values take priority"})
         from frontend_appkit import widgets
 
@@ -217,9 +224,7 @@ class Application:
         refresh(self.root)
         refresh(self.sidebar_content)
         refresh(self.navigation)
-        refresh(self.settings_button)
-        self.settings_button.setAccessibilityLabel_(self.text("设置"))
-        self.settings_button.setToolTip_(self.text("设置"))
+        refresh(self.run_controls)
         if hasattr(self, "page_title"):
             self.page_heading.setStringValue_(self.text(self.page_title[0]))
             self.page_description.setStringValue_(self.text(self.page_title[1]))
@@ -248,33 +253,38 @@ class Application:
         self.root = LayoutView.alloc().initWithFrame_(((0, 0), (920, 500)))
         self.root.setAutoresizingMask_(A.NSViewWidthSizable | A.NSViewHeightSizable)
         self.window.setContentView_(self.root)
-        self.navigation = segmented(None, ["任务", "工具"], ((0, 0), (144, 30)), lambda sender: self.select_primary(sender.selectedSegment()), self.targets, quiet=True)
-        self.status = label(self.root, "正在连接后端…", ((0, 0), (100, 24)))
+        self.navigation = segmented(None, ["任务", "工具", "设置"], ((0, 0), (3 * TOOLBAR_SLOT_WIDTH, 30)), lambda sender: self.select_primary(sender.selectedSegment()), self.targets, quiet=True)
+        self.status = label(self.root, "正在连接后端…", ((0, 0), (TOOLBAR_SLOT_WIDTH, 24)))
+        self.status.setFrameSize_((TOOLBAR_SLOT_WIDTH, self.status.intrinsicContentSize().height))
         self.status.removeFromSuperview()
         self.status.setIdentifier_(None)
         self.status.setTextColor_(A.NSColor.secondaryLabelColor())
+        self.status.setAlignment_(A.NSTextAlignmentCenter)
         self.start_button = button(self.root, "开始运行", ((0, 0), (44, 32)), lambda sender: self.start_or_stop(), self.targets)
         self.pause_button = button(self.root, "暂停", ((0, 0), (44, 32)), lambda sender: self.client.request("task.pause"), self.targets)
         icon(self.start_button, "play.fill", self.text("开始运行"))
         icon(self.pause_button, "pause.fill", self.text("暂停"))
-        self.settings_button = button(self.root, "设置", ((0, 0), (44, 32)), lambda sender: self.select_page(6), self.targets)
-        settings_image = A.NSImage.imageWithSystemSymbolName_accessibilityDescription_("gearshape", self.text("设置"))
-        if settings_image:
-            self.settings_button.setImage_(settings_image)
-            self.settings_button.setImagePosition_(A.NSImageOnly)
-        self.settings_button.setAccessibilityLabel_(self.text("设置"))
-        self.settings_button.setToolTip_(self.text("设置"))
+        self.run_controls = FlippedView.alloc().initWithFrame_(((0, 0), (3 * TOOLBAR_SLOT_WIDTH, TOOLBAR_HEIGHT)))
+        for index, control in enumerate((self.status, self.pause_button, self.start_button)):
+            control.removeFromSuperview()
+            width, height = control.frame().size
+            control.setFrameOrigin_((index * TOOLBAR_SLOT_WIDTH + (TOOLBAR_SLOT_WIDTH - width) / 2, (TOOLBAR_HEIGHT - height) / 2))
+            control.setAutoresizingMask_(A.NSViewNotSizable)
+            if isinstance(control, A.NSButton):
+                control.setBezelStyle_(A.NSBezelStyleAccessoryBarAction)
+                control.setShowsBorderOnlyWhileMouseInside_(True)
+            self.run_controls.addSubview_(control)
         self.toolbar_items = {}
-        for identifier, title, control in [("navigation", "导航", self.navigation), ("settings", "设置", self.settings_button), ("status", "状态", self.status), ("pause", "暂停", self.pause_button), ("start", "开始运行", self.start_button)]:
+        for identifier, title, control in [("navigation", "导航", self.navigation), ("run", "状态", self.run_controls)]:
             control.removeFromSuperview()
             item = A.NSToolbarItem.alloc().initWithItemIdentifier_(identifier)
             item.setLabel_(self.text(title))
             item.setPaletteLabel_(self.text(title))
-            item.setView_(control if identifier == "status" else toolbar_glass(control, primary=identifier == "start"))
+            item.setView_(toolbar_glass(control))
             item.setBordered_(False)
-            item.setVisibilityPriority_(A.NSToolbarItemVisibilityPriorityLow if identifier == "status" else A.NSToolbarItemVisibilityPriorityUser)
+            item.setVisibilityPriority_(A.NSToolbarItemVisibilityPriorityUser)
             self.toolbar_items[identifier] = item
-        self.toolbar_identifiers = ["navigation", A.NSToolbarFlexibleSpaceItemIdentifier, "status", A.NSToolbarSpaceItemIdentifier, "pause", "start", A.NSToolbarSpaceItemIdentifier, "settings"]
+        self.toolbar_identifiers = ["navigation", A.NSToolbarFlexibleSpaceItemIdentifier, "run"]
         self.toolbar = A.NSToolbar.alloc().initWithIdentifier_("AALC.main")
         self.toolbar.setDelegate_(self.delegate)
         self.toolbar.setDisplayMode_(A.NSToolbarDisplayModeIconOnly)
@@ -316,8 +326,6 @@ class Application:
         self.task_detail_navigation = segmented(self.root, ["常规设置", "高级配置"], ((240, 96), (260, 30)), lambda sender: self.select_task_detail(sender.selectedSegment()), self.targets, quiet=True)
         self.settings_navigation = segmented(self.root, ["游戏连接", "定时任务", "外观与快捷键", "运行参数", "资源与关于"], ((284, 96), (760, 30)), lambda sender: self.select_settings_section(sender.selectedSegment()), self.targets, quiet=True)
         self.page_scroll, self.page = scroll(self.root, ((284, 140), (944, 430)))
-        self.completion_root = FlippedView.alloc().initWithFrame_(((284, 580), (944, 106)))
-        self.root.addSubview_(self.completion_root)
         self.log_toggle = button(self.root, "运行日志 ▸", ((284, 790), (126, 30)), lambda sender: self.toggle_logs(), self.targets)
         self.log_toggle.setIdentifier_(None)
         self.mirror_status = label(self.root, "", ((420, 795), (650, 22)))
@@ -351,9 +359,8 @@ class Application:
         content_width = width - x - 20
         nested = self.page_index in {0, 2, 3, 4, 5, 6}
         top = 116 if nested else 82
-        footer_height = 48 if tasks else 0
-        log_height = min(210, max(110, height - top - footer_height - 156)) if self.logs_expanded else 32
-        bottom = height - 12 - log_height - footer_height - 8
+        log_height = min(210, max(110, height - top - 156)) if self.logs_expanded else 32
+        bottom = height - 12 - log_height - 8
         if tasks and self.sidebar.superview() is None:
             self.root.addSubview_(self.sidebar)
         elif not tasks and self.sidebar.superview() is not None:
@@ -371,10 +378,6 @@ class Application:
         self.section_navigation.setHidden_(self.page_index not in {3, 4, 5})
         self.settings_navigation.setHidden_(self.page_index != 6)
         self.page_scroll.setFrame_(((x, top), (content_width, max(100, bottom - top))))
-        self.completion_root.setHidden_(not tasks)
-        self.completion_root.setFrame_(((x, bottom + 8), (content_width, 40)))
-        if hasattr(self, "completion_form") and self.completion_form:
-            self.completion_form.controls["keep_after_completion"].setFrame_(((358, 4), (max(180, content_width - 378), 28)))
         log_y = height - 12 - log_height
         self.log_toggle.setFrame_(((x, log_y), (126, 30)))
         self.mirror_status.setFrame_(((x + 140, log_y + 5), (max(100, content_width - 290), 22)))
@@ -403,7 +406,7 @@ class Application:
         self.build_page()
 
     def select_primary(self, index):
-        self.select_page(self.last_task_page if index == 0 else 7)
+        self.select_page(self.last_task_page if index == 0 else 7 if index == 1 else 6)
 
     def select_mirror_section(self, index):
         def selected():
@@ -429,8 +432,14 @@ class Application:
             self.build_page()
         self.navigate(selected)
 
+    def toggle_group(self, expanded, key):
+        def selected():
+            expanded.symmetric_difference_update({key})
+            self.build_page()
+        self.navigate(selected)
+
     def sync_navigation(self):
-        self.navigation.setSelectedSegment_(0 if self.page_index < 6 else 1 if self.page_index == 7 else -1)
+        self.navigation.setSelectedSegment_(0 if self.page_index < 6 else 1 if self.page_index == 7 else 2)
         if self.page_index < 6:
             self.last_task_page = self.page_index
         if self.page_index in {4, 5}:
@@ -608,7 +617,9 @@ class Application:
         elif event == "command":
             if not self.quitting:
                 self.client.request("command", {"args": data})
-                self.restore()
+                scheduled = len(data) >= 3 and data[:2] == ["start", "--exit"] and data[2] in {"autodaily", "autodaily2", "autodaily3", "autodaily4"}
+                if not scheduled:
+                    self.restore()
         elif event == "resources":
             if data["changes"] and (not data["startup"] or data["automatic"]) and confirm("图片资源可更新", data["message"] or "下载并同步最新图片资源？", accept="同步"):
                 self.client.request("resources.apply")
@@ -675,6 +686,8 @@ class Application:
         alert.runModal()
 
     def patch(self, values):
+        if "after_completion_actions" in values:
+            values = values | {"keep_after_completion": True}
         self.client.request("config.patch", {"values": values})
 
     def commit_current(self, callback, on_error=None):
@@ -686,6 +699,8 @@ class Application:
                     if value != self.data["config"].get(key):
                         values[key] = value
         if values:
+            if "after_completion_actions" in values:
+                values["keep_after_completion"] = True
             self.client.request("config.patch", {"values": values}, lambda result: callback(), on_error=on_error)
         else:
             callback()
@@ -704,15 +719,11 @@ class Application:
             return
         for view in list(self.page.subviews()):
             view.removeFromSuperview()
-        for view in list(self.completion_root.subviews()):
-            view.removeFromSuperview()
         self.page_targets = []
         key = PAGE_KEYS[self.page_index]
-        values = self.data["config"]
         self.form = None
         self.connection_controls = []
         self.forms = []
-        self.completion_form = None
         self.team_order_controls = []
         titles = {"daily": ("日常任务", "经验本、纽本与每日配队"), "reward": ("领取奖励", "选择邮件和日常、周常奖励的领取范围"), "energy": ("狂气换体", "配置购买体力次数与换体选项"), "mirror": ("镜牢任务", "配置镜牢、队伍与主题包"), "teams": ("镜牢任务", "配置镜牢、队伍与主题包"), "theme": ("镜牢任务", "配置镜牢、队伍与主题包"), "settings": ("设置", "游戏连接、定时任务与应用偏好"), "tools": ("工具", "自动战斗与截图")}
         title, description = titles[key]
@@ -721,7 +732,10 @@ class Application:
         self.page_description.setStringValue_(self.text(description))
         if key == "daily":
             if self.task_details[0]:
-                self.add_form(GROUPS[key][5:], sections={"targeted_teaming_EXP": "经验本按日期配队", "targeted_teaming_thread": "纽本按日期配队"})
+                y = 16
+                for group, title, keys in [("EXP", "经验本按日期配队", GROUPS[key][5:10]), ("thread", "纽本按日期配队", GROUPS[key][10:])]:
+                    form = self.add_collapsible_form(keys, title, self.expanded_daily, group, start=y)
+                    y = form.y + 16
             else:
                 self.add_form(GROUPS[key][:5], sections={"set_EXP_count": "日常关卡"})
         elif key == "reward":
@@ -756,26 +770,6 @@ class Application:
             self.build_settings()
         elif key == "tools":
             self.build_tools()
-        if self.page_index < 6:
-            completion = Form(self.completion_root, values, GROUPS["completion"], self.page_targets, lambda name, value: self.patch({name: value}), start=4, text=self.text)
-            caption = next(view for view in self.completion_root.subviews() if isinstance(view, A.NSTextField))
-            caption.setStringValue_(self.text("完成后"))
-            caption.setIdentifier_("完成后")
-            caption.setFrame_(((16, 8), (76, 22)))
-            caption.setAutoresizingMask_(0)
-            row = completion.controls["after_completion_actions"][0].superview()
-            for view in list(row.arrangedSubviews()):
-                if not isinstance(view, A.NSControl):
-                    row.removeArrangedSubview_(view)
-                    view.removeFromSuperview()
-            row.setFrame_(((94, 4), (248, 28)))
-            row.setAutoresizingMask_(0)
-            keep = completion.controls["keep_after_completion"]
-            keep.setTitle_(self.text("保持此设置"))
-            keep.setIdentifier_("保持此设置")
-            keep.setToolTip_(self.text("启用后保留完成后操作；关闭时仅用于本次运行。"))
-            self.completion_form = completion
-            self.forms.append(completion)
         self.sync_navigation()
         self.update_state()
 
@@ -783,6 +777,28 @@ class Application:
         form = Form(self.page, self.data["config"], keys, self.page_targets, lambda name, value: self.patch({name: value}), start=start, text=self.text, sections=sections, grouped=True)
         self.forms.append(form)
         self.form = form
+        return form
+
+    def add_collapsible_form(self, keys, title, expanded, key, *, start=16, enable_title=None):
+        is_expanded = key in expanded
+        form = self.add_form(keys if is_expanded else keys[:1], start=start)
+        enabled = form.controls[keys[0]]
+        enabled.setTitle_("")
+        enabled.setIdentifier_(None)
+        enabled.setFrameSize_((20, 28))
+        enabled.setAutoresizingMask_(A.NSViewNotSizable)
+        accessibility_label(enabled, enable_title or title)
+        row = enabled.superview()
+        disclosure = button(row, title, ((44, 8), (row.frame().size.width - 60, 28)), lambda sender: self.toggle_group(expanded, key), self.page_targets)
+        disclosure.setBordered_(False)
+        disclosure.setAlignment_(A.NSTextAlignmentLeft)
+        disclosure.setFont_(A.NSFont.systemFontOfSize_weight_(13, A.NSFontWeightSemibold))
+        disclosure.setAutoresizingMask_(A.NSViewWidthSizable)
+        image = A.NSImage.imageWithSystemSymbolName_accessibilityDescription_("chevron.down" if is_expanded else "chevron.right", self.text(title))
+        if image:
+            image.setSize_((10, 10))
+            disclosure.setImage_(image)
+            disclosure.setImagePosition_(A.NSImageLeft)
         return form
 
     def update_state(self):
@@ -798,6 +814,7 @@ class Application:
         icon(self.pause_button, "play.fill" if state["paused"] else "pause.fill", self.pause_button.title())
         self.pause_button.setEnabled_(state["kind"] in {"task", "battle"} and not state["stopping"])
         self.status.setStringValue_(self.text("停止中…" if state["stopping"] else "已暂停" if state["paused"] else "运行中" if running else "就绪") + (f" · 排队 {state['queued']}" if state["queued"] else ""))
+        self.status.setToolTip_(self.status.stringValue())
         for i, control in enumerate(self.task_buttons):
             control.setState_(int(config[TASK_KEYS[i]]))
             control.setEnabled_(not running)
@@ -1024,7 +1041,7 @@ class Application:
             y = 16
             for suffix in ("", "2", "3", "4"):
                 keys = GROUPS["schedule" + suffix]
-                form = self.add_form(keys, start=y, sections={keys[0]: "定时任务 " + (suffix or "1")})
+                form = self.add_collapsible_form(keys, "定时任务 " + (suffix or "1"), self.expanded_schedules, suffix, start=y, enable_title="启用定时任务 " + (suffix or "1"))
                 y = form.y + 16
         elif self.settings_section == 2:
             keys = ["shutdown_hotkey", "pause_hotkey", "resume_hotkey"] if detail else ["language_in_program", "theme_mode", "minimize_to_tray"]
@@ -1035,7 +1052,10 @@ class Application:
             keys = ["screenshot_interval", "mouse_action_interval", "mouse_down_duration"] if detail else ["memory_protection", "experimental_keep_screen_awake"]
             form = self.add_form(keys, sections={keys[0]: "输入参数" if detail else "运行偏好"})
             button(self.page, "返回运行偏好" if detail else "高级输入参数…", ((20, form.y + 12), (230, 32)), lambda sender: self.select_settings_detail(not detail), self.page_targets)
-            self.page.setFrameSize_((self.page.frame().size.width, form.y + 72))
+            if detail:
+                self.page.setFrameSize_((self.page.frame().size.width, form.y + 72))
+            else:
+                self.add_form(["after_completion_actions"], start=form.y + 56, sections={"after_completion_actions": "完成后"})
         else:
             form = self.add_form([key for key in ["check_update", "update_prerelease_enable", "image_resource_sync", "image_resource_source"] if key not in HIDDEN_APP_FIELDS], sections={"check_update": "软件与图片资源"})
             y = form.y + 24
@@ -1328,12 +1348,12 @@ class Application:
         frame = self.window.contentView().superview()
         frame.layoutSubtreeIfNeeded()
         self.window.displayIfNeeded()
-        controls = [self.navigation, self.settings_button, self.pause_button, self.start_button]
+        controls = [self.navigation, self.pause_button, self.start_button]
         for control in controls:
             bounds = control.bounds()
             if bounds.size.width < 40 or bounds.size.height < 24:
                 raise RuntimeError("Toolbar control collapsed: " + str(control.identifier()))
-            xs = [bounds.size.width / 4, bounds.size.width * 3 / 4] if control is self.navigation else [bounds.size.width / 2]
+            xs = [bounds.size.width * (index + 0.5) / control.segmentCount() for index in range(control.segmentCount())] if control is self.navigation else [bounds.size.width / 2]
             for x in xs:
                 point = control.convertPoint_toView_((x, bounds.size.height / 2), frame)
                 if frame.hitTest_(point) != control:
@@ -1344,10 +1364,14 @@ class Application:
             for section in sections:
                 if index == 6:
                     self.settings_section = section
+                    if section == 1:
+                        self.expanded_schedules.update({"", "2", "3", "4"})
                 elif index == 3:
                     self.mirror_section = section
                 elif index in {0, 2}:
                     self.task_details[index] = section
+                    if index == 0 and section == 1:
+                        self.expanded_daily.update({"EXP", "thread"})
                 for detail in [False, True] if index == 6 and section in {0, 2, 3} else [False]:
                     if index == 6:
                         self.settings_details[section] = detail
