@@ -514,6 +514,11 @@
       "label": "启动模拟器超时时间",
       "type": "int"
     },
+    "task_stall_timeout": {
+      "label": "任务卡死重启等待时间(秒)",
+      "type": "int",
+      "description": "超时卡死时间设置，低性能PC/模拟器可设置更高"
+    },
     "adb_reconnect_on_error": {
       "label": "ADB或minitouch连接失效时自动重连",
       "type": "bool"

@@ -5,7 +5,8 @@
       "sha256": "8c7b7f97a9627aff2e266cb08687220011983d01a055b0f1ad7c2176f46335a0"
     },
     "tasks/base/back_init_menu.py": {
-      "sha256": "76f0c1536aa5f6574d4f368f9a54ade831d1be26b57e5315e47d04302919e346"
+      "sha256": "f6d3effc5062d673dec0660c26ed672b1951a38d2ced31b9031964de8d72d90a",
+      "source_sha": "a6d0b189550af16a36876d8011c8eeacddf3dd53"
     },
     "tasks/daily/get_prize.py": {
       "sha256": "aeefa00e7d823433a3981b94940266673b7a1f1a658d8b5f8f43cf945a445df9"
@@ -56,12 +57,21 @@
         "check_hard_mirror_time"
       ],
       "sha256": "fdf4775f62e095e8de73a566cfd6b833c14edbeb0d2422d0934c8f7a9d94ea61"
+    },
+    "tasks/base/retry.py": {
+      "functions": [
+        "get_task_stall_timeout",
+        "check_times"
+      ],
+      "sha256": "3a974964c20700e14bbac308447e935d3d9f53bbf8c4deff4461b9b95b3e0923",
+      "source_sha": "a6d0b189550af16a36876d8011c8eeacddf3dd53"
     }
   },
   "authorized_changes": [
     "2026-10-10: remove White Gossypium reward/shop/fusion filters and unused single-gift crop",
     "2026-10-11: remove keyboard pathfinding options and branches; preserve mouse/touch routing",
-    "2026-10-11: user approved weekly reset 05:00 -> 06:00 KST and clamp remaining hard runs at zero"
+    "2026-10-11: user approved weekly reset 05:00 -> 06:00 KST and clamp remaining hard runs at zero",
+    "2026-10-16: sync official a6d0b18 task stall timeout and return-home recovery; new hashes derived from upstream Git, not current task code"
   ],
   "retired_frontend_files": {
     "app/base_tools.py": {

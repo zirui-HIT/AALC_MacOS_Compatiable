@@ -36,6 +36,19 @@ class StopWriter(BaseException):
     pass
 
 
+def test_old_config_gets_upstream_timeout_default_and_saves_user_value(config):
+    saved = config.yaml.load(config.config_path.read_text())
+    saved.pop("task_stall_timeout")
+    with config.config_path.open("w") as stream:
+        config.yaml.dump(saved, stream)
+    config._load_config()
+    assert config.task_stall_timeout == 90
+    config.set_value("task_stall_timeout", 600)
+    config.flush()
+    config._load_config()
+    assert config.task_stall_timeout == 600
+
+
 @pytest.fixture
 def writer(config):
     stopping = threading.Event()

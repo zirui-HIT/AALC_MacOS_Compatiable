@@ -199,7 +199,7 @@ def content_app(page_index):
         "set_thread_count": 1, "daily_teams": 1, "use_continuous_combat": True,
         "use_continuous_combat_select": 2, "targeted_teaming_EXP": False,
         "targeted_teaming_thread": False, "memory_protection": True,
-        "experimental_keep_screen_awake": False, "after_completion_actions": ["exit_game"],
+        "experimental_keep_screen_awake": False, "task_stall_timeout": 90, "after_completion_actions": ["exit_game"],
         "keep_after_completion": False,
         **dict.fromkeys(GROUPS["daily"][6:10] + GROUPS["daily"][11:], 1),
     })
@@ -259,6 +259,24 @@ def test_completion_settings_live_in_runtime_settings_and_keep_existing_config_f
     committed.assert_called_once_with()
     assert app.data["config"]["keep_after_completion"] is True
     assert app.data["config"]["after_completion_actions"] == ["exit_aalc"]
+    app.error.assert_not_called()
+
+
+def test_runtime_timeout_uses_integer_form_and_existing_save_navigation():
+    app = content_app(6)
+    form = next(form for form in app.forms if "task_stall_timeout" in form.controls)
+    control = form.controls["task_stall_timeout"]
+    assert not control.formatter().allowsFloats()
+    assert control.stringValue() == "90"
+    assert control.toolTip() == "超时卡死时间设置，低性能PC/模拟器可设置更高"
+    control.setStringValue_("600")
+    form.changed("task_stall_timeout")
+    assert app.data["config"]["task_stall_timeout"] == 600
+    assert app.client.request.call_args.args[:2] == ("config.patch", {"values": {"task_stall_timeout": 600}})
+    app.select_settings_detail(True)
+    app.select_settings_detail(False)
+    form = next(form for form in app.forms if "task_stall_timeout" in form.controls)
+    assert form.controls["task_stall_timeout"].stringValue() == "600"
     app.error.assert_not_called()
 
 

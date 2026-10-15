@@ -1097,7 +1097,7 @@ class Application:
             button(self.page, "返回外观设置" if detail else "配置全局快捷键…", ((20, form.y + 12), (230, 32)), lambda sender: self.select_settings_detail(not detail), self.page_targets)
             self.page.setFrameSize_((self.page.frame().size.width, form.y + 72))
         elif self.settings_section == 3:
-            keys = ["screenshot_interval", "mouse_action_interval", "mouse_down_duration"] if detail else ["memory_protection", "experimental_keep_screen_awake"]
+            keys = ["screenshot_interval", "mouse_action_interval", "mouse_down_duration"] if detail else ["memory_protection", "experimental_keep_screen_awake", "task_stall_timeout"]
             form = self.add_form(keys, sections={keys[0]: "输入参数" if detail else "运行偏好"})
             button(self.page, "返回运行偏好" if detail else "高级输入参数…", ((20, form.y + 12), (230, 32)), lambda sender: self.select_settings_detail(not detail), self.page_targets)
             if detail:

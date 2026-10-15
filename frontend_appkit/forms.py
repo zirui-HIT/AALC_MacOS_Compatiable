@@ -66,6 +66,8 @@ class Form:
             if key.endswith("_task_exit"):
                 title = "完成后"
             self.add(key, values.get(key), title)
+            if description := metadata[key].get("description"):
+                tooltip(self.controls[key], description)
         if grouped and self.container is not parent:
             self.close_group()
         self.resize()

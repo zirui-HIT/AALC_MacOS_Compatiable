@@ -11,7 +11,7 @@ GROUPS = {
     "energy": ["set_lunacy_to_enkephalin", "Dr_Grandet_mode", "skip_enkephalin"],
     "mirror": ["set_mirror_count", "hard_mirror", "no_weekly_bonuses", "floor_3_exit", "infinite_dungeons", "save_rewards", "hard_mirror_single_bonuses", "select_event_pack", "skip_event_pack", "re_claim_rewards", "fight_to_last_man"],
     "playcover": ["game_profile", "playcover_host", "playcover_port", "playcover_app_path", "playcover_bundle_id", "playcover_capture_method"],
-    "settings": ["select_team_by_order", "auto_hard_mirror", "last_auto_change", "hard_mirror_chance", "memory_protection", "language_in_program", "theme_mode", "minimize_to_tray", "shutdown_hotkey", "pause_hotkey", "resume_hotkey", "screenshot_interval", "mouse_action_interval", "mouse_down_duration", "experimental_keep_screen_awake", "check_update", "update_prerelease_enable", "image_resource_sync", "image_resource_source"],
+    "settings": ["select_team_by_order", "auto_hard_mirror", "last_auto_change", "hard_mirror_chance", "memory_protection", "language_in_program", "theme_mode", "minimize_to_tray", "shutdown_hotkey", "pause_hotkey", "resume_hotkey", "screenshot_interval", "mouse_action_interval", "mouse_down_duration", "experimental_keep_screen_awake", "task_stall_timeout", "check_update", "update_prerelease_enable", "image_resource_sync", "image_resource_source"],
     "completion": ["after_completion_actions", "keep_after_completion"],
 }
 TASK_KEYS = ["daily_task", "get_reward", "buy_enkephalin", "mirror"]
@@ -44,7 +44,7 @@ OPTIONS = {
     "hard_mirror": [["关闭", 0], ["本次开启", 1], ["保持开启", 2]],
     "no_weekly_bonuses": [["关闭", 0], ["本次开启", 1], ["保持开启", 2]],
 }
-RANGES = {"playcover_port": (1, 65535), "hard_mirror_chance": (0, 3), "last_auto_change": (0, 9999999999), "defense_for_solo_turns": (1, 5), "max_keyword_refresh": (0, 5), "max_normal_refresh": (0, 5), "normal_to_hard_floor": (0, 5), "use_continuous_combat_select": (1, 10), "screenshot_interval": (0.01, 60), "mouse_action_interval": (0, 60), "mouse_down_duration": (0.01, 60)}
+RANGES = {"task_stall_timeout": (30, 3600), "playcover_port": (1, 65535), "hard_mirror_chance": (0, 3), "last_auto_change": (0, 9999999999), "defense_for_solo_turns": (1, 5), "max_keyword_refresh": (0, 5), "max_normal_refresh": (0, 5), "normal_to_hard_floor": (0, 5), "use_continuous_combat_select": (1, 10), "screenshot_interval": (0.01, 60), "mouse_action_interval": (0, 60), "mouse_down_duration": (0.01, 60)}
 for key in ["team_number", "daily_teams", "EXP_day_1_2", "EXP_day_3_4", "EXP_day_5_6", "EXP_day_7", *[f"thread_day_{i}" for i in range(1, 8)]]:
     RANGES[key] = (1, 40)
 
@@ -56,6 +56,8 @@ def validate_fields(values, *, team=False):
     for key, value in values.items():
         if key in OPTIONS and value not in [item[1] for item in OPTIONS[key]]:
             raise ValueError(f"Invalid choice: {key}")
+        if key == "task_stall_timeout" and type(value) is not int:
+            raise ValueError("Task stall timeout must be an integer")
         if key in RANGES:
             low, high = RANGES[key]
             if not isinstance(value, (int, float)) or not low <= value <= high:

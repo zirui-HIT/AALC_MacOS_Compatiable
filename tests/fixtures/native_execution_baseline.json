@@ -32,7 +32,7 @@
     "module/backends/playcover/transport.py": "128e0da0f7a17b509122b87366a2ecdcd4ce05fad156409e6e560da26afc2e84",
     "module/config/__init__.py": "1312819b5bf4a9f7838e81416c54a04f6bee7e1eef996bd8533db43be78dc781",
     "module/config/config.py": "0e1b4344e4bc1e4c4b10ce349efd97d0373878b5262b1cfcf68e518e6051906a",
-    "module/config/config_typing.py": "21c3fe4e3cfecb61374852f1a4110ed8c126ab6f6f053b3a4e8290092209466a",
+    "module/config/config_typing.py": "310d0863c4ac7797ab859dcecc94ff3ea4482312863f9d99929511aec117e3bb",
     "module/config/team_import_export.py": "bb42a806bcbdc0a2eadacc3ad79e88970977fda120fc61ba957c0b36e0631190",
     "module/config/theme_pack_import_export.py": "d18655bbccaee6df53d6dcf96a140775007403e2d4fa0a9949078bdd593e0bda",
     "module/decorator/__init__.py": "ad2e13b69c4fc1fda46413f740f426fc1793cfc6d6da8d226ba619f1aef48be7",
@@ -61,9 +61,9 @@
     "module/update/__init__.py": "ad2e13b69c4fc1fda46413f740f426fc1793cfc6d6da8d226ba619f1aef48be7",
     "tasks/__init__.py": "a6e25e04ca34c92ec12a436bf8a190326420ea7ddf855d96de4d9d7e7d220b86",
     "tasks/base/__init__.py": "97412714d42570cf9d16f390eee87a49a0e38b59af70e565e25ce4a0f9932790",
-    "tasks/base/back_init_menu.py": "a64c59b27fea527b18e37174dcfd355c5170e1fefc8465c69337da5542c9c48c",
+    "tasks/base/back_init_menu.py": "418358c6bb23473cf867b2b5d1c3326690f5a3151c4bddd422c85292127e01af",
     "tasks/base/make_enkephalin_module.py": "8c7b7f97a9627aff2e266cb08687220011983d01a055b0f1ad7c2176f46335a0",
-    "tasks/base/retry.py": "692f9f581b26ff52e8eaf07fee0cff67208fc2239c37b0e310d69abc56dc87f4",
+    "tasks/base/retry.py": "21704e8b041e18e1d3f844096dddf2bb7e6df060be9b52432dbad5f89943f920",
     "tasks/base/retry_monitor.py": "6b67ac34f31d6efed41d40b07c8d2bcd46cc5b02dc376876877eef290315b1be",
     "tasks/base/script_task_scheme.py": "edae56689ce8cfd6625ca15ae3d0e875137ec830eb449e13fdaa501f6c57d332",
     "tasks/battle/__init__.py": "0d79340eb695c92082aad27d2642cb56ec28cd41feab58bb3883a29c10bc67e0",
@@ -98,5 +98,14 @@
   },
   "retired_ui_plumbing": {
     "module/font_manager/__init__.py": "e77dd0fb7d88c745834d206500e583c0f745ae57e3c9616e3851982682704b73"
+  },
+  "upstream_sync": {
+    "source_sha": "a6d0b189550af16a36876d8011c8eeacddf3dd53",
+    "files": [
+      "module/config/config_typing.py",
+      "tasks/base/back_init_menu.py",
+      "tasks/base/retry.py"
+    ],
+    "method": "Apply the official b0f4393..a6d0b18 AST delta to source_sha; retain existing platform adaptations."
   }
 }
