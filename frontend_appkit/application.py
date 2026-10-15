@@ -1389,6 +1389,8 @@ class Application:
             action_, params = "copy", {}
         else:
             action_, params = "paste", {"code": A.NSPasteboard.generalPasteboard().stringForType_(A.NSPasteboardTypeString) or ""}
+        if index in {1, 3}:
+            params["values"] = copy.deepcopy(draft.config_data)
 
         def transfer_done(result):
             if not current():

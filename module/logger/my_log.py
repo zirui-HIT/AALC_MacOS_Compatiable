@@ -1,7 +1,8 @@
 import logging
 import os
+import tomllib
 from collections import deque
-from copy import deepcopy
+from copy import copy, deepcopy
 from threading import Lock
 
 import colorlog
@@ -11,7 +12,7 @@ from ruamel.yaml import YAML
 from backend_host.runtime import Signal
 from backend_host.translation import translate
 from module import CONFIG_PATH, VERSION_PATH
-from utils.runtime_paths import RESOURCE_ROOT, data_path
+from utils.runtime_paths import RESOURCE_ROOT, data_path, resource_path
 from utils.singletonmeta import SingletonMeta
 
 
@@ -21,8 +22,10 @@ class TranslationFormatter(colorlog.ColoredFormatter):
     project_root = RESOURCE_ROOT
 
     def format(self, record):
+        record = copy(record)
         record.msg = translate("Logger", str(record.msg))
-        record.pathname = os.path.relpath(record.pathname, self.project_root)
+        if os.path.isabs(record.pathname):
+            record.pathname = os.path.relpath(record.pathname, self.project_root)
 
         return super().format(record)
 
@@ -85,11 +88,16 @@ class SettingConcurrentRotatingFileHandler(ConcurrentRotatingFileHandler):
         yaml = YAML()
         with open(VERSION_PATH, "r", encoding="utf-8") as f:
             version = f.read().strip()
+        if version == "DEFAULT VERSION":
+            with resource_path("pyproject.toml").open("rb") as f:
+                version = tomllib.load(f)["project"]["version"]
         with open(CONFIG_PATH, "r", encoding="utf-8") as f:
             config_data: dict = yaml.load(f)
             if config_data is None:
                 raise ValueError("配置文件内容为空或格式错误")
             config = config_data
+            if config.get("mirrorchyan_cdk"):
+                config["mirrorchyan_cdk"] = "***"
 
         self.version = version
         self.config = config

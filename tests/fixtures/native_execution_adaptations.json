@@ -1,4 +1,11 @@
 {
+  "module/config/config_typing.py": [
+    {
+      "reason": "Account for the user-updated image resource label docstring; no executable statements or baseline hashes change.",
+      "before": "    image_resource_sync: bool\n    \"\"\"是否启用图片资源自动同步\"\"\"\n",
+      "after": "    image_resource_sync: bool\n    \"\"\"图片资源自动同步\"\"\"\n"
+    }
+  ],
   "module/backends/configuration.py": [
     {
       "reason": "Remove the legacy Windows wheel restriction from PlayCover settings, which support pinch zoom; task fallback conditions remain frozen.",
@@ -126,9 +133,14 @@
   ],
   "module/resource_sync/manifest.py": [
     {
+      "reason": "2026-10-15 code and log audit: reject missing/mistyped file lists and unsupported schema versions before a malformed manifest can delete all local images; valid synchronization and task control flow stay unchanged.",
+      "before": "        _reject_unknown_keys(payload, {\"schema_version\", \"generated_at\", \"manifest_id\", \"package\", \"files\"})\n        package_payload = payload.get(\"package\")\n",
+      "after": "        _reject_unknown_keys(payload, {\"schema_version\", \"generated_at\", \"manifest_id\", \"package\", \"files\"})\n        if type(payload.get(\"schema_version\")) is not int or payload[\"schema_version\"] != RESOURCE_SYNC_SCHEMA_VERSION:\n            raise ValueError(\"不支持的图片资源清单协议版本\")\n        if not isinstance(payload.get(\"files\"), list):\n            raise ValueError(\"图片资源清单必须包含 files 列表\")\n        package_payload = payload.get(\"package\")\n"
+    },
+    {
       "reason": "2026-10-14 known bug repair: reject image manifest paths that escape the resource tree.",
       "before": "\"\"\"远端图片资源清单协议模型。\"\"\"\n\nfrom __future__ import annotations\n\nfrom dataclasses import asdict, dataclass, field\nimport json\nfrom typing import Any, Mapping\n\n# 资源清单协议版本仍保持为 1，并统一承载整包同步所需的元数据字段。\nRESOURCE_SYNC_SCHEMA_VERSION = 1\n\n\ndef _reject_unknown_keys(payload: Mapping[str, Any], allowed_keys: set[str]) -> None:\n    \"\"\"校验载荷是否只包含协议允许的字段。\n\n    参数:\n        payload: 待校验的字典载荷。\n        allowed_keys: 当前协议允许出现的字段名集合。\n",
-      "after": "\"\"\"远端图片资源清单协议模型。\"\"\"\n\nfrom __future__ import annotations\n\nfrom dataclasses import asdict, dataclass, field\nimport json\nfrom pathlib import PurePosixPath, PureWindowsPath\nfrom typing import Any, Mapping\n\n# 资源清单协议版本仍保持为 1，并统一承载整包同步所需的元数据字段。\nRESOURCE_SYNC_SCHEMA_VERSION = 1\n\n\ndef validate_image_path(path: str) -> None:\n    relative = PurePosixPath(path)\n    if (not path or path == \".\" or relative.is_absolute() or \"..\" in relative.parts\n            or \"\\\\\" in path or PureWindowsPath(path).drive):\n        raise ValueError(f\"图片资源路径必须位于资源目录中: {path}\")\n\n\ndef _reject_unknown_keys(payload: Mapping[str, Any], allowed_keys: set[str]) -> None:\n    \"\"\"校验载荷是否只包含协议允许的字段。\n\n    参数:\n        payload: 待校验的字典载荷。\n        allowed_keys: 当前协议允许出现的字段名集合。\n"
+      "after": "\"\"\"远端图片资源清单协议模型。\"\"\"\n\nfrom __future__ import annotations\n\nimport json\nfrom dataclasses import asdict, dataclass, field\nfrom pathlib import PurePosixPath, PureWindowsPath\nfrom typing import Any, Mapping\n\n# 资源清单协议版本仍保持为 1，并统一承载整包同步所需的元数据字段。\nRESOURCE_SYNC_SCHEMA_VERSION = 1\n\n\ndef validate_image_path(path: str) -> None:\n    relative = PurePosixPath(path)\n    if (not path or path == \".\" or relative.is_absolute() or \"..\" in relative.parts\n            or \"\\\\\" in path or PureWindowsPath(path).drive):\n        raise ValueError(f\"图片资源路径必须位于资源目录中: {path}\")\n\n\ndef _reject_unknown_keys(payload: Mapping[str, Any], allowed_keys: set[str]) -> None:\n    \"\"\"校验载荷是否只包含协议允许的字段。\n\n    参数:\n        payload: 待校验的字典载荷。\n        allowed_keys: 当前协议允许出现的字段名集合。\n"
     },
     {
       "reason": "2026-10-14 known bug repair: reject image manifest paths that escape the resource tree.",

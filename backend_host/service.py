@@ -45,6 +45,12 @@ class BackendService:
                 cfg.set_value("after_completion_actions", actions)
             if cfg.after_completion_power_action != "none":
                 cfg.set_value("after_completion_power_action", "none")
+            for suffix in ("", "2", "3", "4"):
+                key = "autodaily" + suffix + "_task_exit"
+                saved = cfg.get_value(key)
+                supported = (saved + [False, False])[:2] + [False] * 5
+                if supported != saved:
+                    cfg.set_value(key, supported)
         if not cfg.keep_after_completion:
             cfg.unsaved_set_value("after_completion_actions", [])
             cfg.unsaved_set_value("after_completion_power_action", "none")
@@ -493,7 +499,12 @@ class BackendService:
         if number is None:
             return copy.deepcopy(theme_list.config)
         theme_list.create_team_weight_config(int(number))
-        return theme_list.load_config(theme_list.build_team_weight_path(int(number)))
+        try:
+            return theme_list.load_config(theme_list.build_team_weight_path(int(number)))
+        except SystemExit as exc:
+            # The legacy loader exits on invalid YAML; an editor request must
+            # return an ordinary protocol error without terminating the host.
+            raise ValueError(str(exc)) from exc
 
     def save_theme(self, number, values):
         self._idle()
@@ -533,9 +544,12 @@ class BackendService:
             text = Path(params["path"]).read_text(encoding="utf-8") if action == "import" else base64.b64decode(params["code"]).decode("utf-8")
             data = YAML().load(text)
             if not data:
-                return True
+                raise ValueError("Theme configuration is empty")
             validate_theme(data)
             path, existing = transfer._load_existing_theme_pack_weight(number)
+            if "values" in params:
+                validate_theme(params["values"])
+                existing = params["values"]
             merged = transfer._deep_merge_dicts(existing, data)
             validate_theme(merged)
             theme_list.save_config(str(path), merged)

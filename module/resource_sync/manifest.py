@@ -2,8 +2,8 @@
 
 from __future__ import annotations
 
-from dataclasses import asdict, dataclass, field
 import json
+from dataclasses import asdict, dataclass, field
 from pathlib import PurePosixPath, PureWindowsPath
 from typing import Any, Mapping
 
@@ -159,6 +159,10 @@ class ResourceManifest:
         """
         # 第一步：先校验顶层字段，确保清单结构严格符合当前协议。
         _reject_unknown_keys(payload, {"schema_version", "generated_at", "manifest_id", "package", "files"})
+        if type(payload.get("schema_version")) is not int or payload["schema_version"] != RESOURCE_SYNC_SCHEMA_VERSION:
+            raise ValueError("不支持的图片资源清单协议版本")
+        if not isinstance(payload.get("files"), list):
+            raise ValueError("图片资源清单必须包含 files 列表")
         package_payload = payload.get("package")
         # 第二步：再依次重建顶层字段与嵌套对象，保证整份清单都经过同一套校验。
         return cls(

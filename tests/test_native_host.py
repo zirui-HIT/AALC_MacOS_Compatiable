@@ -128,6 +128,59 @@ def test_native_completion_migration_keeps_other_backend_preferences(service, mo
         value.shutdown(force=True)
 
 
+@pytest.mark.parametrize("suffix", ["", "2", "3", "4"])
+@pytest.mark.parametrize("saved", [[], [True], [True, True, False, False, False, False],
+                                  [False, False, True, True, True, True, True]])
+def test_native_schedule_migration_keeps_only_supported_completion_choices(service, monkeypatch, suffix, saved):
+    from backend_host.service import BackendService
+    from module.config import cfg
+    from tasks.common.game_actions import validate_task_capabilities
+
+    key = "autodaily" + suffix + "_task_exit"
+    monkeypatch.setattr(cfg, "config", cfg.config.model_copy(update={key: saved, "mirror": False}))
+    monkeypatch.setattr(cfg, "_schedule_save", Mock())
+    monkeypatch.setattr(events, "later", Mock())
+    value = BackendService(Mock(), hotkeys=False)
+    try:
+        expected = (saved + [False, False])[:2] + [False] * 5
+        assert cfg.get_value(key) == expected
+        cfg._schedule_save.assert_called()
+        value.command(["start", "--exit", "autodaily" + suffix])
+        assert cfg.after_completion_actions == (["exit_game"] if expected[0] else []) + (["exit_aalc"] if expected[1] else [])
+        assert cfg.after_completion_power_action == "none"
+        validate_task_capabilities(cfg)
+    finally:
+        value.shutdown(force=True)
+
+
+def test_native_schedule_migration_keeps_other_backend_preferences(service, monkeypatch):
+    from backend_host.service import BackendService
+    from module.config import cfg
+
+    saved = [True, False, True, False, False, False]
+    values = {"autodaily" + suffix + "_task_exit": saved[:] for suffix in ("", "2", "3", "4")}
+    monkeypatch.setattr(cfg, "config", cfg.config.model_copy(update={"backend": "windows", **values}))
+    value = BackendService(Mock(), hotkeys=False)
+    try:
+        assert all(cfg.get_value(key) == saved for key in values)
+    finally:
+        value.shutdown(force=True)
+
+
+def test_corrupt_team_theme_returns_a_request_error_and_preserves_the_file(service, monkeypatch, tmp_path):
+    from module.config import theme_list
+
+    monkeypatch.setattr(theme_list, "theme_pack_weight_path", tmp_path / "weights")
+    path = Path(theme_list.build_team_weight_path(1))
+    path.parent.mkdir()
+    broken = "theme_pack_list: [\n"
+    path.write_text(broken)
+    with pytest.raises(ValueError, match="加载错误"):
+        service.dispatch("theme.get", {"number": 1})
+    assert path.read_text() == broken
+    assert service.dispatch("snapshot", {})["state"]["running"] is False
+
+
 def test_changing_game_profile_refreshes_the_paths_and_recognition_cache(service, monkeypatch):
     import copy
 
@@ -265,6 +318,75 @@ def test_valid_theme_transfer_preserves_the_existing_merge_behavior(service, mon
     imported.write_text("theme_pack_list: {update: 4}\n")
     assert service.transfer_theme({"number": 1, "action": "import", "path": str(imported)}) is True
     assert YAML().load(path.read_text()) == {"preferred_thresholds": 0, "theme_pack_list": {"keep": 2, "update": 4}}
+
+
+@pytest.mark.parametrize("index", [1, 3])
+@pytest.mark.parametrize("content,accepted", [("theme_pack_list: {update: 4}\n", True),
+                                             ("", False), ("{}", False), ("null", False),
+                                             ("false", False), ("0", False)])
+def test_theme_import_and_paste_preserve_the_current_editor_draft(service, monkeypatch, tmp_path, index, content, accepted):
+    import base64
+    from types import SimpleNamespace
+
+    pytest.importorskip("AppKit")
+    from ruamel.yaml import YAML
+
+    from frontend_appkit.application import Application
+    from module.config import theme_list
+
+    monkeypatch.setattr(theme_list, "theme_pack_weight_path", tmp_path / "weights")
+    path = Path(theme_list.build_team_weight_path(1))
+    path.parent.mkdir()
+    path.write_text("theme_pack_list: {keep: 1, update: 2}\n")
+    imported = tmp_path / "import.yaml"
+    imported.write_text(content)
+    draft = ThemeDraft({"theme_pack_list": {"keep": 9, "update": 2}})
+    app = Application.__new__(Application)
+    app.client = Mock()
+    calls = []
+
+    def request(method, params, callback):
+        calls.append(method)
+        callback(service.dispatch(method, params))
+
+    app.client.request.side_effect = request
+    monkeypatch.setattr("frontend_appkit.application.choose_path", lambda **kwargs: str(imported))
+    board = Mock()
+    board.stringForType_.return_value = base64.b64encode(imported.read_bytes()).decode()
+    monkeypatch.setattr("frontend_appkit.application.A.NSPasteboard", Mock(generalPasteboard=Mock(return_value=board)))
+    render, commit = Mock(), Mock()
+    if not accepted:
+        with pytest.raises(ValueError, match="empty"):
+            app.theme_transfer(1, index, draft, render, commit, SimpleNamespace(closed=False))
+        assert draft.config_data == {"theme_pack_list": {"keep": 9, "update": 2}}
+        assert YAML().load(path.read_text()) == {"theme_pack_list": {"keep": 1, "update": 2}}
+        assert calls == ["theme.transfer"]
+        render.assert_not_called()
+        return
+    app.theme_transfer(1, index, draft, render, commit, SimpleNamespace(closed=False))
+    expected = {"theme_pack_list": {"keep": 9, "update": 4}}
+    assert draft.config_data == expected
+    assert YAML().load(path.read_text()) == expected
+    assert calls == ["theme.transfer", "theme.get"]
+    commit.assert_called_once_with()
+    render.assert_called_once_with()
+
+
+@pytest.mark.parametrize("invalid_draft", [False, True])
+def test_invalid_theme_merge_never_saves_the_draft_or_replaces_the_file(service, monkeypatch, tmp_path, invalid_draft):
+    from module.config import theme_list
+
+    monkeypatch.setattr(theme_list, "theme_pack_weight_path", tmp_path / "weights")
+    path = Path(theme_list.build_team_weight_path(1))
+    path.parent.mkdir()
+    original = "theme_pack_list: {keep: 1, update: 2}\n"
+    path.write_text(original)
+    imported = tmp_path / "import.yaml"
+    imported.write_text("theme_pack_list: {update: 4}\n" if invalid_draft else "theme_pack_list: 3\n")
+    values = {"theme_pack_list": 3} if invalid_draft else {"theme_pack_list": {"keep": 9, "update": 2}}
+    with pytest.raises(ValueError):
+        service.transfer_theme({"number": 1, "action": "import", "path": str(imported), "values": values})
+    assert path.read_text() == original
 
 
 def test_team_import_rejects_invalid_attached_weights_before_applying_any_settings(service, monkeypatch, tmp_path):
