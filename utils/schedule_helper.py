@@ -122,8 +122,10 @@ class ScheduleHelper_MacOS:
             "WorkingDirectory": "/",
             "LimitLoadToSessionType": "Aqua",
             "ProcessType": "Interactive",
-            "StandardOutPath": str(self.directory / f"{label}.stdout.log"),
-            "StandardErrorPath": str(self.directory / f"{label}.stderr.log"),
+            # launchd opens these before sh starts and cannot access protected
+            # OneDrive/Documents paths. Task logs still belong to the resident app.
+            "StandardOutPath": "/dev/null",
+            "StandardErrorPath": "/dev/null",
         }
 
     def _register(self, definition):

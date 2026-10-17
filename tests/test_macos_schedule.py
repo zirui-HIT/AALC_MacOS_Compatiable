@@ -49,6 +49,8 @@ def test_source_and_bundle_use_resident_protocol_and_only_run_at_calendar_time(s
         assert "RunAtLoad" not in definition and "KeepAlive" not in definition
         assert definition["LimitLoadToSessionType"] == "Aqua"
         assert definition["WorkingDirectory"] == "/"
+        assert definition["StandardOutPath"] == "/dev/null"
+        assert definition["StandardErrorPath"] == "/dev/null"
         assert path.stat().st_mode & 0o777 == 0o600
     assert len(loaded) == 2
 
@@ -74,6 +76,29 @@ def test_saved_job_is_loaded_again_after_a_new_login_session(scheduler):
     helper.register_daily_task("AALC Daily Task", "start --exit autodaily", 8, 0)
     assert len(loaded) == 1
     assert len([call for call in calls if call[0] == "bootstrap"]) == 2
+
+
+def test_loaded_legacy_job_with_protected_log_paths_is_replaced(scheduler):
+    helper, loaded, calls = scheduler
+    helper.register_daily_task("AALC Daily Task", "start --exit autodaily", 8, 0)
+    label = helper._labels["AALC Daily Task"]
+    path = helper.directory / f"{label}.plist"
+    legacy = plistlib.loads(path.read_bytes())
+    legacy["StandardOutPath"] = str(helper.directory / f"{label}.stdout.log")
+    legacy["StandardErrorPath"] = str(helper.directory / f"{label}.stderr.log")
+    path.write_bytes(plistlib.dumps(legacy))
+    calls.clear()
+
+    helper.register_daily_task("AALC Daily Task", "start --exit autodaily", 8, 0)
+
+    assert calls == [
+        ("print", f"{helper.domain}/{label}"),
+        ("bootout", f"{helper.domain}/{label}"),
+        ("bootstrap", helper.domain, str(path)),
+    ]
+    updated = plistlib.loads(path.read_bytes())
+    assert updated == legacy | {"StandardOutPath": "/dev/null", "StandardErrorPath": "/dev/null"}
+    assert f"{helper.domain}/{label}" in loaded
 
 
 def test_bootstrap_failure_is_reported_and_can_be_retried(scheduler, monkeypatch):

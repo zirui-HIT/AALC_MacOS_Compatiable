@@ -130,9 +130,12 @@ macOS 设置页已开放原有“定时执行”卡片。每日任务通过 `lau
 定时进程使用系统自带 `sh`/`nc` 发送现有 socket 协议，源码和打包主实例均可接收；
 不再从 `launchd` 直接执行下载目录中的 Python/应用，以避免等待 macOS 文件访问权限。
 
-任务 plist 和标准输出日志保存在仓库 `.runtime/schedules/`，通过 `launchctl`
+任务 plist 保存在仓库 `.runtime/schedules/`，通过 `launchctl`
 加载到当前用户 GUI 会话，不写入系统 LaunchAgents 目录。启用项在 AALC 下次启动时
 恢复注册，因此重新登录后需要先启动 AALC。界面关闭定时开关会卸载对应任务。
+命令转发进程的标准输出和错误输出使用 `/dev/null`；`launchd` 在执行命令前
+无法打开 OneDrive/Documents 等受保护目录内的日志文件，会直接以 `EX_CONFIG (78)`
+启动失败。AALC 主实例仍将任务运行日志保存在 `.runtime/logs/debugLog.log`。
 
 本机 2026-10-12 配置为：08:00 日常（经验本 1 次、纽本 3 次）、邮件及日/周常领奖、
 狂气兑换至当天 2 次；20:00 仅启用狂气兑换任务。兑换函数包含普通模组合成，
