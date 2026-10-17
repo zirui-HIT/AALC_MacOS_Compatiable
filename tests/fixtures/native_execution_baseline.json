@@ -78,7 +78,7 @@
     "tasks/mirror/__init__.py": "8eda4813bcdf8013f999247900ef30b533c09798fbae6f187c5255c3a3e015e5",
     "tasks/mirror/get_floor.py": "b45dd838f2b5af11c07e88c82d136d85e9d37e3f318676b0bfeb4438b5d19beb",
     "tasks/mirror/in_shop.py": "731b788fad657cc71ea23c58bcf393462e406b400c95a0844a6801f123a03f8d",
-    "tasks/mirror/mirror.py": "6c24f26ac80771c386487bf8e9b9d5f171b1fc078bcaf50c6a3db50186e667b8",
+    "tasks/mirror/mirror.py": "0520984cca3c67a6e708058941b2841d5f685e2b68129702fcaaf2593271551f",
     "tasks/mirror/reward_card.py": "9b586caefd610ab37ffa31a4a77f79b63cb3549d8f3bac4284c9e9c183b5d76c",
     "tasks/mirror/search_road.py": "99dd7979a7fa002929c1a8b9c76ac6b013e033dacf5088c07fd132e80fcd1637",
     "tasks/mirror/select_theme_pack.py": "babe350ea0678308f605f1d0a1627f956bb6ae9f1c09b9b5b0c53579ffb285ab",
@@ -107,5 +107,13 @@
       "tasks/base/retry.py"
     ],
     "method": "Apply the official b0f4393..a6d0b18 AST delta to source_sha; retain existing platform adaptations."
+  },
+  "upstream_observation_sync": {
+    "source_sha": "d1354e8793c8985b106f1bdb2ef8b2edd827dfaa",
+    "previous_upstream_sha": "a6d0b189550af16a36876d8011c8eeacddf3dd53",
+    "files": [
+      "tasks/mirror/mirror.py"
+    ],
+    "method": "Apply the official a6d0b18..d1354e8 patch to historical source_sha; keep existing platform adaptations and all other execution hashes unchanged."
   }
 }

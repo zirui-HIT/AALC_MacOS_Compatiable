@@ -236,11 +236,15 @@ def test_original_observation_hits_configured_general_cell_on_real_ios_grid(monk
     team = cfg.config.teams['1'].model_copy(update={
         'observe_ego_gift_selected': ['general_3_4_8'],
     })
-    Mirror(team, 1).select_observe_ego_gift()
-    # Third tab click selects General, then the original row/column calculation
-    # hits the actual Spiderweb cell captured with a gold selection border.
-    tab_x, tab_y = clicks.call_args_list[2].args
+    dungeon = Mirror(team, 1)
+    # Upstream run() caches these bounds before entering the observation selector.
+    dungeon.observe_bbox = task.ImageUtils.get_bbox(task.ImageUtils.load_image(
+        'mirror/road_to_mir/observe_ego_gift/observe_bbox.png'))
+    dungeon.select_observe_ego_gift()
+    # After locating both anchors and resetting tabs, General is selected; the
+    # unchanged row/column calculation hits the captured Spiderweb cell.
+    tab_x, tab_y = clicks.call_args_list[4].args
     assert 953 <= tab_x <= 1026 and 249 <= tab_y <= 323
-    x, y = clicks.call_args_list[3].args
+    x, y = clicks.call_args_list[5].args
     assert 1010 <= x <= 1128 and 768 <= y <= 875
     auto.mouse_drag.assert_not_called()

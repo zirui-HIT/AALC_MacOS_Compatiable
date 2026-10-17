@@ -53,6 +53,9 @@
     "default/mirror/road_in_mir/to_window_assets.png",
     "dark/mirror/road_in_mir/to_window_assets.png",
     "default/mirror/road_to_mir/dreaming_star/coins_assets.png",
+    "default/mirror/road_to_mir/observe_ego_gift/bleed.png",
+    "default/mirror/road_to_mir/observe_ego_gift/burn.png",
+    "default/mirror/road_to_mir/observe_ego_gift/observe_bbox.png",
     "default/teams/tutorial_next.png"
   ],
   "layout": {

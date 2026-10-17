@@ -18,7 +18,8 @@
       "sha256": "01e29d9fd84a080774c56c9a5268fea5d3ca6c59d5302be60409cb9c3f93088d"
     },
     "tasks/mirror/mirror.py": {
-      "sha256": "f4114321d4334809d13e87328e31f94c0eba877383f9993d87ccc1dc0ca88146"
+      "sha256": "b509cbee4d7ce7dae3c9cabd73e8182842bbc922e9054fd4b4042d1618d34e4e",
+      "source_sha": "d1354e8793c8985b106f1bdb2ef8b2edd827dfaa"
     },
     "tasks/mirror/get_floor.py": {
       "sha256": "4b610a83f69c88f0aa33ef077dd173a5ea349045935073233624f777b4519a83"
@@ -71,7 +72,8 @@
     "2026-10-10: remove White Gossypium reward/shop/fusion filters and unused single-gift crop",
     "2026-10-11: remove keyboard pathfinding options and branches; preserve mouse/touch routing",
     "2026-10-11: user approved weekly reset 05:00 -> 06:00 KST and clamp remaining hard runs at zero",
-    "2026-10-16: sync official a6d0b18 task stall timeout and return-home recovery; new hashes derived from upstream Git, not current task code"
+    "2026-10-16: sync official a6d0b18 task stall timeout and return-home recovery; new hashes derived from upstream Git, not current task code",
+    "2026-10-17: sync official d1354e8 observation recognition and system selection; hashes derived from historical native source plus the official patch and official Git source respectively"
   ],
   "retired_frontend_files": {
     "app/base_tools.py": {
