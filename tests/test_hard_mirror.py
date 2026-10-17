@@ -6,6 +6,9 @@ from zoneinfo import ZoneInfo
 
 import numpy as np
 import pytest
+from PIL import Image
+
+from utils.runtime_paths import SOURCE_ROOT
 
 
 @pytest.fixture
@@ -172,3 +175,24 @@ def test_original_reward_paths_leave_only_one_weekly_bonus(
     assert getattr(dungeon, entry)()
     assert state["used"] == ([(600, 350)] if bonuses_left else [])
     assert automation.mouse_click.call_count == max(0, bonuses_left - 1)
+
+
+@pytest.mark.parametrize("profile", ["ios_en", "ios_zh_cn"])
+@pytest.mark.parametrize("height", [810, 1080])
+def test_real_hard_reward_frame_recognizes_all_three_selected_bonuses(settings, monkeypatch, profile, height):
+    from module.automation import auto
+    from utils.path_manager import path_manager
+
+    settings.config.game_profile = profile
+    settings.config.set_win_size = height
+    for key, value in vars(path_manager).copy().items():
+        monkeypatch.setattr(path_manager, key, value)
+    path_manager.initialize_paths()
+    auto.clear_img_cache()
+    frame = Image.open(SOURCE_ROOT / "tests/fixtures/ios_zh_cn/hard_mirror_three_bonuses.png").convert("L")
+    monkeypatch.setattr(auto, "screenshot", frame.resize((height * 16 // 9, height)))
+    matches = auto.find_element("mirror/claim_reward/weekly_bonuses.png", find_type="image_with_multiple_targets")
+    expected = [(839, 378), (992, 377), (1146, 377)]
+    assert len(matches) == 3
+    for actual, position in zip(sorted(matches), expected):
+        assert actual == pytest.approx(tuple(value * height / 1080 for value in position), abs=2)

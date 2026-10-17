@@ -59,6 +59,16 @@
       "reason": "Use the configured click hold duration without changing task calls or gesture sequencing.",
       "before": "                self._wait(self.timing.click_hold)\n",
       "after": "                hold = self.timing.click_hold\n                if self._configured_click_hold:\n                    from module.config import cfg\n\n                    hold = cfg.mouse_down_duration\n                self._wait(hold)\n"
+    },
+    {
+      "reason": "Allow the existing PlayCover release interval between separate direct taps as well as repeated taps; original task selection, reward and count code is unchanged.",
+      "before": "        for index in range(times):\n            with self._gesture((x, y)):\n",
+      "after": "        for _ in range(times):\n            with self._gesture((x, y)):\n"
+    },
+    {
+      "reason": "TUCH dispatch has no acknowledgement and PlayTools delivers touch phases through the main run loop. Preserve a released-contact interval after every tap; live weekly toggle de-selection still needs a new available-bonus confirmation.",
+      "before": "            if index + 1 < times:\n                self._wait(self.timing.repeat_interval)\n",
+      "after": "            # TUCH is queued without an acknowledgement. Let the iOS run loop\n            # deliver the released contact before another call starts a tap.\n            self._wait(self.timing.repeat_interval)\n"
     }
   ],
   "utils/schedule_helper.py": [

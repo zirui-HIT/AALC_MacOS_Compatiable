@@ -1,0 +1,29 @@
+{
+  "source": ".runtime/hard-mirror-audit-20261017/live/frame-00271.png",
+  "captured_at": "2026-10-17",
+  "game_version": "1.117.0",
+  "logical_size": [
+    1920,
+    1080
+  ],
+  "image_mode": "L",
+  "page": "hard_mirror_reward_preview",
+  "weekly_bonus_count": 3,
+  "selected_toggle_centers": [
+    [
+      839,
+      378
+    ],
+    [
+      992,
+      377
+    ],
+    [
+      1146,
+      377
+    ]
+  ],
+  "redactions": [],
+  "sha256": "4371f80ca82efb7002bf22be17f16cca1497483cdf8abe1428531f33c8ea1c61",
+  "note": "Real pre-claim frame. Original taps left all three ON; this fixture validates recognition, not successful de-selection."
+}

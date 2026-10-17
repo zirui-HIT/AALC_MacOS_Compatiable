@@ -99,7 +99,7 @@ class PlayCoverInput(AbstractInput):
                         log.warning(f"Touch release failed; retained for same-process reconnect: {exc}")
 
     def mouse_click(self, x, y, times=1, move_back=False) -> bool:
-        for index in range(times):
+        for _ in range(times):
             with self._gesture((x, y)):
                 hold = self.timing.click_hold
                 if self._configured_click_hold:
@@ -107,8 +107,9 @@ class PlayCoverInput(AbstractInput):
 
                     hold = cfg.mouse_down_duration
                 self._wait(hold)
-            if index + 1 < times:
-                self._wait(self.timing.repeat_interval)
+            # TUCH is queued without an acknowledgement. Let the iOS run loop
+            # deliver the released contact before another call starts a tap.
+            self._wait(self.timing.repeat_interval)
         return True
 
     def mouse_click_blank(self, coordinate=(1, 1), times=1, move_back=False) -> bool:

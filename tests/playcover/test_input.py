@@ -45,12 +45,44 @@ def test_default_click_hold_follows_live_settings_without_replacing_the_session(
     handler, recorder = make_input()
     handler = PlayCoverInput(recorder, handler._geometry, handler.cancel)
     waits = []
-    monkeypatch.setattr(handler, "_wait", waits.append)
+    monkeypatch.setattr(handler, "_wait", lambda seconds: waits.append((seconds, bool(handler.active_contacts))))
     for duration in (0.25, 0.75):
         monkeypatch.setattr(cfg, "config", cfg.config.model_copy(update={"mouse_down_duration": duration}))
         handler.mouse_click(10, 10)
-    assert waits == [0.25, 0.75]
+    assert waits == [(0.25, True), (0.1, False), (0.75, True), (0.1, False)]
     assert [event[0] for event in recorder.events] == [0, 3, 0, 3]
+
+
+def test_separate_bonus_taps_deliver_release_before_the_next_contact(monkeypatch):
+    from module.config import cfg
+
+    handler, recorder = make_input()
+    handler = PlayCoverInput(recorder, handler._geometry, handler.cancel)
+    monkeypatch.setattr(cfg, "config", cfg.config.model_copy(update={"mouse_down_duration": 0.1}))
+    clock = [0.0]
+    observed = []
+    recorder.on_touch = lambda phase: observed.append((phase, clock[0]))
+    monkeypatch.setattr(handler, "_wait", lambda seconds: clock.__setitem__(0, clock[0] + seconds))
+
+    # Real three-ON reward frame: the original task directly taps the rightmost
+    # two toggles, rather than using click_element's higher-level interval.
+    handler.mouse_click(1146, 377)
+    handler.mouse_click(992, 377)
+
+    assert [phase for phase, _ in observed] == [0, 3, 0, 3]
+    assert observed[2][1] - observed[1][1] >= 0.09
+    assert clock[0] - observed[-1][1] >= 0.09
+    assert not handler.active_contacts
+
+
+def test_cancellation_after_tap_release_does_not_repeat_the_click(monkeypatch):
+    handler, recorder = make_input()
+    handler = PlayCoverInput(recorder, handler._geometry, handler.cancel)
+    recorder.on_touch = lambda phase: handler.cancel.set() if phase == 3 else None
+    with pytest.raises(BackendCancelled):
+        handler.mouse_click(1146, 377, times=2)
+    assert [event[0] for event in recorder.events] == [0, 3]
+    assert not handler.active_contacts
 
 
 def test_linked_path_has_one_down_and_one_up_and_fixed_geometry():
