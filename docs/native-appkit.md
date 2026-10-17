@@ -82,7 +82,7 @@ AppKit 的“设置 → 运行参数”复用现有整数表单、`config.patch`
 
 ## 安装与验证
 
-`main_macos.spec` 打包原生入口和后端，同一捆绑可执行文件以 `--backend` 启动独立进程。打包记录现有 `.runtime` 数据根，`AALC_DATA_ROOT` 可覆盖它用于隔离验证。应用标识仍为 `io.aalc.PlayCover`。
+`main_macos.spec` 打包原生入口和后端，同一捆绑可执行文件以 `--backend` 启动独立进程。包内资源只读；配置和持久资源使用 macOS 用户域 Application Support，日志、缓存、临时文件和截图分别使用 Logs、Caches、系统临时目录和 Pictures/AALC。安装包不包含构建机器的数据路径。`AALC_DATA_ROOT` 可使用绝对路径覆盖全部可写目录用于隔离验证，前后端继承同一覆盖设置。应用标识仍为 `io.aalc.PlayCover`。
 
 测试覆盖执行冻结、既有业务与PlayCover回放、管道EOF/错误请求、清理与退出顺序、快速停止、自动战斗参数/清理、启动失败回滚、队伍草稿、主题别名和定时控制。`--smoke-test --ui-check` 构建所有原生页面及队伍/主题编辑器，不连接游戏或发送输入。
 

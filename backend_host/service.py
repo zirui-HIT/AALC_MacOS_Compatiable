@@ -157,11 +157,12 @@ class BackendService:
         candidate = cfg.config.model_dump() | values
         if any(key in GROUPS["playcover"] for key in values):
             if candidate["playcover_app_path"]:
-                identity = self.app_identity(candidate["playcover_app_path"])
+                identity = self.app_identity(candidate["playcover_app_path"], candidate["playcover_bundle_id"])
                 if candidate["playcover_bundle_id"] and candidate["playcover_bundle_id"] != identity["bundle_id"]:
                     raise ValueError("Bundle ID differs from the selected app")
+                candidate["playcover_app_path"] = identity["path"]
                 candidate["playcover_bundle_id"] = identity["bundle_id"]
-                values = values | {"playcover_bundle_id": identity["bundle_id"]}
+                values = values | {"playcover_app_path": identity["path"], "playcover_bundle_id": identity["bundle_id"]}
             migrate_backend(candidate)
         type(cfg.config)(**candidate)
         # Keep one-shot completion preferences on the original unsaved path.
@@ -359,7 +360,7 @@ class BackendService:
         from tasks.tools.screenshot_module import ScreenshotGet
 
         worker = ScreenshotGet()
-        worker.on_saved_timestr.connect(lambda stamp: self.publish("screenshot", {"path": str(self.data_path(f"templates/screenshot_{stamp}.png"))}), queued=True)
+        worker.on_saved_timestr.connect(lambda stamp: self.publish("screenshot", {"path": str(self.data_path(f"screenshots/screenshot_{stamp}.png"))}), queued=True)
         self._launch(worker, "screenshot")
 
     @staticmethod
@@ -389,10 +390,10 @@ class BackendService:
         self._launch(ConnectionTest(), "connection")
 
     @staticmethod
-    def app_identity(path):
+    def app_identity(path, bundle_id=""):
         from module.backends.playcover.lifecycle import read_app_identity
 
-        identity = read_app_identity(path)
+        identity = read_app_identity(path, bundle_id)
         return {"path": str(identity.path), "bundle_id": identity.bundle_id}
 
     def save_team(self, number, values):

@@ -244,5 +244,24 @@
       "before": "                        if auto.find_element(\n                            f\"mirror/road_in_mir/acquire_ego_gift/{self.system}.png\",\n                            my_crop=bbox,\n                            threshold=0.85,\n                        ):\n                            my_list.insert(0, gift_candidate)\n                            system_nums += 1\n                        else:\n                            if self.second_system and (\n                                self.second_system_setting == 0\n                                or (self.second_system_setting == 1 and self.shop.fuse_IV)\n                            ):\n                                if auto.find_element(\n                                    f\"mirror/road_in_mir/acquire_ego_gift/{all_systems[self.second_system_select]}.png\",\n                                    my_crop=bbox,\n                                    threshold=0.85,\n                                ):\n                                    my_list.insert(system_nums, gift_candidate)\n                                    continue\n",
       "after": "                        if auto.find_element(\n                            f\"mirror/road_in_mir/acquire_ego_gift/{self.system}.png\",\n                            my_crop=bbox,\n                            threshold=0.85,\n                        ):\n                            my_list.insert(0, gift_candidate)\n                            system_nums += 1\n                        else:\n                            if self.second_system and self.shop.second_system_action[2] and (\n                                self.second_system_setting == 1\n                                or (self.second_system_setting == 0 and self.shop.fuse_IV)\n                            ):\n                                if auto.find_element(\n                                    f\"mirror/road_in_mir/acquire_ego_gift/{all_systems[self.second_system_select]}.png\",\n                                    my_crop=bbox,\n                                    threshold=0.85,\n                                ):\n                                    my_list.insert(system_nums, gift_candidate)\n                                    continue\n"
     }
+  ],
+  "module/backends/playcover/lifecycle.py": [
+    {
+      "reason": "Locate a migrated, missing game path through its Bundle ID on the current Mac; identity validation and lifecycle operations are preserved.",
+      "before": "def read_app_identity(app_path: str | Path) -> AppIdentity:\n    path = Path(app_path).expanduser().resolve()\n",
+      "after": "def read_app_identity(app_path: str | Path, bundle_id: str = \"\") -> AppIdentity:\n    path = Path(app_path).expanduser().resolve()\n    if not path.exists() and bundle_id:\n        from AppKit import NSWorkspace\n\n        url = NSWorkspace.sharedWorkspace().URLForApplicationWithBundleIdentifier_(bundle_id)\n        if url is not None:\n            path = Path(str(url.path())).resolve()\n"
+    },
+    {
+      "reason": "Pass the existing Bundle ID to the platform path resolver.",
+      "before": "        self.identity = read_app_identity(app_path) if app_path else None\n",
+      "after": "        self.identity = read_app_identity(app_path, bundle_id) if app_path else None\n"
+    }
+  ],
+  "tasks/tools/screenshot_module.py": [
+    {
+      "reason": "Route user screenshots to the macOS Pictures directory through the shared path adapter; capture flow is unchanged.",
+      "before": "                img.save(data_path(f\"templates/screenshot_{timestr}.png\"))\n",
+      "after": "                img.save(data_path(f\"screenshots/screenshot_{timestr}.png\"))\n"
+    }
   ]
 }

@@ -41,7 +41,7 @@ class ScreenshotGet(QThread):
                 timestr = time.strftime("%Y%m%d_%H%M%S", time.localtime())
                 from utils.runtime_paths import data_path
 
-                img.save(data_path(f"templates/screenshot_{timestr}.png"))
+                img.save(data_path(f"screenshots/screenshot_{timestr}.png"))
                 log.info(f"图片保存为 AALC > screenshot_{timestr}.png")
                 self.on_saved_timestr.emit(timestr)
             else:

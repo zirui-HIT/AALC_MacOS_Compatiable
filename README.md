@@ -13,7 +13,9 @@ uv run main.py
 
 在 PlayCover 中开启 Limbus Company 的 MaaTools，然后在 AALC 设置中选择已安装的游戏、确认端口和应用标识，并测试连接与截图。
 
-配置、日志、图片资源和截图继续使用现有 `.runtime/`。安装包记录本仓库的数据位置，更新 `/Applications/AALC.app` 不会重新创建用户配置。
+配置、统计、自定义模板和持久图片资源保存在 `~/Library/Application Support/io.aalc.PlayCover/`，日志在 `~/Library/Logs/io.aalc.PlayCover/`，缓存在 `~/Library/Caches/io.aalc.PlayCover/`，截图在 `~/Pictures/AALC/`，临时文件使用系统临时目录。目录由 macOS API 获取，安装包不记录构建机器的数据路径；更新或移动 `.app` 不影响用户数据。迁移到另一台 Mac 时可复制 Application Support 中的应用目录，失效的游戏路径会按 Bundle ID 在本机重新定位，无法定位时需重新选择游戏。
+
+从旧版升级时，将 `.runtime/` 中的 `config/`、`templates/`、`resources/` 和 `models/` 迁入上述 Application Support 目录；`templates/screenshot_*.png` 可移入图片目录。已有目标文件应保留，缓存、临时文件和旧定时任务注册无需复制。
 
 关闭主窗口会隐藏到菜单栏；菜单或 ⌘Q 才退出。任务运行时退出会先确认，并等待触控与后台线程清理。
 

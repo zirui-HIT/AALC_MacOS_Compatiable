@@ -15,8 +15,14 @@ class AppIdentity:
     executable: Path
 
 
-def read_app_identity(app_path: str | Path) -> AppIdentity:
+def read_app_identity(app_path: str | Path, bundle_id: str = "") -> AppIdentity:
     path = Path(app_path).expanduser().resolve()
+    if not path.exists() and bundle_id:
+        from AppKit import NSWorkspace
+
+        url = NSWorkspace.sharedWorkspace().URLForApplicationWithBundleIdentifier_(bundle_id)
+        if url is not None:
+            path = Path(str(url.path())).resolve()
     if not path.is_dir() or path.suffix != ".app":
         raise ValueError("Select an installed game .app")
     info_path = path / "Contents/Info.plist"
@@ -36,7 +42,7 @@ def read_app_identity(app_path: str | Path) -> AppIdentity:
 
 class PlayCoverLifecycle:
     def __init__(self, app_path: str = "", bundle_id: str = ""):
-        self.identity = read_app_identity(app_path) if app_path else None
+        self.identity = read_app_identity(app_path, bundle_id) if app_path else None
         if self.identity and bundle_id and self.identity.bundle_id != bundle_id:
             raise ValueError("Configured Bundle ID does not match the selected app")
         self.bundle_id = self.identity.bundle_id if self.identity else bundle_id

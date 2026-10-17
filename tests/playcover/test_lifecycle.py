@@ -92,6 +92,28 @@ def test_invalid_plist_executable_cannot_escape_app(tmp_path):
         read_app_identity(app)
 
 
+def test_migrated_game_path_is_resolved_on_this_mac(tmp_path, monkeypatch):
+    app = make_app(tmp_path)
+    workspace = Mock()
+    workspace.URLForApplicationWithBundleIdentifier_.return_value.path.return_value = str(app)
+    monkeypatch.setitem(sys.modules, "AppKit", SimpleNamespace(NSWorkspace=Mock(sharedWorkspace=Mock(return_value=workspace))))
+    with patch("subprocess.run") as run:
+        lifecycle = PlayCoverLifecycle("/Users/previous-user/Old Game.app", "company.test")
+    assert lifecycle.identity == read_app_identity(app)
+    workspace.URLForApplicationWithBundleIdentifier_.assert_called_once_with("company.test")
+    run.assert_not_called()
+
+
+@pytest.mark.parametrize("registered", [False, True])
+def test_migrated_path_requires_matching_registered_identity(tmp_path, monkeypatch, registered):
+    app = make_app(tmp_path)
+    workspace = Mock()
+    workspace.URLForApplicationWithBundleIdentifier_.return_value = Mock(path=Mock(return_value=str(app))) if registered else None
+    monkeypatch.setitem(sys.modules, "AppKit", SimpleNamespace(NSWorkspace=Mock(sharedWorkspace=Mock(return_value=workspace))))
+    with pytest.raises(ValueError):
+        PlayCoverLifecycle("/Users/previous-user/Old Game.app", "other.game")
+
+
 def test_registered_bundle_can_launch_without_saved_app_path(tmp_path, monkeypatch):
     app = make_app(tmp_path)
     workspace = Mock()

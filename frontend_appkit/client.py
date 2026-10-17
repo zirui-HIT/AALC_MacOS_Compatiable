@@ -8,7 +8,7 @@ import subprocess
 import sys
 import threading
 
-from utils.runtime_paths import DATA_ROOT, SOURCE_ROOT
+from utils.runtime_paths import SOURCE_ROOT
 
 
 class BackendClient:
@@ -16,7 +16,7 @@ class BackendClient:
         command = [sys.executable, "--backend"] if getattr(sys, "frozen", False) else [sys.executable, "-u", str(SOURCE_ROOT / "main.py"), "--backend"]
         if smoke:
             command.append("--no-hotkeys")
-        self.process = subprocess.Popen(command, stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True, bufsize=1, cwd=SOURCE_ROOT if not getattr(sys, "frozen", False) else "/", env={**os.environ, "AALC_DATA_ROOT": str(DATA_ROOT)})
+        self.process = subprocess.Popen(command, stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True, bufsize=1, cwd=SOURCE_ROOT if not getattr(sys, "frozen", False) else "/", env=os.environ.copy())
         self.incoming = queue.Queue()
         self.outgoing = queue.Queue()
         self.ids = itertools.count(1)

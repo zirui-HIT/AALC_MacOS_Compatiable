@@ -24,6 +24,22 @@ def pump_until(condition, timeout=3):
     assert condition()
 
 
+def test_game_settings_save_the_resolved_local_path(service, monkeypatch, tmp_path):
+    from module.config import cfg
+
+    old_path = "/Users/previous-user/Game.app"
+    new_path = str(tmp_path / "Game.app")
+    monkeypatch.setattr(cfg, "config", cfg.config.model_copy(update={
+        "playcover_app_path": old_path, "playcover_bundle_id": "company.test",
+    }))
+    monkeypatch.setattr(cfg, "_schedule_save", Mock())
+    monkeypatch.setattr(service, "app_identity", Mock(return_value={"path": new_path, "bundle_id": "company.test"}))
+    service.patch({"playcover_port": 1718})
+    service.app_identity.assert_called_once_with(old_path, "company.test")
+    assert cfg.playcover_app_path == new_path
+    assert cfg.playcover_bundle_id == "company.test"
+
+
 @pytest.fixture
 def service(monkeypatch):
     from backend_host.service import BackendService
