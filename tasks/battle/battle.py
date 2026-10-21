@@ -299,8 +299,13 @@ class Battle:
                     except:
                         continue
 
-                auto.click_element("battle/dead_all_confirm_assets.png")
+                if not auto.click_element("battle/dead_all_confirm_assets.png"):
+                    continue
                 sleep(1)
+                # A queued iOS tap may leave the same defeat dialog visible.
+                # Count the defeat only after the existing confirmation leaves it.
+                if auto.take_screenshot() is None or auto.find_element("battle/dead_all.png"):
+                    continue
                 start_time = time.time()
                 self.fail_times += 1
                 defense_for_solo_used_this_turn = False
@@ -319,7 +324,14 @@ class Battle:
                     )
                     ocr_result = auto.find_language_text("阵亡", "dead", dead_bbox)
                     if ocr_result is not False:
-                        while True:
+                        while self.running:
+                            if auto.get_restore_time() is not None:
+                                start_time = max(start_time, auto.get_restore_time())
+                            if check_times(start_time, timeout=900 + 300 * combat_count, logs=False):
+                                from tasks.base.back_init_menu import back_init_menu
+
+                                back_init_menu()
+                                return False
                             auto.mouse_to_blank()
                             if auto.take_screenshot() is None:
                                 continue
@@ -330,6 +342,7 @@ class Battle:
                                 return False
                             if auto.click_element("battle/setting_assets.png"):
                                 continue
+                        return False
 
             # 如果正在战斗待机界面
             # 更新回合数

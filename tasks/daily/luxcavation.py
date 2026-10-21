@@ -56,6 +56,14 @@ def EXP_luxcavation(combat_count: int = 1):
             continue
         if auto.find_element("teams/identify_assets.png"):
             break
+        loop_count -= 1
+        if loop_count < 20:
+            auto.model = "normal"
+        if loop_count < 10:
+            auto.model = "aggressive"
+        if loop_count < 0:
+            log.error("无法进入经验本,不能进行下一步,此次经验本无效")
+            break
         if (
             auto.find_element("home/first_prompt_assets.png", model="clam")
             and auto.find_element("home/back_assets.png", model="normal")
@@ -114,15 +122,7 @@ def EXP_luxcavation(combat_count: int = 1):
             sleep(0.5)
             continue
         auto.mouse_to_blank()
-
-        loop_count -= 1
-        if loop_count < 20:
-            auto.model = "normal"
-        if loop_count < 10:
-            auto.model = "aggressive"
-        if loop_count < 0:
-            log.error("无法进入经验本,不能进行下一步,此次经验本无效")
-            break
+        # EXP entry attempts share the retry budget at the start of this loop.
 
 
 def thread_luxcavation(combat_count: int = 1):
@@ -149,6 +149,14 @@ def thread_luxcavation(combat_count: int = 1):
         if auto.take_screenshot() is None:
             continue
         if auto.find_element("teams/identify_assets.png"):
+            break
+        loop_count -= 1
+        if loop_count < 20:
+            auto.model = "normal"
+        if loop_count < 10:
+            auto.model = "aggressive"
+        if loop_count < 0:
+            log.error("无法进入纽本,不能进行下一步,此次纽本无效")
             break
         if (
             auto.find_element("home/first_prompt_assets.png", model="clam")
@@ -181,7 +189,7 @@ def thread_luxcavation(combat_count: int = 1):
                     take_screenshot=True,
                 )
                 # 只识别右半屏幕
-                min_x = cfg.set_win_size / 2
+                min_x = cfg.set_win_size * 16 / 9 / 2
                 level = sorted([(x, y) for x, y in level if x >= min_x], key=lambda p: p[1], reverse=True)
                 if level:
                     log.debug(f"纽本检测到 {len(level)} 个关卡入口: {level}")
@@ -202,7 +210,7 @@ def thread_luxcavation(combat_count: int = 1):
                             take_screenshot=True,
                         )
                         if level:
-                            min_x = cfg.set_win_size / 2
+                            min_x = cfg.set_win_size * 16 / 9 / 2
                             level = sorted([(x, y) for x, y in level if x >= min_x], key=lambda p: p[1], reverse=True)
                         else:
                             level = []
@@ -242,11 +250,4 @@ def thread_luxcavation(combat_count: int = 1):
             sleep(0.5)
             continue
         auto.mouse_to_blank()
-        loop_count -= 1
-        if loop_count < 20:
-            auto.model = "normal"
-        if loop_count < 10:
-            auto.model = "aggressive"
-        if loop_count < 0:
-            log.error("无法进入纽本,不能进行下一步,此次纽本无效")
-            break
+        # Entry failures share the retry budget at the start of this loop.

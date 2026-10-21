@@ -14,6 +14,8 @@ from frontend_appkit.application import Application
 
 def app():
     result = Application.__new__(Application)
+    result.data = {"config": {"language_in_program": "zh_cn"}}
+    result.translations = {}
     result.show_text = Mock()
     result.error = Mock()
     result.mirror_status = Mock()

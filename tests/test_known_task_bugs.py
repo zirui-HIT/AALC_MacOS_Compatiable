@@ -166,6 +166,7 @@ def test_restart_resets_difficulty_to_initial_configuration(monkeypatch, initial
     dungeon._enter_hard_mode_if_needed()
     automation = Mock()
     automation.click_element.side_effect = lambda path, **kwargs: path.endswith("towindow&forfeit_confirm_assets.png")
+    automation.get_restore_time.return_value = None
     monkeypatch.setattr(task, "auto", automation)
     dungeon.re_start()
     dungeon.floor = 1

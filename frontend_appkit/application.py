@@ -32,6 +32,7 @@ from frontend_appkit.presentation import (
     template_image,
     toolbar_glass,
 )
+from frontend_appkit.starlight_data import bonus_translations
 from frontend_appkit.theme_data import (
     CN_OCR_ALTERNATIVES,
     EN_OCR_ALTERNATIVES,
@@ -195,6 +196,9 @@ class Application:
             self.translations[f"定时任务 {number}"] = f"Schedule {number}"
             self.translations[f"启用定时任务 {number}"] = f"Enable schedule {number}"
         self.translations.update({"更多": "More", "项任务已启用": "tasks enabled", "勾选启用，更多菜单中调整顺序": "Enable presets; reorder in More", "普通与困难镜牢的权重及各层禁选": "Weights and floor bans for both modes", "在队伍配置中编辑各预设的专属权重": "Edit preset weights in Teams", "编辑权重…": "Edit weights…", "队伍配置…": "Teams…", "出战罪人": "Sinners", "使用停止按钮或快捷键结束战斗": "Use Stop or a hotkey to end battle", "截图与预览": "Capture & preview", "从 PlayCover 获取当前游戏画面": "Capture the current PlayCover game view", "-10 至 10，数值越高越优先": "−10 to 10; higher values take priority"})
+        self.translations.update(bonus_translations())
+        self.translations.update({"日常": "Daily", "领奖": "Rewards", "预设": "Preset", "权重": "Weights", "关闭公告": "Close"})
+        self.translations.update({"镜牢 · 已完成 {current} · 剩余 {remaining}": "Mirror · Completed {current} · Remaining {remaining}", "图片同步 · {progress}%": "Image sync · {progress}%"})
         from frontend_appkit import widgets
 
         widgets.translate = self.text
@@ -219,7 +223,14 @@ class Application:
             threading.Thread(target=self.listen, daemon=True).start()
 
     def text(self, text):
+        if text.startswith("theme-name:"):
+            pack, separator, suffix = text[len("theme-name:"):].partition(" · ")
+            english = self.data and self.data["config"]["language_in_program"] == "en"
+            name = pack if english else (THEME_PACK_NAME_MAP | THEME_PACK_HARD_NAME_MAP).get(pack, pack)
+            return name + separator + (self.text(suffix) if separator else "")
         if self.data and self.data["config"]["language_in_program"] == "en":
+            if text.startswith("星光总消耗 · "):
+                return self.translations.get("星光总消耗", "星光总消耗") + text[len("星光总消耗"):]
             return self.translations.get(text, text)
         return text
 
@@ -246,6 +257,14 @@ class Application:
 
         menu_text(self.native.mainMenu())
         menu_text(self.tray_menu)
+        if hasattr(self, "status_message"):
+            source, values = self.status_message
+            self.show_status(source, **values)
+
+    def show_status(self, source, **values):
+        self.status_message = source, values
+        text = self.text(source)
+        self.mirror_status.setStringValue_(text.format(**values) if values else text)
 
     def build_window(self):
         self.window = A.NSWindow.alloc().initWithContentRect_styleMask_backing_defer_(((100, 100), (920, 500)), A.NSWindowStyleMaskTitled | A.NSWindowStyleMaskClosable | A.NSWindowStyleMaskMiniaturizable | A.NSWindowStyleMaskResizable, A.NSBackingStoreBuffered, False)
@@ -627,7 +646,7 @@ class Application:
         elif event == "warning":
             self.error(data["message"])
         elif event == "mirror":
-            self.mirror_status.setStringValue_(f"镜牢 · 已完成 {data['current']} · 剩余 {data['remaining']}" if data else "")
+            self.show_status("镜牢 · 已完成 {current} · 剩余 {remaining}" if data else "", **(data or {}))
         elif event == "focus":
             self.restore()
         elif event in {"screenshot", "capture"}:
@@ -642,13 +661,13 @@ class Application:
             if data["changes"] and (not data["startup"] or data["automatic"]) and confirm("图片资源可更新", data["message"] or "下载并同步最新图片资源？", accept="同步"):
                 self.client.request("resources.apply")
             else:
-                self.mirror_status.setStringValue_(data["message"] or "图片资源已是最新")
+                self.show_status(data["message"] or "图片资源已是最新")
                 if data["startup"]:
                     self.client.request("resources.skip")
         elif event == "resource_progress":
-            self.mirror_status.setStringValue_(f"图片同步 · {data}%")
+            self.show_status("图片同步 · {progress}%", progress=data)
         elif event == "resources_applied":
-            self.mirror_status.setStringValue_(data["message"])
+            self.show_status(data["message"])
         elif event == "announcement":
             self.show_announcements(data)
         elif event == "update":
@@ -659,12 +678,12 @@ class Application:
                 if not data.get("automatic", False):
                     self.error(data["message"])
             else:
-                self.mirror_status.setStringValue_(data.get("message") or "软件已是最新")
+                self.show_status(data.get("message") or "软件已是最新")
         elif event == "update_status":
             self.update_result = data
         elif event == "completion_suppressed":
             if data:
-                self.mirror_status.setStringValue_("定时任务已排队，当前任务完成后继续")
+                self.show_status("定时任务已排队，当前任务完成后继续")
         elif event == "exit":
             self.native.terminate_(None)
         elif event == "shutdown_failed":
@@ -911,11 +930,11 @@ class Application:
             row.kind = "group"
             row.setAutoresizingMask_(A.NSViewWidthSizable)
             self.page.addSubview_(row)
-            title = button(row, f"预设 {n}{order} · {team['remark_name'] or 'Team ' + str(team['team_number'])}", ((16, 10), (width - 32, 26)), lambda sender, number=n: self.client.request("team.enable", {"number": number, "enabled": bool(sender.state())}), self.page_targets, checkbox=True, checked=n in queue)
+            title = button(row, self.text("预设") + f" {n}{order} · {team['remark_name'] or 'Team ' + str(team['team_number'])}", ((16, 10), (width - 32, 26)), lambda sender, number=n: self.client.request("team.enable", {"number": number, "enabled": bool(sender.state())}), self.page_targets, checkbox=True, checked=n in queue)
             title.setAutoresizingMask_(A.NSViewWidthSizable)
-            subtitle(row, self.text("队伍体系") + " · " + self.text(str(FIELDS["options"]["all_systems"][team['team_system']][0])), ((36, 43), (width - 284, 20)))
-            for offset, title, callback in [(248, "编辑", lambda n=n: self.edit_team(n)), (174, "权重", lambda n=n: self.open_theme(n))]:
-                control = button(row, title, ((width - offset, 40), (66, 28)), lambda sender, callback=callback: callback(), self.page_targets)
+            subtitle(row, self.text("队伍体系") + " · " + self.text(str(FIELDS["options"]["all_systems"][team['team_system']][0])), ((36, 43), (width - 328, 20)))
+            for offset, title, callback in [(284, "编辑", lambda n=n: self.edit_team(n)), (192, "权重", lambda n=n: self.open_theme(n))]:
+                control = button(row, title, ((width - offset, 40), (84, 28)), lambda sender, callback=callback: callback(), self.page_targets)
                 control.setAutoresizingMask_(A.NSViewMinXMargin)
             more = menu_button(row, "更多", ((width - 100, 40), (84, 28)), [
                 ("上移", lambda n=n: self.client.request("team.order", {"number": n, "offset": -1})),
@@ -989,7 +1008,6 @@ class Application:
                 form.controls["system_" + system].setEnabled_(system != SYSTEMS[draft.values["team_system"]])
 
         form = Form(editor.document, draft.values, [key for key in FIELDS["TeamSetting"] if key not in HIDDEN_TEAM], editor.targets, change, team=True, start=152, text=self.text, sections={"team_system": "队伍与体系", "system_burn": "饰品舍弃", "do_not_heal": "商店与合成", "avoid_skill_3": "战斗策略", "fixed_team_use": "用途与奖励", "opening_bonus": "星光与开局", "second_system": "第二体系", "observe_ego_gift": "观测饰品", "skill_replacement": "技能与刷新"}, grouped=True)
-        form.starlight_cost.setIdentifier_(None)
         for system in SYSTEMS:
             form.controls["system_" + system].setEnabled_(system != SYSTEMS[draft.values["team_system"]])
 
@@ -1280,7 +1298,7 @@ class Application:
                     view.setImage_(image)
                     view.setImageScaling_(A.NSImageScaleProportionallyUpOrDown)
                     editor.document.addSubview_(view)
-                label(editor.document, mapping.get(pack, pack), ((76, y + 20), (430, 24)))
+                label(editor.document, "theme-name:" + pack, ((76, y + 20), (430, 24)))
                 from frontend_appkit.widgets import textfield
 
                 def change(sender, pack=pack, hard=hard):
@@ -1313,7 +1331,9 @@ class Application:
                     draft._has_unsaved_changes = True
 
                 ban_control = button(editor.document, "", ((678, y + 16), (28, 28)), ban, targets, checkbox=True, checked=pack in banned or mapping.get(pack) in banned)
-                ban_control.setAccessibilityLabel_(mapping.get(pack, pack) + " · " + self.text("本层禁选"))
+                from frontend_appkit.widgets import accessibility_label
+
+                accessibility_label(ban_control, "theme-name:" + pack + " · 本层禁选")
                 ban_control.setToolTip_(self.text("本层禁选"))
                 ban_control.setAutoresizingMask_(A.NSViewMinXMargin)
                 line = A.NSBox.alloc().initWithFrame_(((20, y + 64), (742, 1)))
@@ -1507,7 +1527,7 @@ class Application:
         label(editor.root, "公告", ((20, 12), (480, 26)), size=17, bold=True)
         stamp = subtitle(editor.root, self.text("更新时间") + " · " + str(data.get("Time", "")), ((20, 42), (560, 18)))
         stamp.setIdentifier_(None)
-        close = button(editor.root, "关闭", ((612, 18), (68, 28)), lambda sender: editor.close(), editor.targets)
+        close = button(editor.root, "关闭公告", ((596, 18), (84, 28)), lambda sender: editor.close(), editor.targets)
         close.setAutoresizingMask_(A.NSViewMinXMargin)
         editor.scroller.setFrame_(((0, 72), (700, 488)))
         view = A.NSTextView.alloc().initWithFrame_(((0, 0), (680, 488)))

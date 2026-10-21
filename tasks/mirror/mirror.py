@@ -795,10 +795,6 @@ class Mirror:
         starlights_X = [first_starlight[0] + (i % 5) * 400 * scale for i in range(10)]
         starlights_Y = [first_starlight[1] + (i // 5) * 480 * scale for i in range(10)]
 
-        first_single_plus = (first_starlight[0] - 80 * scale, first_starlight[1] + 320 * scale)
-        double_plus_offset = 80 * scale * 2
-        star_card_size = (400 * scale, 480 * scale)
-
         loop_count = 30
         auto.model = "clam"
         while True:
@@ -1195,7 +1191,14 @@ class Mirror:
                 return False
 
     def re_start(self):
+        from tasks.base.retry import check_times
+
+        start_time = time.time()
         while True:
+            if auto.get_restore_time() is not None:
+                start_time = max(start_time, auto.get_restore_time())
+            if check_times(start_time):
+                return False
             # 自动截图
             if auto.take_screenshot() is None:
                 continue

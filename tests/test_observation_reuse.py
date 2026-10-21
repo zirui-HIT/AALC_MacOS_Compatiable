@@ -204,6 +204,48 @@ def test_failed_capture_cannot_leave_reusable_observation(observation):
     assert capture.call_count == 2
 
 
+def test_repeated_capture_timeout_initialization_keeps_a_bounded_stack(observation, monkeypatch):
+    import sys
+
+    from tasks.base import retry as recovery
+    from tasks.base import script_task_scheme as scheme
+
+    auto, session, capture, module = observation
+    now, failures, depths = 100., 0, []
+    image = Image.new("RGB", (16, 9))
+
+    def fail_then_capture(gray):
+        nonlocal now, failures
+        now += 61
+        if failures < 1100:
+            failures += 1
+            raise RuntimeError("isolated capture failure")
+        return image
+
+    def start():
+        frame, depth = sys._getframe(), 0
+        while frame:
+            frame, depth = frame.f_back, depth + 1
+        depths.append(depth)
+
+    capture.side_effect = fail_then_capture
+    session.start_game.side_effect = start
+    monkeypatch.setattr(module.time, "time", lambda: now)
+    monkeypatch.setattr(auto, "init_input", Mock())
+    monkeypatch.setattr(scheme, "path_manager", SimpleNamespace(pic_path=["isolated"]))
+    monkeypatch.setattr(recovery, "retry", Mock(return_value=True))
+
+    assert auto.take_screenshot() is image
+    assert len(depths) == 1100 and len(set(depths)) == 1
+    assert session.stop_game.call_count == 1100
+    assert recovery._restart_context.initializing is False
+
+    session.start_game.side_effect = BackendCancelled("stop")
+    with pytest.raises(BackendCancelled):
+        scheme.init_game()
+    assert recovery._restart_context.initializing is False
+
+
 def test_repeated_keywords_and_output_formats_reuse_one_ocr_inference(observation, monkeypatch):
     auto, _, _, module = observation
     result = SimpleNamespace(txts=["White Gossypium Owned"], boxes=[[[0, 0], [8, 0], [8, 4], [0, 4]]])

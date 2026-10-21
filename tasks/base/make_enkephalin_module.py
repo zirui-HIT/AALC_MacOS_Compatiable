@@ -37,44 +37,6 @@ def get_the_timing(return_time=False):
         return False
 
 
-def get_current_enkephalin():
-    import cv2
-    import numpy as np
-
-    from module.ocr import ocr
-    from utils.image_utils import ImageUtils
-
-    enkephalin_bbox = ImageUtils.get_bbox(ImageUtils.load_image("enkephalin/enkephalin_now_bbox.png"))
-    for _ in range(5):
-        try:
-            while auto.take_screenshot() is None:
-                continue
-            sc = ImageUtils.crop(np.array(auto.screenshot), enkephalin_bbox)
-            _, binary_image = cv2.threshold(sc, 110, 255, cv2.THRESH_BINARY)
-            result = ocr.run(binary_image)
-            ocr_result = [result.txts[i] for i in range(len(result.txts))]
-            ocr_result = "".join(ocr_result)
-            ocr_result = ocr_result.lower()
-            if "/" in ocr_result:
-                ocr_result = ocr_result.split("/")
-                ocr_result_int = "".join(char for char in ocr_result[0] if char.isdigit())
-                current_enkephalin = int(ocr_result_int)
-                return current_enkephalin
-        except:
-            continue
-    try:
-        sc = ImageUtils.crop(np.array(auto.screenshot), enkephalin_bbox)
-        _, binary_image = cv2.threshold(sc, 150, 255, cv2.THRESH_BINARY)
-        result = ocr.run(binary_image)
-        ocr_result = [result.txts[i] for i in range(len(result.txts))]
-        ocr_result = "".join(ocr_result)
-        current_enkephalin = int(ocr_result[0])
-        return current_enkephalin
-    except:
-        pass
-    return None
-
-
 @begin_and_finish_time_log(task_name="体力换饼", calculate_time=False)
 def make_enkephalin_module(cancel=True, skip=True, *, task_name: str = "体力换饼"):
     """体力换饼的模块

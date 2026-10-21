@@ -249,6 +249,18 @@ def test_missing_pack_frame_is_retried_before_fallback(monkeypatch):
     home.assert_not_called()
 
 
+@pytest.mark.parametrize("refreshes", [0, 2])
+def test_only_event_pack_after_skipping_uses_existing_refresh_and_recovery(monkeypatch, refreshes):
+    task, auto, home = selection(monkeypatch, [["event"]], refreshes, bans=False)
+    monkeypatch.setattr(task.cfg, "skip_event_pack", True)
+
+    task.select_theme_pack(False, 5)
+
+    assert auto.selected is None
+    assert auto.refresh_count == refreshes
+    assert home.called
+
+
 def selection(monkeypatch, pages, refreshes, *, language="zh_cn", banned_weight=None, bans=True):
     from module.automation import Automation
     from module.config import cfg

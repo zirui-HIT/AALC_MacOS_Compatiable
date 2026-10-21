@@ -120,7 +120,7 @@ def select_theme_pack(hard_mode=False, floor=None, team_num=None, use_custom_the
                     pack_name.append(theme_pack_name)
 
                 # 选择权重最大的主题包
-                max_weight = max(weight_list)
+                max_weight = max(weight_list, default=float("-inf"))
                 log.debug(f"当前主题包权重列表：{list(zip(pack_name, weight_list))}")
                 # 如果存在权重最大值大于等于优选阈值的主题包，则选择该主题包
                 if max_weight >= int(theme_list.preferred_thresholds):

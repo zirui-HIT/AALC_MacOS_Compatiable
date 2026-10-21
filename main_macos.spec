@@ -1,11 +1,13 @@
 # macOS arm64 directory bundle; user data is located at runtime.
 import json
 import sys
+import tomllib
 from pathlib import Path
 
 from PyInstaller.utils.hooks import collect_data_files
 
 project_root = Path(SPECPATH)
+project_version = tomllib.loads((project_root / "pyproject.toml").read_text())["project"]["version"]
 sys.path.insert(0, str(project_root))
 from utils.build_provenance import build_provenance
 
@@ -38,6 +40,7 @@ exe = EXE(
 coll = COLLECT(exe, a.binaries, a.datas, name="AALC", strip=False, upx=False)
 app = BUNDLE(
     coll, name="AALC.app", bundle_identifier="io.aalc.PlayCover",
+    version=project_version,
     icon=str(project_root / "assets/logo/aalc.icns"),
     info_plist={"CFBundleDisplayName": "AALC", "NSHighResolutionCapable": True,
                 "NSPrincipalClass": "NSApplication",

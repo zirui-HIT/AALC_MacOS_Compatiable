@@ -480,6 +480,7 @@ class BackendService:
         team, weight, missing = import_team_settings(path, int(number))
         if team is None:
             raise ValueError("; ".join(map(str, missing)))
+        missing = sorted(set(missing) | (TeamSetting.model_fields.keys() - team.model_fields_set - STATS))
         if weight is not None:
             from backend_host.validation import validate_theme
 

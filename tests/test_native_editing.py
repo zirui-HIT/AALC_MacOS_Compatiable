@@ -197,6 +197,21 @@ def test_browsing_theme_modes_and_floors_does_not_create_unsaved_changes(editor_
     editor_app.client.request.assert_not_called()
 
 
+def test_theme_names_and_tooltips_refresh_without_changing_ocr_keys(editor_app, monkeypatch):
+    monkeypatch.setattr(widgets, "translate", editor_app.text)
+    editor = open_theme(editor_app)
+    name = next(control for control in descendants(editor.document)
+                if isinstance(control, A.NSTextField) and control.identifier() == "theme-name:nagel")
+    assert name.stringValue() == name.toolTip() == "钉与锤"
+    editor_app.data["config"]["language_in_program"] = "en"
+    refresh(editor.root)
+    assert name.stringValue() == name.toolTip() == "nagel"
+    assert not editor.dirty()
+    editor_app.data["config"]["language_in_program"] = "zh_cn"
+    refresh(editor.root)
+    assert name.stringValue() == name.toolTip() == "钉与锤"
+
+
 @pytest.mark.parametrize("count,index", [(2, 1), (5, 2)])
 def test_invalid_theme_weight_restores_scope_before_a_ban_can_be_set(editor_app, count, index):
     editor = open_theme(editor_app)
@@ -262,6 +277,39 @@ def test_team_dynamic_order_and_starlight_survive_language_refresh(editor_app):
 
     assert sinner.title() == "李箱 · 1"
     assert cost.stringValue() == original_cost
+
+
+def test_starlight_options_tips_and_cost_refresh_languages_without_changing_values(editor_app, monkeypatch):
+    from frontend_appkit.starlight_data import bonus_translations
+
+    editor_app.translations.update(bonus_translations())
+    monkeypatch.setattr(widgets, "translate", editor_app.text)
+    form = Form(view(), {"opening_bonus": [1] * 10}, ["opening_bonus"], [], Mock(),
+                team=True, text=editor_app.text, grouped=True)
+    first = form.controls["opening_bonus"][0]
+    assert first.titleOfSelectedItem() == "起始之星 · 1"
+    assert "初始经费 +250" in first.toolTip()
+    assert "\\yellow" not in first.toolTip()
+
+    editor_app.data["config"]["language_in_program"] = "en"
+    refresh(form.parent)
+    assert first.titleOfSelectedItem() == "Star of the Beginning · 1"
+    assert "Starting Cost +250" in first.toolTip()
+    assert "\\yellow" not in first.toolTip()
+    assert form.starlight_cost.stringValue() == "Total starlight cost · 310"
+    bulk = next(control for control in descendants(form.parent)
+                if isinstance(control, A.NSPopUpButton) and control.titleOfSelectedItem() == "All · Clear")
+    assert form.values()["opening_bonus"] == [1] * 10
+
+    form.set_value("opening_bonus", [2] * 10)
+    assert form.starlight_cost.stringValue() == "Total starlight cost · 620"
+    editor_app.data["config"]["language_in_program"] = "zh_cn"
+    refresh(form.parent)
+    assert first.titleOfSelectedItem() == "起始之星 · 2"
+    assert "初始经费 +250" in first.toolTip()
+    assert form.starlight_cost.stringValue() == "星光总消耗 · 620"
+    assert bulk.titleOfSelectedItem() == "全选 · 清空"
+    assert form.values()["opening_bonus"] == [2] * 10
 
 
 @pytest.mark.parametrize("values", [[], None, "invalid"])

@@ -422,6 +422,20 @@ def test_team_import_rejects_invalid_attached_weights_before_applying_any_settin
     assert not Path(theme_list.build_team_weight_path(1)).exists()
 
 
+def test_incomplete_team_import_reuses_confirmation_before_applying_defaults(service, tmp_path):
+    from module.config import cfg
+
+    original = cfg.config.teams["1"].model_dump()
+    path = tmp_path / "partial.yaml"
+    path.write_text("team_number: 2\nremark_name: partial\n")
+    missing = service.import_team(1, str(path), False)["missing"]
+    assert {"chosen_sinners", "sinner_order", "sinners_be_select"} <= set(missing)
+    assert "mirror_hard_count" not in missing
+    assert cfg.config.teams["1"].model_dump() == original
+    assert service.import_team(1, str(path), True) == {"missing": []}
+    assert cfg.config.teams["1"].team_number == 2
+
+
 @pytest.mark.parametrize("target", [1, 2])
 @pytest.mark.parametrize("included_stats", [False, True])
 def test_team_import_preserves_target_statistics(service, monkeypatch, tmp_path, target, included_stats):

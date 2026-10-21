@@ -392,7 +392,6 @@ class Automation(metaclass=SingletonMeta):
             time.sleep(wait_time)
 
         # 计算传入的位置
-        self._interaction_gate.wait(timeout=GATE_WAIT_TIMEOUT)
         x, y = self.calculate_click_position(coordinates, offset)
 
         # 定义鼠标操作映射

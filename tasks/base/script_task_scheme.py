@@ -36,6 +36,7 @@ from tasks.base.make_enkephalin_module import (
     make_enkephalin_module,
 )
 from tasks.base.retry_monitor import retry_monitor
+from tasks.base.retry import repeat_initialization
 from tasks.battle import battle
 from tasks.daily.get_prize import get_mail_prize, get_pass_prize
 from tasks.daily.luxcavation import EXP_luxcavation, thread_luxcavation
@@ -120,6 +121,7 @@ def to_get_reward():
         back_init_menu()
 
 
+@repeat_initialization
 def init_game():
     log.debug("初始化游戏")
     if not path_manager.pic_path:

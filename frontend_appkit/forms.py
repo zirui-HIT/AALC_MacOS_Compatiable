@@ -9,7 +9,7 @@ from frontend_appkit.observe_selection import (
     serialize_observe_ego_gift_values,
 )
 from frontend_appkit.presentation import SurfaceView
-from frontend_appkit.starlight_data import STARLIGHT_BONUS_COSTS, STARLIGHT_BONUS_NAMES, STARLIGHT_BONUS_TIPS
+from frontend_appkit.starlight_data import STARLIGHT_BONUS_COSTS, STARLIGHT_BONUS_NAMES, bonus_tooltip
 from frontend_appkit.widgets import button, label, popup, textfield, tooltip
 from native_contract import FIELDS, OPTIONS
 
@@ -218,7 +218,7 @@ class Form:
             if key == "opening_bonus":
                 choices = [[f"{name} · {level}", level] for level in range(4)]
                 control, getter = popup(row, choices, selected_value, frame, lambda sender: self.changed(key), self.targets)
-                control.setToolTip_("\n\n".join(STARLIGHT_BONUS_TIPS[i].values()))
+                tooltip(control, bonus_tooltip(i))
             else:
                 control = button(row, name, frame, lambda sender: self.changed(key), self.targets, checkbox=True, checked=selected_value)
                 tooltip(control, name)
@@ -267,7 +267,9 @@ class Form:
 
     def update_starlight_cost(self):
         values = self.getters["opening_bonus"]()
-        self.starlight_cost.setStringValue_(f"星光总消耗 · {sum(cost * value for cost, value in zip(STARLIGHT_BONUS_COSTS, values))}")
+        source = f"星光总消耗 · {sum(cost * value for cost, value in zip(STARLIGHT_BONUS_COSTS, values))}"
+        self.starlight_cost.setIdentifier_(source)
+        self.starlight_cost.setStringValue_(self.text(source))
 
     def _observe(self, key, value):
         rows = parse_observe_ego_gift_values(value)

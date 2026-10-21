@@ -435,30 +435,6 @@ def _position_from_y(y, bus_position, bus_row):
         return None
 
 
-def divide_the_area_by_y(data):
-    # 步骤1：按y坐标从小到大排序（确保相近的y相邻）
-    sorted_by_y = sorted(data, key=lambda item: item[1][1])  # item[1]是坐标元组，item[1][1]是y值
-
-    # 步骤2：分组（y相近的归为一组，阈值可根据需求调整）
-    tolerance = ROAD_ROW_GAP * cfg.set_win_size / 1440 / 4
-    groups = []
-    for item in sorted_by_y:
-        current_y = item[1][1]
-        if not groups:
-            # 第一个元素，新建组
-            groups.append([item])
-        else:
-            # 检查当前元素与最后一个组的最后一个元素的y差值
-            last_group_last_y = groups[-1][-1][1][1]
-            if current_y - last_group_last_y <= tolerance:
-                # 加入最后一个组
-                groups[-1].append(item)
-            else:
-                # 新建组
-                groups.append([item])
-    return groups
-
-
 def divide_the_area_by_x(data):
     # 步骤1：按x坐标从小到大排序（确保相近的x相邻）
     sorted_by_x = sorted(data, key=lambda item: item[1][0])

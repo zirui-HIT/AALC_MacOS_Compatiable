@@ -976,8 +976,6 @@ class Shop:
                     break
                 elif auto.find_element("mirror/shop/heal_sinner/heal_sinner_return_assets.png"):
                     continue
-                elif auto.find_element("mirror/shop/heal_sinner/heal_sinner_return_assets.png"):
-                    continue
 
             if auto.click_element("mirror/shop/heal_sinner/heal_all_sinner_assets.png"):
                 sinner_be_heal = True

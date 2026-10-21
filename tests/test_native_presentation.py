@@ -304,11 +304,16 @@ def test_language_refresh_preserves_expanded_log_and_updates_dynamic_titles(monk
     app.tray_menu = A.NSMenu.alloc().init()
     app.native = SimpleNamespace(mainMenu=lambda: A.NSMenu.alloc().init())
     app.translations = {"任务": "Tasks", "工具": "Tools", "设置": "Settings", "游戏连接、定时任务与应用偏好": "Game connection, schedules and preferences", "运行日志": "Run log"}
+    app.translations["镜牢 · 已完成 {current} · 剩余 {remaining}"] = "Mirror · Completed {current} · Remaining {remaining}"
+    app.mirror_status = label(app.root, "", ((0, 160), (500, 30)))
+    app.mirror_status.setIdentifier_(None)
+    app.event("mirror", {"current": 1, "remaining": 2})
     monkeypatch.setattr(widgets, "translate", app.text)
 
     for language, heading, description, log in [("en", "Settings", app.translations[app.page_title[1]], "Run log ▾"), ("zh_cn", app.page_title[0], app.page_title[1], "运行日志 ▾")]:
         app.data["config"]["language_in_program"] = language
         app.refresh_language()
+        assert app.mirror_status.stringValue() == ("Mirror · Completed 1 · Remaining 2" if language == "en" else "镜牢 · 已完成 1 · 剩余 2")
         assert app.page_heading.stringValue() == heading
         assert app.page_description.stringValue() == description
         assert app.logs_expanded

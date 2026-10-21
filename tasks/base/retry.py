@@ -1,6 +1,8 @@
 import os
 import platform
 import time
+from functools import wraps
+from threading import local
 from backend_host.runtime import worker_sleep as sleep
 
 import psutil
@@ -15,6 +17,33 @@ _last_title_screen_tap_time = 0.0
 _last_simulator_alive_check_time = 0.0
 DEFAULT_TASK_STALL_TIMEOUT = 90
 MIN_TASK_STALL_TIMEOUT = 30
+_restart_context = local()
+
+
+class _RestartRequested(Exception):
+    """Retry the existing recovery sequence without nesting its call stack."""
+
+
+def repeat_initialization(function):
+    """Unwind screenshot recovery to the existing initialization sequence."""
+    class InitializeAgain(Exception):
+        pass
+
+    @wraps(function)
+    def initialize(*args, **kwargs):
+        if getattr(_restart_context, "initializing", False):
+            raise InitializeAgain
+        _restart_context.initializing = True
+        try:
+            while True:
+                try:
+                    return function(*args, **kwargs)
+                except InitializeAgain:
+                    continue
+        finally:
+            _restart_context.initializing = False
+
+    return initialize
 
 
 def ensure_simulator_game_started() -> bool:
@@ -238,6 +267,17 @@ def restart_game():
     from tasks.base.back_init_menu import back_init_menu
     from tasks.base.script_task_scheme import init_game
 
-    init_game()
-    sleep(3)
-    back_init_menu()
+    if getattr(_restart_context, "active", False):
+        raise _RestartRequested
+    _restart_context.active = True
+    try:
+        while True:
+            try:
+                init_game()
+                sleep(3)
+                back_init_menu()
+                return
+            except _RestartRequested:
+                continue
+    finally:
+        _restart_context.active = False

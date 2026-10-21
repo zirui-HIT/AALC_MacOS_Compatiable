@@ -1,5 +1,7 @@
 """Original starlight labels, costs and explanations."""
 
+import re
+
 def QT_TRANSLATE_NOOP(context, text):
     return text
 
@@ -136,3 +138,21 @@ STARLIGHT_BONUS_TIPS_EN = [
         "buff++": "buff++:\nTheme Pack Selection +1\nStarting E.G.O Gift Choice +1\nUpon entry, gain \\yellow{3} Tier 3 E.G.O Gift(s) of your choice for the selected Keyword (if no remaining Gifts meet the conditions, a lower Tier one will appear instead)\nUpon entry, gain 1 Dark Vestige, 1 Dim Vestige, and \\yellow{1 Shining Vestige}",
     },
 ]
+
+
+def bonus_tooltip(index, *, english=False):
+    tips = STARLIGHT_BONUS_TIPS_EN if english else STARLIGHT_BONUS_TIPS
+    return re.sub(r"\\yellow\{([^{}]*)\}", r"\1", "\n\n".join(tips[index].values()))
+
+
+def bonus_translations():
+    # Preserve Chinese source identifiers so existing editors refresh both ways.
+    result = {
+        f"{cn} · {level}": f"{en} · {level}"
+        for cn, en in zip(STARLIGHT_BONUS_NAMES, STARLIGHT_BONUS_NAMES_EN)
+        for level in range(4)
+    }
+    result.update({bonus_tooltip(i): bonus_tooltip(i, english=True) for i in range(len(STARLIGHT_BONUS_NAMES))})
+    result.update({"星光总消耗": "Total starlight cost", "全选 · 清空": "All · Clear",
+                   "全选 · 基础": "All · Base", "全选 · +": "All · +", "全选 · ++": "All · ++"})
+    return result

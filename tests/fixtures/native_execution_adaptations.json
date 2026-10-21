@@ -29,6 +29,11 @@
   ],
   "module/automation/automation.py": [
     {
+      "reason": "2026-10-21 confirmed duplicate interaction-gate deadline: coordinate clicks already call the existing wrapped input with the same gate, timeout and cancellation. Remove only the redundant preliminary wait.",
+      "before": "        # 计算传入的位置\n        self._interaction_gate.wait(timeout=GATE_WAIT_TIMEOUT)\n        x, y = self.calculate_click_position(coordinates, offset)\n",
+      "after": "        # 计算传入的位置\n        x, y = self.calculate_click_position(coordinates, offset)\n"
+    },
+    {
       "reason": "Serialize OCR cache invalidation with inference and cache lookup using the existing RLock.",
       "before": "        self._ocr_image = None\n        self._ocr_regions.clear()\n",
       "after": "        with self._ocr_lock:\n            self._ocr_image = None\n            self._ocr_regions.clear()\n"
@@ -113,6 +118,16 @@
     }
   ],
   "tasks/battle/battle.py": [
+    {
+      "reason": "2026-10-21 confirmed dead-sinner abandon loop bypassed the existing battle timeout and running flag; reuse the unchanged timeout/home recovery while preserving abandon actions.",
+      "before": "                        while True:\n                            auto.mouse_to_blank()\n                            if auto.take_screenshot() is None:\n                                continue\n                            if auto.find_element(\"mirror/road_in_mir/legend_assets.png\"):\n                                return False\n                            if auto.click_element(\"battle/give_up_assets.png\"):\n                                sleep(2)\n                                return False\n                            if auto.click_element(\"battle/setting_assets.png\"):\n                                continue\n\n",
+      "after": "                        while self.running:\n                            if auto.get_restore_time() is not None:\n                                start_time = max(start_time, auto.get_restore_time())\n                            if check_times(start_time, timeout=900 + 300 * combat_count, logs=False):\n                                from tasks.base.back_init_menu import back_init_menu\n\n                                back_init_menu()\n                                return False\n                            auto.mouse_to_blank()\n                            if auto.take_screenshot() is None:\n                                continue\n                            if auto.find_element(\"mirror/road_in_mir/legend_assets.png\"):\n                                return False\n                            if auto.click_element(\"battle/give_up_assets.png\"):\n                                sleep(2)\n                                return False\n                            if auto.click_element(\"battle/setting_assets.png\"):\n                                continue\n                        return False\n\n"
+    },
+    {
+      "reason": "2026-10-21 confirmed log regression: count a defeat only once its existing confirmation has dismissed the dialog, preserving the five-defeat policy and timeout.",
+      "before": "                auto.click_element(\"battle/dead_all_confirm_assets.png\")\n                sleep(1)\n                start_time = time.time()\n                self.fail_times += 1\n",
+      "after": "                if not auto.click_element(\"battle/dead_all_confirm_assets.png\"):\n                    continue\n                sleep(1)\n                # A queued iOS tap may leave the same defeat dialog visible.\n                # Count the defeat only after the existing confirmation leaves it.\n                if auto.take_screenshot() is None or auto.find_element(\"battle/dead_all.png\"):\n                    continue\n                start_time = time.time()\n                self.fail_times += 1\n"
+    },
     {
       "reason": "Initialize only the diagnostic message when the existing defense branch recognizes no gear; all game actions and branch conditions remain frozen.",
       "before": "",
@@ -216,12 +231,22 @@
   ],
   "tasks/base/script_task_scheme.py": [
     {
+      "reason": "2026-10-21 bound screenshot recovery recursion without changing initialization actions or their order.",
+      "before": "def init_game():",
+      "after": "@repeat_initialization\ndef init_game():"
+    },
+    {
       "reason": "2026-10-14 known bug repair: classify only an entry-resumed battle and restore its original flag so the existing daily counter deducts it.",
       "before": "        if cfg.set_win_size == 720:\n            log.warning(\"当前游戏分辨率为1280*720, 可能会导致识别错误或卡死, 建议设置为更高分辨率\")\n\n    retry_monitor.start()\n\n    # 如果是战斗中，先处理战斗\n    get_reward = None\n    if auto.click_element(\"battle/turn_assets.png\", take_screenshot=True):\n        get_reward = battle.fight()\n\n    task_list = []\n    # 执行日常刷本任务\n    if cfg.daily_task:\n        task_list.append(Daily_task_wrapper(get_reward=get_reward))\n\n    # 执行奖励领取任务\n    if cfg.get_reward:\n",
       "after": "        if cfg.set_win_size == 720:\n            log.warning(\"当前游戏分辨率为1280*720, 可能会导致识别错误或卡死, 建议设置为更高分辨率\")\n\n    retry_monitor.start()\n\n    # 如果是战斗中，先处理战斗\n    get_reward = None\n    if auto.click_element(\"battle/turn_assets.png\", take_screenshot=True):\n        previous_first_battle = battle.first_battle\n        battle.first_battle = True\n        try:\n            get_reward = battle.fight()\n        finally:\n            battle.first_battle = previous_first_battle\n\n    task_list = []\n    # 执行日常刷本任务\n    if cfg.daily_task:\n        task_list.append(Daily_task_wrapper(get_reward=get_reward))\n\n    # 执行奖励领取任务\n    if cfg.get_reward:\n"
     }
   ],
   "tasks/mirror/in_shop.py": [
+    {
+      "reason": "2026-10-21 remove an identical unreachable elif using the same captured frame.",
+      "before": "                elif auto.find_element(\"mirror/shop/heal_sinner/heal_sinner_return_assets.png\"):\n                    continue\n                elif auto.find_element(\"mirror/shop/heal_sinner/heal_sinner_return_assets.png\"):\n                    continue\n",
+      "after": "                elif auto.find_element(\"mirror/shop/heal_sinner/heal_sinner_return_assets.png\"):\n                    continue\n"
+    },
     {
       "reason": "2026-10-14 known bug repairs: select the starting gift before upgrading, return failure on upgrade timeout, map priority rank to sinner identity, reset purchased-stock count after refresh.",
       "before": "                return False\n            loop_count -= 1\n            if loop_count < 20:\n                auto.model = \"normal\"\n            if loop_count < 10:\n                auto.model = \"aggressive\"\n            if loop_count < 0:\n                log.error(\"无法升级ego饰品\")\n                break\n\n    def buy_gifts(self):\n        def sort_points(points, complete=0, threshold=40):\n            # 第一步：先按 X 坐标排好（左右顺序）\n            points.sort(key=lambda p: p[0])\n            # 第二步：按 Y 坐标“归一化”后排序（上下顺序）\n            points.sort(key=lambda p: p[1] // threshold)\n\n",
@@ -244,6 +269,16 @@
     }
   ],
   "tasks/mirror/mirror.py": [
+    {
+      "reason": "2026-10-21 remove three unused coordinate calculations with no side effects; starlight selection and gesture logic stay unchanged.",
+      "before": "        starlights_Y = [first_starlight[1] + (i // 5) * 480 * scale for i in range(10)]\n\n        first_single_plus = (first_starlight[0] - 80 * scale, first_starlight[1] + 320 * scale)\n        double_plus_offset = 80 * scale * 2\n        star_card_size = (400 * scale, 480 * scale)\n\n",
+      "after": "        starlights_Y = [first_starlight[1] + (i // 5) * 480 * scale for i in range(10)]\n\n"
+    },
+    {
+      "reason": "2026-10-21 confirmed log regression: reuse the existing stall recovery across the entire restart loop, including unavailable screenshots, with the existing restore-time allowance.",
+      "before": "    def re_start(self):\n        while True:\n            # 自动截图\n",
+      "after": "    def re_start(self):\n        from tasks.base.retry import check_times\n\n        start_time = time.time()\n        while True:\n            if auto.get_restore_time() is not None:\n                start_time = max(start_time, auto.get_restore_time())\n            if check_times(start_time):\n                return False\n            # 自动截图\n"
+    },
     {
       "reason": "2026-10-14 known bug repairs: respect the existing second-system timing/action settings and reset restart difficulty to the initial configuration.",
       "before": "            get_game_actions().back()\n            time.sleep(1)\n            if retry() is False:\n                return False\n        # TODO耗时\n        msg = f\"满 身 疮 痍 ！ 重 开 ！此次战败耗时{time.time() - self.start_time}\"\n        log.info(msg)\n        self.first_battle = True\n        self.start_time = time.time()\n        self.floor = 0\n        self.theme_pack_timing_start_count = 0\n        self.current_floor_start_time = None\n        self.current_floor_time_complete = False\n        self.floor_detect_failed = False\n\n    def event_handling(self):\n",
@@ -272,6 +307,76 @@
       "reason": "Route user screenshots to the macOS Pictures directory through the shared path adapter; capture flow is unchanged.",
       "before": "                img.save(data_path(f\"templates/screenshot_{timestr}.png\"))\n",
       "after": "                img.save(data_path(f\"screenshots/screenshot_{timestr}.png\"))\n"
+    }
+  ],
+  "tasks/mirror/select_theme_pack.py": [
+    {
+      "reason": "2026-10-21 independently confirmed empty candidate list after skipping the only event pack: retain existing refresh/recovery paths instead of retrying max([]) forever.",
+      "before": "                max_weight = max(weight_list)\n                log.debug(f\"当前主题包权重列表：{list(zip(pack_name, weight_list))}\")",
+      "after": "                max_weight = max(weight_list, default=float(\"-inf\"))\n                log.debug(f\"当前主题包权重列表：{list(zip(pack_name, weight_list))}\")"
+    }
+  ],
+  "tasks/base/retry.py": [
+    {
+      "reason": "2026-10-21 confirmed take_screenshot/init_game recovery recursion: repeat the existing initialization body on reentry, with a thread-local guard cleared on cancellation.",
+      "before": "",
+      "after": "def repeat_initialization(function):\n    \"\"\"Unwind screenshot recovery to the existing initialization sequence.\"\"\"\n    class InitializeAgain(Exception):\n        pass\n\n    @wraps(function)\n    def initialize(*args, **kwargs):\n        if getattr(_restart_context, \"initializing\", False):\n            raise InitializeAgain\n        _restart_context.initializing = True\n        try:\n            while True:\n                try:\n                    return function(*args, **kwargs)\n                except InitializeAgain:\n                    continue\n        finally:\n            _restart_context.initializing = False\n\n    return initialize\n\n"
+    },
+    {
+      "reason": "2026-10-21 confirmed repeated recovery timeouts recursively re-enter restart_game from init_game/retry or back_init_menu; reuse the same initialization/sleep/home sequence iteratively, with thread-local cancellation-safe reentry state.",
+      "before": "",
+      "after": "_restart_context = local()\n\n\nclass _RestartRequested(Exception):\n    \"\"\"Retry the existing recovery sequence without nesting its call stack.\"\"\"\n"
+    },
+    {
+      "reason": "2026-10-21 reuse the unchanged recovery sequence without recursive stack growth.",
+      "before": "    init_game()\n    sleep(3)\n    back_init_menu()\n",
+      "after": "    if getattr(_restart_context, \"active\", False):\n        raise _RestartRequested\n    _restart_context.active = True\n    try:\n        while True:\n            try:\n                init_game()\n                sleep(3)\n                back_init_menu()\n                return\n            except _RestartRequested:\n                continue\n    finally:\n        _restart_context.active = False\n"
+    }
+  ],
+  "tasks/daily/luxcavation.py": [
+    {
+      "reason": "2026-10-21 confirmed EXP navigation continues bypassed the existing retry limit; keep the original budget, mode escalation and failure exit for page attempts.",
+      "before": "def EXP_luxcavation(combat_count: int = 1):\n    loop_count = 30\n    auto.model = \"clam\"\n    while True:\n        # 自动截图\n        if auto.take_screenshot() is None:\n            continue\n        if auto.find_element(\"teams/identify_assets.png\"):\n            break\n",
+      "after": "def EXP_luxcavation(combat_count: int = 1):\n    loop_count = 30\n    auto.model = \"clam\"\n    while True:\n        # 自动截图\n        if auto.take_screenshot() is None:\n            continue\n        if auto.find_element(\"teams/identify_assets.png\"):\n            break\n        loop_count -= 1\n        if loop_count < 20:\n            auto.model = \"normal\"\n        if loop_count < 10:\n            auto.model = \"aggressive\"\n        if loop_count < 0:\n            log.error(\"无法进入经验本,不能进行下一步,此次经验本无效\")\n            break\n"
+    },
+    {
+      "reason": "2026-10-21 move the original EXP retry budget before early continues.",
+      "before": "        auto.mouse_to_blank()\n\n        loop_count -= 1\n        if loop_count < 20:\n            auto.model = \"normal\"\n        if loop_count < 10:\n            auto.model = \"aggressive\"\n        if loop_count < 0:\n            log.error(\"无法进入经验本,不能进行下一步,此次经验本无效\")\n            break\n",
+      "after": "        auto.mouse_to_blank()\n        # EXP entry attempts share the retry budget at the start of this loop.\n"
+    },
+    {
+      "reason": "2026-10-21 confirmed thread entry branches bypassed the original retry budget; account for each page attempt before the early continues, preserving the same limit, modes and failure exit.",
+      "before": "    continuous_combat_set = False\n    auto.model = \"clam\"\n    while True:\n        # 自动截图\n        if auto.take_screenshot() is None:\n            continue\n        if auto.find_element(\"teams/identify_assets.png\"):\n            break\n",
+      "after": "    continuous_combat_set = False\n    auto.model = \"clam\"\n    while True:\n        # 自动截图\n        if auto.take_screenshot() is None:\n            continue\n        if auto.find_element(\"teams/identify_assets.png\"):\n            break\n        loop_count -= 1\n        if loop_count < 20:\n            auto.model = \"normal\"\n        if loop_count < 10:\n            auto.model = \"aggressive\"\n        if loop_count < 0:\n            log.error(\"无法进入纽本,不能进行下一步,此次纽本无效\")\n            break\n"
+    },
+    {
+      "reason": "2026-10-21 move the existing retry budget without changing its thresholds or actions.",
+      "before": "        auto.mouse_to_blank()\n        loop_count -= 1\n        if loop_count < 20:\n            auto.model = \"normal\"\n        if loop_count < 10:\n            auto.model = \"aggressive\"\n        if loop_count < 0:\n            log.error(\"无法进入纽本,不能进行下一步,此次纽本无效\")\n            break\n",
+      "after": "        auto.mouse_to_blank()\n        # Entry failures share the retry budget at the start of this loop.\n"
+    },
+    {
+      "reason": "2026-10-21 right-half filtering must use half the logical width, not half the height.",
+      "before": "                # 只识别右半屏幕\n                min_x = cfg.set_win_size / 2\n",
+      "after": "                # 只识别右半屏幕\n                min_x = cfg.set_win_size * 16 / 9 / 2\n"
+    },
+    {
+      "reason": "2026-10-21 right-half filtering must use half the logical width, not half the height.",
+      "before": "                        if level:\n                            min_x = cfg.set_win_size / 2\n",
+      "after": "                        if level:\n                            min_x = cfg.set_win_size * 16 / 9 / 2\n"
+    }
+  ],
+  "tasks/base/make_enkephalin_module.py": [
+    {
+      "reason": "2026-10-21 independent repository search confirmed this helper has no callers; remove its unused body without changing active task functions.",
+      "before": "def get_current_enkephalin():\n    import cv2\n    import numpy as np\n\n    from module.ocr import ocr\n    from utils.image_utils import ImageUtils\n\n    enkephalin_bbox = ImageUtils.get_bbox(ImageUtils.load_image(\"enkephalin/enkephalin_now_bbox.png\"))\n    for _ in range(5):\n        try:\n            while auto.take_screenshot() is None:\n                continue\n            sc = ImageUtils.crop(np.array(auto.screenshot), enkephalin_bbox)\n            _, binary_image = cv2.threshold(sc, 110, 255, cv2.THRESH_BINARY)\n            result = ocr.run(binary_image)\n            ocr_result = [result.txts[i] for i in range(len(result.txts))]\n            ocr_result = \"\".join(ocr_result)\n            ocr_result = ocr_result.lower()\n            if \"/\" in ocr_result:\n                ocr_result = ocr_result.split(\"/\")\n                ocr_result_int = \"\".join(char for char in ocr_result[0] if char.isdigit())\n                current_enkephalin = int(ocr_result_int)\n                return current_enkephalin\n        except:\n            continue\n    try:\n        sc = ImageUtils.crop(np.array(auto.screenshot), enkephalin_bbox)\n        _, binary_image = cv2.threshold(sc, 150, 255, cv2.THRESH_BINARY)\n        result = ocr.run(binary_image)\n        ocr_result = [result.txts[i] for i in range(len(result.txts))]\n        ocr_result = \"\".join(ocr_result)\n        current_enkephalin = int(ocr_result[0])\n        return current_enkephalin\n    except:\n        pass\n    return None\n\n\n@begin_and_finish_time_log(task_name=\"体力换饼\", calculate_time=False)",
+      "after": "@begin_and_finish_time_log(task_name=\"体力换饼\", calculate_time=False)"
+    }
+  ],
+  "tasks/mirror/search_road.py": [
+    {
+      "reason": "2026-10-21 independent repository search confirmed this helper has no callers; remove its unused body without changing active task functions.",
+      "before": "def divide_the_area_by_y(data):\n    # 步骤1：按y坐标从小到大排序（确保相近的y相邻）\n    sorted_by_y = sorted(data, key=lambda item: item[1][1])  # item[1]是坐标元组，item[1][1]是y值\n\n    # 步骤2：分组（y相近的归为一组，阈值可根据需求调整）\n    tolerance = ROAD_ROW_GAP * cfg.set_win_size / 1440 / 4\n    groups = []\n    for item in sorted_by_y:\n        current_y = item[1][1]\n        if not groups:\n            # 第一个元素，新建组\n            groups.append([item])\n        else:\n            # 检查当前元素与最后一个组的最后一个元素的y差值\n            last_group_last_y = groups[-1][-1][1][1]\n            if current_y - last_group_last_y <= tolerance:\n                # 加入最后一个组\n                groups[-1].append(item)\n            else:\n                # 新建组\n                groups.append([item])\n    return groups\n\n\ndef divide_the_area_by_x(data):",
+      "after": "def divide_the_area_by_x(data):"
     }
   ]
 }

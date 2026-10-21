@@ -151,3 +151,38 @@ def test_playcover_gate_keeps_original_timeout_and_stop_response(monkeypatch, mo
         session.input.check_cancel.side_effect = BackendCancelled("cleanup")
         automation._interaction_gate.set()
         worker.join(0.5)
+
+
+def test_coordinate_click_uses_one_existing_gate_deadline(monkeypatch):
+    module = import_module("module.automation.automation")
+    from module.backends import factory
+
+    elapsed = 0.
+
+    class ClosedGate:
+        def wait(self, timeout):
+            nonlocal elapsed
+            elapsed += timeout
+            return False
+
+        def is_set(self):
+            return False
+
+    automation = object.__new__(module.Automation)
+    automation._interaction_gate = ClosedGate()
+    automation._input_lock = threading.RLock()
+    automation._business_frame = None
+    automation.input_handler = Mock()
+    automation._invoke_input = Mock(return_value=True)
+    automation.calculate_click_position = Mock(return_value=(10, 20))
+    automation.last_click_time = 1
+    automation.mouse_click = automation._run_business_interaction("mouse_click")
+    automation.mouse_drag = automation.mouse_drag_down = automation.mouse_scroll = Mock()
+    monkeypatch.setattr(module.cfg, "config", module.cfg.config.model_copy(update={"backend": "playcover"}))
+    monkeypatch.setattr(module.time, "monotonic", lambda: elapsed)
+    monkeypatch.setattr(module.time, "time", lambda: 1)
+    monkeypatch.setattr(factory, "get_playcover_session", lambda: Mock())
+
+    assert automation.mouse_action_with_pos((10, 20)) is True
+    assert elapsed == pytest.approx(module.GATE_WAIT_TIMEOUT)
+    automation._invoke_input.assert_called_once()
