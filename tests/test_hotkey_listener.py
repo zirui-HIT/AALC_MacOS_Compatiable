@@ -1,7 +1,9 @@
 """PR #921 regression tests with a fake listener; no host keyboard is monitored."""
 
 import types
+from contextlib import nullcontext
 
+import pytest
 from pynput import keyboard
 
 from module import hotkey_listener
@@ -188,4 +190,49 @@ def test_bad_provider_and_invalid_shortcut_leave_valid_registration_working(monk
     manager.register(lambda: {"invalid+": lambda: calls.append("invalid"), "<ctrl>+q": lambda: calls.append("q")})
     _press(_FakeListener.instances[0], *_shortcut("q"))
     assert calls == ["q"]
+
+
+@pytest.mark.parametrize("letter,vk,modified", [("p", 35, "π"), ("r", 15, "®"), ("a", 0, "å")])
+def test_mac_option_shortcuts_use_unmodified_layout_characters(monkeypatch, letter, vk, modified):
+    from pynput._util import darwin
+    from pynput.keyboard._base import Listener
+
+    manager = _make_hotkeys(monkeypatch)
+    monkeypatch.setattr(hotkey_listener.sys, "platform", "darwin")
+    monkeypatch.setattr(_FakeListener, "canonical", lambda self, key: Listener.canonical(None, key))
+    monkeypatch.setattr(darwin, "keycode_context", lambda: nullcontext((0, b"fake-layout")))
+    monkeypatch.setattr(darwin, "keycode_to_string", lambda context, code: {vk: letter}[code])
+    calls = []
+    manager.register(lambda: {"<alt>+" + letter: lambda: calls.append(letter)})
+    listener = _FakeListener.instances[0]
+
+    # Extra modifiers and injected input still cannot trigger the shortcut.
+    _press(listener, keyboard.Key.shift, keyboard.Key.alt, keyboard.KeyCode.from_char(modified, vk=vk))
+    listener.on_press(keyboard.Key.alt, injected=True)
+    listener.on_press(keyboard.KeyCode.from_char(modified, vk=vk), injected=True)
+    assert calls == []
+    listener.on_press(keyboard.Key.alt)
+    listener.on_press(keyboard.KeyCode.from_char(modified, vk=vk))
+    listener.on_press(keyboard.KeyCode.from_char(modified, vk=vk))
+    assert calls == [letter]
+    # Releasing Option before the letter must not leave a held key behind.
+    listener.on_release(keyboard.Key.alt)
+    listener.on_release(keyboard.KeyCode.from_char(letter, vk=vk))
+    _press(listener, keyboard.Key.alt, keyboard.KeyCode.from_char(modified, vk=vk))
+    assert calls == [letter, letter]
+    assert not manager._pressed_keys
+
+
+def test_mac_hotkey_without_keyboard_layout_keeps_existing_canonicalization(monkeypatch):
+    from pynput._util import darwin
+    from pynput.keyboard._base import Listener
+
+    manager = _make_hotkeys(monkeypatch)
+    monkeypatch.setattr(hotkey_listener.sys, "platform", "darwin")
+    monkeypatch.setattr(_FakeListener, "canonical", lambda self, key: Listener.canonical(None, key))
+    monkeypatch.setattr(darwin, "keycode_context", lambda: nullcontext((0, None)))
+    calls = []
+    manager.register(lambda: {"<ctrl>+q": lambda: calls.append(1)})
+    _press(_FakeListener.instances[0], keyboard.Key.ctrl, keyboard.KeyCode.from_char("Q", vk=12))
+    assert calls == [1]
 

@@ -59,7 +59,7 @@ from native_contract import FIELDS, GROUPS, HIDDEN_TEAM, STATS, TASK_KEYS
 from utils.runtime_paths import data_path, resource_path
 
 PAGE_KEYS = ["daily", "reward", "energy", "mirror", "teams", "theme", "settings", "tools"]
-HIDDEN_APP_FIELDS = {"update_prerelease_enable"}  # Release channels don't apply to Git ancestry checks.
+HIDDEN_APP_FIELDS = {"update_prerelease_enable"}  # Official notifications use stable releases.
 
 
 class Delegate(NSObject):
@@ -634,6 +634,11 @@ class Application:
                             if local_value != previous_config.get(key):
                                 continue
                             form.set_value(key, data["config"].get(key))
+            for editor in getattr(self, "editors", []):
+                if not editor.closed and hasattr(editor, "stats_label"):
+                    stats = data["config"].get("teams", {}).get(str(editor.team_scope))
+                    if stats is not None:
+                        editor.stats_label.setStringValue_(self.team_stats_text(stats))
             if first or previous_config.get("language_in_program") != data["config"]["language_in_program"]:
                 self.refresh_language()
             self.update_state()
@@ -672,8 +677,7 @@ class Application:
             self.show_announcements(data)
         elif event == "update":
             if data["status"] == "UPDATE_AVAILABLE":
-                source_url = "https://github.com/KIYI671/AhabAssistantLimbusCompany" + ("/commit/" + data["commit"] if data.get("commit") else "")
-                self.show_text("官方仓库有更新 · " + data["version"], data["content"], html=True, source_url=source_url)
+                self.show_text("官方发布新版本 · " + data["version"], data["content"], html=True, source_url=data["release_url"])
             elif data["status"] == "FAILURE":
                 if not data.get("automatic", False):
                     self.error(data["message"])
@@ -1030,8 +1034,8 @@ class Application:
         save_button = button(editor.root, "保存", ((668, 14), (112, 30)), lambda sender: save(), editor.targets)
         for control in (cancel, save_button):
             control.setAutoresizingMask_(A.NSViewMinXMargin)
-        stats = draft.values
-        label(editor.document, f"普通镜牢 {stats['mirror_normal_count']} 次 · 平均 {(stats['total_mirror_time_normal'] or [0.0])[0]:.1f} 秒    困难镜牢 {stats['mirror_hard_count']} 次 · 平均 {(stats['total_mirror_time_hard'] or [0.0])[0]:.1f} 秒", ((20, form.y + 16), (740, 26)))
+        editor.stats_label = label(editor.document, self.team_stats_text(draft.values), ((20, form.y + 16), (740, 26)))
+        editor.stats_label.setIdentifier_(None)
         button(editor.document, "清空历史统计", ((20, form.y + 50), (180, 30)), lambda sender: self.clear_stats(number), editor.targets)
         editor.document.setFrameSize_((editor.document.frame().size.width, form.y + 100))
         def dirty():
@@ -1088,6 +1092,10 @@ class Application:
             self.client.request("team.save", {"number": number, "values": {key: value for key, value in values.items() if key not in STATS and key not in {"use_team_code", "team_code"}}}, lambda result: editor.close())
         except (ValueError, TypeError) as exc:
             self.error(str(exc))
+
+    @staticmethod
+    def team_stats_text(stats):
+        return f"普通镜牢 {stats['mirror_normal_count']} 次 · 平均 {(stats['total_mirror_time_normal'] or [0.0])[0]:.1f} 秒    困难镜牢 {stats['mirror_hard_count']} 次 · 平均 {(stats['total_mirror_time_hard'] or [0.0])[0]:.1f} 秒"
 
     def clear_stats(self, number):
         if confirm("清空历史统计？", "此操作会清空该队伍的镜牢次数和耗时记录。"):
@@ -1409,8 +1417,7 @@ class Application:
             action_, params = "copy", {}
         else:
             action_, params = "paste", {"code": A.NSPasteboard.generalPasteboard().stringForType_(A.NSPasteboardTypeString) or ""}
-        if index in {1, 3}:
-            params["values"] = copy.deepcopy(draft.config_data)
+        params["values"] = copy.deepcopy(draft.config_data)
 
         def transfer_done(result):
             if not current():
@@ -1420,20 +1427,10 @@ class Application:
                 board.clearContents()
                 board.setString_forType_(result or "", A.NSPasteboardTypeString)
             elif index in {1, 3}:
-                def received(data):
-                    if current():
-                        self.replace_theme(draft, data, render)
+                self.replace_theme(draft, result, render)
 
-                self.client.request("theme.get", {"number": number}, received)
-
-        def transfer(result):
-            if current():
-                self.client.request("theme.transfer", {"number": number, "action": action_, **params}, transfer_done)
-
-        if index in {0, 2} and current():
-            self.client.request("theme.save", {"number": number, "values": draft.config_data}, transfer)
-        else:
-            transfer(None)
+        if current():
+            self.client.request("theme.transfer", {"number": number, "action": action_, **params}, transfer_done)
 
     def show_capture(self, data):
         editor = self.open_tool("capture")
@@ -1517,7 +1514,7 @@ class Application:
         view.setFont_(A.NSFont.systemFontOfSize_(13))
         view.setTextColor_(A.NSColor.labelColor())
         editor.scroller.setDocumentView_(view)
-        button(editor.root, "查看官方提交" if source_url else "查看发布页面", ((20, 14), (180, 30)), lambda sender: self.open_url(source_url or "https://github.com/KIYI671/AhabAssistantLimbusCompany/releases"), editor.targets)
+        button(editor.root, "查看发布页面", ((20, 14), (180, 30)), lambda sender: self.open_url(source_url or "https://github.com/KIYI671/AhabAssistantLimbusCompany/releases"), editor.targets)
         editor.show()
 
     def show_announcements(self, data):

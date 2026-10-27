@@ -33,6 +33,7 @@ def test_frozen_bundle_separates_resources_and_portable_data(monkeypatch):
 def mac_directories(tmp_path, monkeypatch):
     monkeypatch.delenv("AALC_DATA_ROOT", raising=False)
     monkeypatch.setattr(runtime_paths.sys, "platform", "darwin")
+    monkeypatch.setattr(runtime_paths, "APP_ROOT", tmp_path / "app")
     paths = {1: tmp_path / "Library/Application Support", 2: tmp_path / "Library/Caches",
              3: tmp_path / "Library", 4: tmp_path / "Pictures"}
     monkeypatch.setitem(runtime_paths.sys.modules, "Foundation", SimpleNamespace(
@@ -96,3 +97,27 @@ def test_explicit_override_keeps_all_writes_isolated(tmp_path, monkeypatch):
     for name in ("config", "templates", "resources", "models", "cache", "logs", "tmp", "screenshots"):
         assert runtime_paths.data_path(name) == tmp_path / name
     assert runtime_paths.os.environ["TMPDIR"] == str(tmp_path / "tmp")
+
+
+def test_first_upgrade_migrates_teams_weights_and_templates_without_overwriting(mac_directories, monkeypatch):
+    roots = runtime_paths.runtime_directories()
+    monkeypatch.setattr(runtime_paths, "DIRECTORIES", roots)
+    monkeypatch.setattr(runtime_paths, "DATA_ROOT", roots["data"])
+    legacy = runtime_paths.APP_ROOT / ".runtime"
+    for relative, text in {"config/config.yaml": "teams: {'1': {}, '2': {}}", "config/theme_pack_weight/team2.yaml": "old weight",
+                           "templates/custom.png": "old template", "resources/old.png": "resource", "models/model": "model"}.items():
+        path = legacy / relative
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text(text)
+    custom = roots["data"] / "templates/custom.png"
+    custom.parent.mkdir(parents=True)
+    custom.write_text("existing template")
+    runtime_paths.prepare_runtime()
+    assert runtime_paths.data_path("config/config.yaml").read_text() == "teams: {'1': {}, '2': {}}"
+    assert runtime_paths.data_path("config/theme_pack_weight/team2.yaml").read_text() == "old weight"
+    assert custom.read_text() == "existing template"
+    assert runtime_paths.data_path("models/model").read_text() == "model"
+    # An update must never reimport an older config over the user's new one.
+    runtime_paths.data_path("config/config.yaml").write_text("new preferences")
+    runtime_paths.prepare_runtime()
+    assert runtime_paths.data_path("config/config.yaml").read_text() == "new preferences"

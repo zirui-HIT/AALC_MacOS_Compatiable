@@ -60,6 +60,12 @@ class PlayCoverSession:
         with self._capture_lock:
             if not self.transport.connected:
                 self.connect()  # Only read-only connection/query operations are repeated.
+            # TUCH has no delivery/render acknowledgement. Avoid recognizing
+            # a transitional pre-release frame as the next page.
+            settle = self.input.last_release_monotonic + 0.5 - time.monotonic()
+            if settle > 0:
+                self.cancel.wait(settle)
+                self.input.check_cancel()
             deadline = time.monotonic() + 5
             while True:
                 self.input.check_cancel()

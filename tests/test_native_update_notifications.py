@@ -1,4 +1,4 @@
-"""Automatic checks stay quiet unless official source updates are confirmed."""
+"""Automatic checks stay quiet unless a newer official release is confirmed."""
 
 # Cocoa imports follow the optional framework check.
 # ruff: noqa: E402
@@ -22,7 +22,7 @@ def app():
     return result
 
 
-@pytest.mark.parametrize("status", ["CURRENT", "LOCAL_AHEAD", "EQUIVALENT", "UNKNOWN", "FAILURE"])
+@pytest.mark.parametrize("status", ["CURRENT", "UNKNOWN", "FAILURE"])
 def test_automatic_non_update_results_do_not_interrupt_the_window(status):
     controller = app()
     payload = {"status": status, "automatic": True, "message": "检查结论"}
@@ -33,17 +33,17 @@ def test_automatic_non_update_results_do_not_interrupt_the_window(status):
     controller.mirror_status.setStringValue_.assert_not_called()
 
 
-def test_confirmed_update_shows_the_official_commit_notice():
+def test_confirmed_update_shows_the_release_notes_and_release_page():
     controller = app()
-    commit = "12345678" + "0" * 32
-    controller.event("update", {"status": "UPDATE_AVAILABLE", "automatic": True, "version": "12345678", "commit": commit, "content": "官方变更"})
-    controller.show_text.assert_called_once_with("官方仓库有更新 · 12345678", "官方变更", html=True, source_url="https://github.com/KIYI671/AhabAssistantLimbusCompany/commit/" + commit)
+    url = "https://github.com/KIYI671/AhabAssistantLimbusCompany/releases/tag/V1.7.0"
+    controller.event("update", {"status": "UPDATE_AVAILABLE", "automatic": True, "version": "V1.7.0", "release_url": url, "content": "官方变更"})
+    controller.show_text.assert_called_once_with("官方发布新版本 · V1.7.0", "官方变更", html=True, source_url=url)
 
 
 def test_manual_check_displays_its_specific_comparison_result():
     controller = app()
-    controller.event("update", {"status": "LOCAL_AHEAD", "automatic": False, "message": "本地已包含官方最新提交"})
-    controller.mirror_status.setStringValue_.assert_called_once_with("本地已包含官方最新提交")
+    controller.event("update", {"status": "CURRENT", "automatic": False, "message": "本地已包含官方最新 Release"})
+    controller.mirror_status.setStringValue_.assert_called_once_with("本地已包含官方最新 Release")
     controller.show_text.assert_not_called()
 
 

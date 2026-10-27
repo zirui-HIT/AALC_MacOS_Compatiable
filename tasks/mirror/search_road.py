@@ -595,8 +595,9 @@ class RouteGraph:
     def find_min_weight_route(self) -> tuple[float, list[Node]]:
         """优先走当前可达事件；同优先级下复用原有路径总权重。"""
         start_node = self.columns["column1"][self.bus_row]
+        end_column = min(self.column_count, 3) if self.hard_mode else self.column_count
         end_nodes = {
-            node for column in self.columns.values() for node in column.values()
+            node for number in range(1, end_column + 1) for node in self.columns[f"column{number}"].values()
             if node.node_class == "boss_battle"
         }
         if not end_nodes:

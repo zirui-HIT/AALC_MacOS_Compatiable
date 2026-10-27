@@ -1,0 +1,18 @@
+{
+  "game_version": "1.117.1",
+  "source": "Real current-run MaaTools frame, observation select ROI",
+  "crop_1080": [
+    1526,
+    828,
+    1764,
+    891
+  ],
+  "native_after_warmup": [
+    "選擇 0/3"
+  ],
+  "cold_rapid_fallback": [
+    "選選",
+    "0/3"
+  ],
+  "sha256": "33f049ceee33f79e883e09f3ace86113df197eed8e336fe05d778c462133a71d"
+}

@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import os
+import shutil
 import sys
 from pathlib import Path
 
@@ -83,8 +84,32 @@ def data_path(path: str | Path) -> Path:
 def prepare_runtime() -> None:
     for name in ("config", "logs", "cache", "tmp", "models", "resources/images", "templates", "screenshots"):
         data_path(name).mkdir(parents=True, exist_ok=True)
+    if sys.platform == "darwin" and "AALC_DATA_ROOT" not in os.environ:
+        _migrate_portable_data()
     # Preserve the system temporary directory across frontend/backend launches.
     if "AALC_DATA_ROOT" in os.environ:
         os.environ["TMPDIR"] = str(data_path("tmp"))
     os.environ["XDG_CACHE_HOME"] = str(data_path("cache"))
     os.environ["PYINSTALLER_CONFIG_DIR"] = str(data_path("cache/pyinstaller"))
+
+
+def _migrate_portable_data() -> None:
+    """Import an adjacent old installation only before creating a new config."""
+    legacy = APP_ROOT / ".runtime"
+    source = legacy / "config/config.yaml"
+    target = data_path("config/config.yaml")
+    if target.exists() or not source.is_file() or legacy.resolve() == DATA_ROOT.resolve():
+        return
+
+    def copy_missing(old, new):
+        if not Path(new).exists():
+            shutil.copy2(old, new)
+        return new
+
+    # Copy the main config last: interrupted migration can safely resume, and
+    # the first Config load sees the user's team weights and supporting files.
+    for name in ("config", "templates", "resources", "models"):
+        if (legacy / name).is_dir():
+            shutil.copytree(legacy / name, data_path(name), dirs_exist_ok=True, copy_function=copy_missing,
+                            ignore=lambda folder, names: ["config.yaml"] if Path(folder) == legacy / "config" else [])
+    copy_missing(source, target)

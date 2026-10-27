@@ -537,8 +537,8 @@ class Shop:
                 ):
                     unique_list.append(coord)
 
-            # 如果激活激进模式，则过滤第一行的饰品
-            if self.fuse_aggressive_switch:
+            # 激进合成已定位第一行时，才过滤该行饰品。
+            if self.fuse_aggressive_switch and self.the_first_line_position is not None:
                 unique_list = [items for items in unique_list if items[1] >= self.the_first_line_position]
 
             return unique_list
@@ -1049,10 +1049,6 @@ class Shop:
             if loop_try_count < 0:  # issue 171
                 if retry() is False:
                     raise self.RestartGame()
-                return False
-
-            if loop_try_count < -50:
-                log.error("不应该发生这样的问题，请提交issue")
                 return False
 
         loop_count = 30

@@ -10,6 +10,22 @@ import psutil
 ROOT = Path(__file__).resolve().parents[1]
 
 
+def backup_user_config():
+    import shutil
+    import uuid
+    from datetime import datetime
+
+    if str(ROOT) not in sys.path:
+        sys.path.insert(0, str(ROOT))
+    from utils.runtime_paths import data_path
+
+    source = data_path("config")
+    if (source / "config.yaml").is_file():
+        destination = ROOT / ".runtime/config-backups" / (datetime.now().strftime("%Y%m%d-%H%M%S-") + uuid.uuid4().hex[:8])
+        shutil.copytree(source, destination)
+        return destination
+
+
 def ensure_bundle_stopped(bundle):
     """Lazy PYZ imports reopen the executable using the running app's old offsets."""
     executable = (bundle / 'Contents/MacOS/AALC').resolve()
@@ -49,6 +65,7 @@ def main():
         subprocess.run(['/usr/bin/ditto', str(bundle), str(staged)], check=True)
         subprocess.run(['/usr/bin/codesign', '--verify', '--deep', '--strict', str(staged)], check=True)
         ensure_bundle_stopped(destination)
+        backup_user_config()
         previous = destination.with_name('.AALC-previous-' + uuid.uuid4().hex + '.app')
         if destination.exists():
             destination.rename(previous)

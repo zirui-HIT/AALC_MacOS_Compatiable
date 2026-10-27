@@ -1,6 +1,8 @@
 import atexit
 import copy
+import os
 import sys
+import tempfile
 import threading
 import tomllib
 from pathlib import Path
@@ -253,6 +255,7 @@ class Config(metaclass=SingletonMeta):
                 self._old_version_cfg_upgrade(saved_version, loaded_config)
             loaded_config = migrate_backend(loaded_config)
             self.config = ConfigModel(**{**self._defaults, **loaded_config})
+            self.__dict__.pop("_runtime_restore_values", None)
             queue_in_loaded_config = loaded_config.get("teams_active_queue")
             if queue_in_loaded_config is None:
                 normalized_queue = self._normalize_team_queue(self.migrate_legacy_team_queue())
@@ -278,14 +281,37 @@ class Config(metaclass=SingletonMeta):
         """保存到配置文件（立即写盘）"""
         # 快照、YAML 实例和写盘共用同一把锁，避免旧写入覆盖新配置。
         with self._lock:
-            snapshot = self.config.model_dump()
+            snapshot = self.persistent_snapshot()
             example_yaml = self._load_default_config()
             # 从快照更新到yaml对象，保持注释不变
             example_yaml.update(snapshot)
 
             self.config_path.parent.mkdir(parents=True, exist_ok=True)
-            with open(self.config_path, "w", encoding="utf-8") as file:
-                self.yaml.dump(example_yaml, file)
+            temporary = None
+            try:
+                with tempfile.NamedTemporaryFile(mode="w", encoding="utf-8", dir=self.config_path.parent,
+                                                 prefix=".config-", suffix=".tmp", delete=False) as file:
+                    temporary = Path(file.name)
+                    self.yaml.dump(example_yaml, file)
+                    file.flush()
+                    os.fsync(file.fileno())
+                temporary.replace(self.config_path)
+            finally:
+                if temporary is not None:
+                    temporary.unlink(missing_ok=True)
+
+    def persistent_snapshot(self) -> dict:
+        """Exclude temporary command-line/scheduled overrides from saved preferences."""
+        with self._lock:
+            return self.config.model_dump() | copy.deepcopy(self.__dict__.get("_runtime_restore_values", {}))
+
+    def set_runtime_values(self, **values) -> None:
+        with self._lock:
+            restore = self.__dict__.setdefault("_runtime_restore_values", {})
+            for key, value in values.items():
+                if key not in restore:
+                    restore[key] = copy.deepcopy(self.get_value(key))
+                self.unsaved_set_value(key, value)
 
     def get_value(self, key: str, default: Any = None, *, config_obj: Optional[BaseModel] = None) -> Any:
         """获取配置项的值, 如果是可变对象，则返回其指针"""
@@ -421,10 +447,13 @@ class Config(metaclass=SingletonMeta):
     def set_value(self, key: str, value: Any, *, config_obj: Optional[BaseModel | dict] = None) -> None:
         """设置配置项的值并延迟保存"""
         with self._lock:
+            if config_obj is None:
+                self.__dict__.get("_runtime_restore_values", {}).pop(key, None)
             if config_obj is None and key.startswith(("playcover_", "backend", "game_profile")):
-                from module.automation import auto
+                import module.automation
 
-                if auto.task_running:
+                auto = vars(module.automation).get("auto")
+                if auto is not None and auto.task_running:
                     raise ValueError("Stop the task before changing backend settings")
                 values = migrate_backend({**self.config.model_dump(), key: value})
                 self.config = ConfigModel(**values)
@@ -506,6 +535,7 @@ class Config(metaclass=SingletonMeta):
             if loaded_config:
                 loaded_config = migrate_backend(loaded_config)
                 self.config = ConfigModel(**{**self._defaults, **loaded_config})
+                self.__dict__.pop("_runtime_restore_values", None)
                 queue_in_loaded_config = loaded_config.get("teams_active_queue")
                 if queue_in_loaded_config is None:
                     normalized_queue = self._normalize_team_queue(self.migrate_legacy_team_queue())
@@ -561,7 +591,7 @@ class Config(metaclass=SingletonMeta):
             if latest_time[:3] != now_time[:3]:
                 backup_file = self.backup_path / f"config_{strftime('%Y%m%d_%H%M%S', now_time)}.yaml"
                 with open(backup_file, "w", encoding="utf-8") as f:
-                    self.yaml.dump(self.config.model_dump(), f)
+                    self.yaml.dump(self.persistent_snapshot(), f)
             # 删除旧备份文件，保留最近的10个
             files = [f for f in self.backup_path.iterdir() if f.is_file() and f.suffix == ".yaml"]
             files.sort(key=lambda f: f.stat().st_birthtime)
@@ -575,7 +605,7 @@ class Config(metaclass=SingletonMeta):
         else:
             backup_file = self.backup_path / f"config_{strftime('%Y%m%d_%H%M%S', now_time)}.yaml"
             with open(backup_file, "w", encoding="utf-8") as f:
-                self.yaml.dump(self.config.model_dump(), f)
+                self.yaml.dump(self.persistent_snapshot(), f)
 
     def unsaved_del_key(self, key: str, *, config_obj: Optional[BaseModel | dict] = None) -> None:
         """仅删除配置项 不保存"""

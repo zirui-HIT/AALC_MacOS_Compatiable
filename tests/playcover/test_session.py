@@ -149,3 +149,48 @@ def test_term_waits_for_verified_exit_before_original_start_check(tmp_path):
             patch.object(session, "connect"), patch.object(session, "capture"):
         session.start_game()
     start.assert_called_once()
+
+
+def test_capture_waits_only_until_last_touch_release_has_settled(monkeypatch):
+    from importlib import import_module
+    from types import SimpleNamespace
+
+    module = import_module("module.backends.playcover.session")
+    clock = [10.0]
+    monkeypatch.setattr(module, "time", SimpleNamespace(monotonic=lambda: clock[0]))
+    with FakeServer() as server:
+        session = PlayCoverSession(settings(server.port))
+        waits = []
+
+        def wait(seconds):
+            waits.append(seconds)
+            clock[0] += seconds
+            return False
+
+        monkeypatch.setattr(session.cancel, "wait", wait)
+        session.capture()  # Read-only capture without input needs no settling.
+        assert waits == []
+        session.input.last_release_monotonic = 9.8
+        session.capture()
+        assert waits == pytest.approx([0.3])
+        session.capture()
+        assert waits == pytest.approx([0.3])
+        assert not any(b"TUCH" in packet for packet in server.requests)
+        session.disconnect()
+
+
+def test_cancellation_during_capture_settling_never_requests_another_frame(monkeypatch):
+    from importlib import import_module
+    from types import SimpleNamespace
+
+    module = import_module("module.backends.playcover.session")
+    monkeypatch.setattr(module, "time", SimpleNamespace(monotonic=lambda: 10.0))
+    with FakeServer() as server:
+        session = PlayCoverSession(settings(server.port))
+        session.connect()
+        session.input.last_release_monotonic = 10.0
+        monkeypatch.setattr(session.cancel, "wait", lambda seconds: session.cancel.set())
+        with pytest.raises(BackendCancelled):
+            session.capture()
+        assert not any(b"BGR" in packet or b"TUCH" in packet for packet in server.requests)
+        session.disconnect()

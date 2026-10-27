@@ -42,6 +42,7 @@ def graph_with_branches(route, *, dead_event=False, events=False, hard=False):
     if not dead_event:
         event.add_next_node(expensive)
     other.add_next_node(cheap)
+    graph.hard_mode = hard
     return graph
 
 
@@ -71,6 +72,34 @@ def test_unconnected_map_returns_no_route(route):
     graph = graph_with_branches(route)
     graph.columns["column1"][route.Row.MID].next_nodes.clear()
     assert graph.find_min_weight_route() == (float("inf"), [])
+
+
+@pytest.mark.parametrize("hard,last_class,length", [
+    (True, "battle", 3), (False, "boss_battle", 4),
+])
+def test_visible_boss_beyond_hard_planning_horizon_does_not_hide_valid_route(route, hard, last_class, length):
+    graph = route.RouteGraph([
+        [("event", (100, 0))], [("battle", (200, 0))], [("boss_battle", (300, 0))],
+    ], route.Row.MID, (0, 0), hard_mode=hard)
+    graph.init_road([(i, route.Row.MID, route.Row.MID) for i in range(1, 4)])
+
+    weight, path = graph.find_min_weight_route()
+
+    assert len(path) == length
+    assert path[1].node_class == "event"
+    assert path[-1].node_class == last_class
+    assert weight == sum(node.weight for node in path)
+    if hard:
+        assert graph.columns["column3"][route.Row.MID].next_nodes == []
+
+
+def test_boss_inside_hard_planning_horizon_keeps_existing_terminal(route):
+    graph = route.RouteGraph([
+        [("event", (100, 0))], [("boss_battle", (200, 0))],
+    ], route.Row.MID, (0, 0), hard_mode=True)
+    graph.init_road([(i, route.Row.MID, route.Row.MID) for i in range(1, 3)])
+    _, path = graph.find_min_weight_route()
+    assert [node.node_class for node in path] == ["bus", "event", "boss_battle"]
 
 
 def test_real_map_reuses_one_frame_and_clicks_detected_node(route, monkeypatch):

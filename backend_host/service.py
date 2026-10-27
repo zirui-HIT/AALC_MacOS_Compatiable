@@ -52,8 +52,7 @@ class BackendService:
                 if supported != saved:
                     cfg.set_value(key, supported)
         if not cfg.keep_after_completion:
-            cfg.unsaved_set_value("after_completion_actions", [])
-            cfg.unsaved_set_value("after_completion_power_action", "none")
+            cfg.set_runtime_values(after_completion_actions=[], after_completion_power_action="none")
         # Removed UI capability: PlayCover v4 cannot enter formation codes.
         # Clear its obsolete preference at the migration boundary; the original
         # capability check and all formation/party execution code stay intact.
@@ -95,11 +94,15 @@ class BackendService:
         return self.worker is not None
 
     def snapshot(self):
-        from module.automation import auto
+        paused = False
+        if self.busy():
+            from module.automation import auto
+
+            paused = bool(auto.input_handler and auto.check_pause())
 
         return {"config": cfg.config.model_dump(), "version": cfg.version,
                 "state": {"kind": self.kind, "running": self.busy(), "stopping": self.stopping,
-                          "paused": bool(auto.input_handler and auto.check_pause()) if self.busy() else False,
+                          "paused": paused,
                           "queued": len(self.pending), "scheduled": self.scheduled is not None,
                           "closing": self.closing, "startup": self.startup_pending}, "logs": ui_log_dispatcher.snapshot()}
 
@@ -170,7 +173,7 @@ class BackendService:
         permanent = values.get("keep_after_completion", cfg.keep_after_completion)
         for key, value in values.items():
             if key in completion and not permanent:
-                cfg.unsaved_set_value(key, value)
+                cfg.set_runtime_values(**{key: value})
             else:
                 cfg.set_value(key, value)
         if any(key in GROUPS["playcover"] for key in values):
@@ -527,35 +530,48 @@ class BackendService:
 
     def transfer_theme(self, params):
         self._idle()
+        import base64
+        from io import StringIO
+        from pathlib import Path
+
+        from ruamel.yaml import YAML
+
+        from backend_host.validation import validate_theme
         from module.config import theme_pack_import_export as transfer
 
         number = int(params["number"])
         action = params["action"]
-        if action == "export":
+        if action in {"export", "copy"} and "values" in params:
+            validate_theme(params["values"])
+            text = StringIO()
+            YAML().dump(params["values"], text)
+            if action == "export":
+                Path(params["path"]).write_text(text.getvalue(), encoding="utf-8")
+                result = True
+            else:
+                result = base64.b64encode(text.getvalue().encode("utf-8")).decode("ascii")
+        elif action == "export":
             result = transfer.export_theme_pack_weight(number, params["path"])
         elif action == "copy":
             result = transfer.export_theme_pack_weight_to_base64(number)
         elif action in {"import", "paste"}:
-            import base64
-            from pathlib import Path
-
-            from ruamel.yaml import YAML
-
-            from backend_host.validation import validate_theme
-
             text = Path(params["path"]).read_text(encoding="utf-8") if action == "import" else base64.b64decode(params["code"]).decode("utf-8")
             data = YAML().load(text)
             if not data:
                 raise ValueError("Theme configuration is empty")
             validate_theme(data)
-            path, existing = transfer._load_existing_theme_pack_weight(number)
             if "values" in params:
                 validate_theme(params["values"])
                 existing = params["values"]
+            else:
+                path, existing = transfer._load_existing_theme_pack_weight(number)
             merged = transfer._deep_merge_dicts(existing, data)
             validate_theme(merged)
-            theme_list.save_config(str(path), merged)
-            result = True
+            if "values" in params:
+                result = merged
+            else:
+                theme_list.save_config(str(path), merged)
+                result = True
         else:
             raise ValueError("Unknown theme transfer")
         if result is False or result is None:
@@ -594,9 +610,8 @@ class BackendService:
             from module.after_completion_types import normalize_after_completion_config
 
             actions, power = normalize_after_completion_config(*completion)
-            cfg.unsaved_set_value("keep_after_completion", False)
-            cfg.unsaved_set_value("after_completion_actions", actions)
-            cfg.unsaved_set_value("after_completion_power_action", power)
+            cfg.set_runtime_values(keep_after_completion=False, after_completion_actions=actions,
+                                   after_completion_power_action=power)
         if start_flag:
             self.scheduled = args
             events.later(3000, self._scheduled_start, args)
@@ -694,14 +709,14 @@ class BackendService:
             self._next_command()
 
     def check_updates(self, automatic=False):
-        from backend_host.git_update import GitUpdateCheck
+        from backend_host.release_update import ReleaseUpdateCheck
 
         active = getattr(self, "update_check", None)
         if active is not None:
             if not automatic:
                 active["automatic"] = False
             return None
-        worker = GitUpdateCheck(10)
+        worker = ReleaseUpdateCheck(cfg.version, 10)
         context = {"automatic": automatic}
         self.update_check = context
 

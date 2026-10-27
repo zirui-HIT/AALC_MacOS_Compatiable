@@ -122,12 +122,24 @@ class GlobalHotKeys:
             collected.append(_ExactHotKey(keys, callback))
         return collected
 
+    def _canonical_key(self, key):
+        if sys.platform == "darwin" and isinstance(key, keyboard.KeyCode) and key.vk is not None:
+            from pynput._util.darwin import keycode_context, keycode_to_string
+
+            # Option produces characters such as π/®; match the configured
+            # letter using the current layout without altering modifier state.
+            with keycode_context() as context:
+                char = keycode_to_string(context, key.vk) if context[1] is not None else ""
+            if len(char) == 1:
+                key = keyboard.KeyCode.from_char(char)
+        return self._canonicalize(key)
+
     def _on_press(self, key, injected=False):
         if injected:
             return
 
         with self._lock:
-            canonical_key = self._canonicalize(key)
+            canonical_key = self._canonical_key(key)
             self._pressed_keys.add(canonical_key)
             pressed_modifiers = {key for key in self._pressed_keys if key in _MODIFIER_KEYS}
             for hotkey in self._hotkeys:
@@ -138,7 +150,7 @@ class GlobalHotKeys:
             return
 
         with self._lock:
-            canonical_key = self._canonicalize(key)
+            canonical_key = self._canonical_key(key)
             for hotkey in self._hotkeys:
                 hotkey.release(canonical_key)
             self._pressed_keys.discard(canonical_key)

@@ -444,11 +444,11 @@ class Mirror:
                     model="clam",
                 )
             ):
-                self.acquire_ego_gift(type=2)
-                continue
+                if self.acquire_ego_gift(type=2) is not False:
+                    continue
             if main_loop_count < 30 and auto.find_language_text("拒绝饰品", "refuse"):
-                self.acquire_ego_gift(type=2)
-                continue
+                if self.acquire_ego_gift(type=2) is not False:
+                    continue
 
             # 如果遇到获取ego饰品的情况
             if auto.click_element("mirror/road_in_mir/ego_gift_get_confirm_assets.png"):
@@ -1364,6 +1364,8 @@ class Mirror:
         auto.mouse_to_blank()
         if type == 2:
             pos = auto.find_element("mirror/road_in_mir/acquire_ego_gift_refuse_assets.png")
+            if not pos:
+                return False
             auto.mouse_click(pos[0] - 500 * my_scale, pos[1] - 500 * my_scale)
             sleep(cfg.mouse_action_interval)
             auto.mouse_click(pos[0], pos[1] - 500 * my_scale)

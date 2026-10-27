@@ -25,6 +25,7 @@ def pump_until(condition, timeout=3):
 
 
 def test_game_settings_save_the_resolved_local_path(service, monkeypatch, tmp_path):
+    import module.automation
     from module.config import cfg
 
     old_path = "/Users/previous-user/Game.app"
@@ -33,11 +34,47 @@ def test_game_settings_save_the_resolved_local_path(service, monkeypatch, tmp_pa
         "playcover_app_path": old_path, "playcover_bundle_id": "company.test",
     }))
     monkeypatch.setattr(cfg, "_schedule_save", Mock())
+    monkeypatch.delitem(module.automation.__dict__, "auto", raising=False)
+    original_getattr = module.automation.__getattr__
+
+    def no_automation_init(name):
+        assert name != "auto", "Idle configuration repair must not initialize the broken old game path"
+        return original_getattr(name)
+
+    monkeypatch.setattr(module.automation, "__getattr__", no_automation_init)
     monkeypatch.setattr(service, "app_identity", Mock(return_value={"path": new_path, "bundle_id": "company.test"}))
     service.patch({"playcover_port": 1718})
     service.app_identity.assert_called_once_with(old_path, "company.test")
     assert cfg.playcover_app_path == new_path
     assert cfg.playcover_bundle_id == "company.test"
+
+
+def test_idle_snapshot_with_missing_game_path_does_not_initialize_automation(service, monkeypatch, tmp_path):
+    import module.automation
+    from module.config import cfg
+
+    missing = str(tmp_path / "missing-game.app")
+    monkeypatch.setattr(cfg, "config", cfg.config.model_copy(update={"playcover_app_path": missing}))
+    monkeypatch.delitem(module.automation.__dict__, "auto", raising=False)
+
+    def forbidden(name):
+        raise AssertionError("Idle snapshot must not initialize automation: " + name)
+
+    monkeypatch.setattr(module.automation, "__getattr__", forbidden)
+    value = service.snapshot()
+    assert value["config"]["playcover_app_path"] == missing
+    assert not value["state"]["paused"] and not value["state"]["running"]
+
+
+def test_backend_setting_still_rejects_changes_during_a_task(service, monkeypatch):
+    import module.automation
+    from module.config import cfg
+
+    monkeypatch.setitem(module.automation.__dict__, "auto", Mock(task_running=True))
+    original = cfg.playcover_port
+    with pytest.raises(ValueError, match="Stop the task"):
+        cfg.set_value("playcover_port", original + 1)
+    assert cfg.playcover_port == original
 
 
 @pytest.fixture
@@ -47,6 +84,7 @@ def service(monkeypatch):
     from module.config import cfg
 
     monkeypatch.setattr(cfg, "config", cfg.config.model_copy(deep=True, update={"backend": "playcover", "keep_after_completion": True}))
+    monkeypatch.setattr(cfg, "_runtime_restore_values", {}, raising=False)
     monkeypatch.setattr(cfg, "save", Mock())
     monkeypatch.setattr(cfg, "flush", Mock())
     messages = []
@@ -382,10 +420,53 @@ def test_theme_import_and_paste_preserve_the_current_editor_draft(service, monke
     app.theme_transfer(1, index, draft, render, commit, SimpleNamespace(closed=False))
     expected = {"theme_pack_list": {"keep": 9, "update": 4}}
     assert draft.config_data == expected
-    assert YAML().load(path.read_text()) == expected
-    assert calls == ["theme.transfer", "theme.get"]
+    assert draft._has_unsaved_changes
+    assert YAML().load(path.read_text()) == {"theme_pack_list": {"keep": 1, "update": 2}}
+    assert calls == ["theme.transfer"]
     commit.assert_called_once_with()
     render.assert_called_once_with()
+    service.save_theme(1, draft.config_data)
+    assert YAML().load(path.read_text()) == expected
+
+
+@pytest.mark.parametrize("action", ["export", "copy"])
+@pytest.mark.parametrize("existing_file", [False, True])
+def test_theme_draft_export_and_copy_do_not_save_formal_weights(service, monkeypatch, tmp_path, action, existing_file):
+    import base64
+
+    from ruamel.yaml import YAML
+
+    from module.config import theme_list
+
+    monkeypatch.setattr(theme_list, "theme_pack_weight_path", tmp_path / "weights")
+    path = Path(theme_list.build_team_weight_path(1))
+    original = "theme_pack_list: {pack: 0}\n"
+    if existing_file:
+        path.parent.mkdir()
+        path.write_text(original)
+    exported = tmp_path / "export.yaml"
+    draft = {"theme_pack_list": {"pack": 10}}
+    result = service.transfer_theme({"number": 1, "action": action, "path": str(exported), "values": draft})
+
+    text = exported.read_text() if action == "export" else base64.b64decode(result).decode()
+    assert YAML().load(text) == draft
+    if existing_file:
+        assert path.read_text() == original
+    else:
+        assert not path.exists()
+
+
+@pytest.mark.parametrize("action", ["export", "copy"])
+def test_invalid_theme_draft_export_does_not_overwrite_any_file(service, monkeypatch, tmp_path, action):
+    from module.config import theme_list
+
+    monkeypatch.setattr(theme_list, "theme_pack_weight_path", tmp_path / "weights")
+    exported = tmp_path / "export.yaml"
+    exported.write_text("keep original export")
+    with pytest.raises(ValueError):
+        service.transfer_theme({"number": 1, "action": action, "path": str(exported), "values": {"theme_pack_list": 3}})
+    assert exported.read_text() == "keep original export"
+    assert not Path(theme_list.build_team_weight_path(1)).exists()
 
 
 @pytest.mark.parametrize("invalid_draft", [False, True])
@@ -816,3 +897,52 @@ def test_original_theme_draft_synchronizes_bilingual_ocr_aliases():
     draft._on_weight_changed("unconf", 8, False, False)
     assert draft.config_data["theme_pack_list_cn"]["未曾面对"] == 8
     assert values["theme_pack_list"]["nagel"] != 7
+
+
+def test_saved_presets_and_completion_survive_scheduled_override_and_restart(tmp_path):
+    script = '''
+import json
+from unittest.mock import Mock
+from backend_host.service import BackendService
+from backend_host.runtime import events
+from module.config import cfg, theme_list
+service = BackendService(Mock(), hotkeys=False)
+service.enable_team(1, True)
+number = service.add_team()
+service.save_team(number, {'team_number': 20, 'remark_name': 'upgrade-check', 'use_custom_theme_pack_weight': True})
+service.enable_team(number, True)
+theme_list.create_team_weight_config(number)
+service.patch({'keep_after_completion': True, 'after_completion_actions': ['exit_game']})
+events.later = Mock()
+service.command(['start', '--exit', '5'])
+assert cfg.after_completion_actions == ['exit_aalc'] and not cfg.keep_after_completion
+cfg.set_value('set_mirror_count', 17)
+service.shutdown(force=True)
+print(json.dumps(cfg.persistent_snapshot()))
+'''
+    env = {**os.environ, "AALC_DATA_ROOT": str(tmp_path)}
+    created = subprocess.run([sys.executable, "-c", script], env=env, cwd=SOURCE_ROOT,
+                             capture_output=True, text=True, timeout=20)
+    assert created.returncode == 0, created.stderr
+    saved = json.loads(created.stdout)
+    assert saved["teams"]["2"]["remark_name"] == "upgrade-check"
+    weights = tmp_path / "config/theme_pack_weight/theme_pack_weight_team_2.yaml"
+    before_weights = weights.read_bytes()
+    restarted = subprocess.run([sys.executable, "-c", '''
+import json
+from unittest.mock import Mock
+from backend_host.service import BackendService
+service = BackendService(Mock(), hotkeys=False)
+print(json.dumps(service.snapshot()['config']))
+service.shutdown(force=True)
+'''], env=env | {"PYTHONPATH": str(SOURCE_ROOT)}, cwd=tmp_path,
+        capture_output=True, text=True, timeout=20)
+    assert restarted.returncode == 0, restarted.stderr
+    restored = json.loads(restarted.stdout)
+    assert restored["teams"]["2"]["remark_name"] == "upgrade-check"
+    assert restored["teams"]["2"]["team_number"] == 20
+    assert restored["teams_active_queue"] == [1, 2]
+    assert restored["set_mirror_count"] == 17
+    assert restored["keep_after_completion"] is True
+    assert restored["after_completion_actions"] == ["exit_game"]
+    assert weights.read_bytes() == before_weights

@@ -48,3 +48,21 @@ def test_install_guard_runs_before_installed_bundle_is_renamed(tmp_path, monkeyp
         build.main()
     assert bundles == [tmp_path / "dist/AALC.app", build.Path("/Applications/AALC.app")]
     rename.assert_not_called()
+
+
+def test_each_update_backs_up_all_presets_and_weights_without_modifying_user_data(tmp_path, monkeypatch):
+    from utils import runtime_paths
+
+    source = tmp_path / "user/config"
+    weights = source / "theme_pack_weight/team2.yaml"
+    weights.parent.mkdir(parents=True)
+    weights.write_text("team 2 weights")
+    (source / "config.yaml").write_text("teams: {'1': {}, '2': {}}")
+    monkeypatch.setattr(build, "ROOT", tmp_path / "build")
+    monkeypatch.setattr(runtime_paths, "data_path", lambda path: tmp_path / "user" / path)
+    first = build.backup_user_config()
+    second = build.backup_user_config()
+    assert first != second
+    for directory in (first, second):
+        assert (directory / "config.yaml").read_bytes() == (source / "config.yaml").read_bytes()
+        assert (directory / "theme_pack_weight/team2.yaml").read_bytes() == weights.read_bytes()

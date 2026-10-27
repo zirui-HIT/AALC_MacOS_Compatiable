@@ -33,6 +33,7 @@ class PlayCoverInput(AbstractInput):
         self._gesture_lock = threading.RLock()
         self._local = threading.local()
         self.active_contacts: dict[int, tuple[int, int]] = {}
+        self.last_release_monotonic = 0.0
         # The original input interface uses the empty top-left pixel. The iOS
         # content frame has the same empty corner; map it like every other tap.
         self.safe_blank_point: tuple[float, float] = (1, 1)
@@ -77,6 +78,7 @@ class PlayCoverInput(AbstractInput):
         self.transport.touch(phase, *point, contact)
         if phase == 3:
             self.active_contacts.pop(contact, None)
+            self.last_release_monotonic = time.monotonic()
 
     def release_contacts(self) -> None:
         with self._gesture_lock:
@@ -150,7 +152,24 @@ class PlayCoverInput(AbstractInput):
             self._segment(geometry, escape, (x + dx, y + dy), max(0, duration - 0.03))
 
     def mouse_swipe_for_team_scroll(self, x, y, duration=0.3, dx=0, dy=0, move_back=True) -> None:
-        self.mouse_swipe_for_scroll(x, y, duration, dx, dy, move_back)
+        distance = (dx * dx + dy * dy) ** 0.5
+        if not distance:
+            return
+        escape_distance = 60 * self._current_geometry().logical_size[1] / 1080
+        escape_dx, escape_dy = dx / distance * escape_distance, dy / distance * escape_distance
+        # Unity discards the movement which begins a drag. Keep that escape
+        # separate from the requested row distance; reset swipes must still
+        # end inside the client.
+        start = (x - escape_dx, y - escape_dy) if dy > 0 else (x, y)
+        escape = (start[0] + escape_dx, start[1] + escape_dy)
+        end = (escape[0] + dx, escape[1] + dy)
+        with self._gesture(start) as geometry:
+            self._wait(0.05)  # Deliver touch-down before MaaTools queues movement.
+            self._segment(geometry, start, escape, 0.015)
+            self._wait(0.1)  # Let Unity establish the drag origin.
+            self._segment(geometry, escape, end, duration)
+            # Send stationary moves so the velocity tracker stops before release.
+            self._segment(geometry, end, end, 0.5)
 
     def mouse_drag_down(self, x, y, reverse=1, move_back=True) -> None:
         self.mouse_drag(x, y, drag_time=0.4, dx=0,

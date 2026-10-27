@@ -1,0 +1,24 @@
+{
+  "game_version": "1.117.1",
+  "source": "Actual retained 5-HARD clear; original two direct toggle taps 0.212s apart",
+  "on_centers_1080": [
+    [
+      839,
+      378
+    ]
+  ],
+  "off_centers_1080": [
+    [
+      992,
+      378
+    ],
+    [
+      1145,
+      378
+    ]
+  ],
+  "modules": 6,
+  "pass_xp": 75,
+  "lunacy": 250,
+  "sha256": "72dcecf2f291b306ec2a3a290daf717d9dfcedc42b657de629e095a8bc401279"
+}

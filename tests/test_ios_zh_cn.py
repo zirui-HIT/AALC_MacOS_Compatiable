@@ -310,10 +310,11 @@ def test_theme_refresh_rejects_exhausted_button(chinese, monkeypatch, state, hei
 @pytest.mark.parametrize("outcome", ["recommended", "ordinary", "forbidden"])
 def test_original_selector_uses_real_refresh_button_and_exhaustion(chinese, monkeypatch, outcome):
     """Replay actual button pixels through the task; only OCR and input are simulated."""
+    from ruamel.yaml import YAML
+
     from module.automation import TextMatchResult, auto
     from module.backends.base import BackendCancelled
     from module.config import theme_list
-    from ruamel.yaml import YAML
 
     task = import_module("tasks.mirror.select_theme_pack")
     weights = YAML(typ="safe").load((SOURCE_ROOT / "assets/config/theme_pack_list.speedrun.yaml").read_text())
@@ -396,9 +397,10 @@ def test_native_chinese_ocr_replay(chinese, monkeypatch):
 
     # Exercise the actual selector's card bounds, keyword dictionary and native
     # title retry. The artwork previously hid this forbidden pack as unknown.
-    from module.config import theme_list
     from ruamel.yaml import YAML
+
     from module.automation import TextMatchResult
+    from module.config import theme_list
 
     weights = YAML(typ="safe").load((SOURCE_ROOT / "assets/config/theme_pack_list.speedrun.yaml").read_text())
     monkeypatch.setattr(theme_list, "config", weights)
@@ -529,3 +531,85 @@ def test_resource_cache_isolated_when_language_switches(chinese, monkeypatch):
     english_template, _ = auto._load_template_for_path(target, "default/en", True)
     assert chinese_template is not None and english_template is not None
     assert chinese_template.shape != english_template.shape or not np.array_equal(chinese_template, english_template)
+
+
+def test_cold_chinese_fallback_does_not_hide_ready_native_ocr_on_original_retry(chinese, monkeypatch):
+    module = import_module("module.automation.automation")
+    ready = threading.Event()
+    native = SimpleNamespace(ready=ready, _failed=False)
+    bad = RapidOCROutput(txts=("選選", "0/3"), boxes=np.array([
+        [[1, 2], [9, 2], [9, 6], [1, 6]], [[10, 2], [18, 2], [18, 6], [10, 6]],
+    ]))
+    good = RapidOCROutput(txts=("選擇 0/3",), boxes=np.array([[[1, 2], [9, 2], [9, 6], [1, 6]]]))
+
+    def recognize(_pixels):
+        if not ready.is_set():
+            ready.set()  # Real warmup completed during the first fallback inference.
+            return bad
+        return good
+
+    engines = SimpleNamespace(_vision_zh_cn=native, run=Mock(side_effect=recognize))
+    monkeypatch.setattr(module, "ocr", engines)
+    auto = object.__new__(module.Automation)
+    auto.screenshot = Image.open(SOURCE_ROOT / "tests/fixtures/ios_zh_cn/observe_select_cold_start.png")
+    auto._ocr_image, auto._ocr_regions, auto._ocr_lock = None, {}, threading.RLock()
+    assert auto.find_language_text("选择", "select") is False
+    assert auto.find_language_text("选择", "select") == [5, 4]
+    assert auto.find_language_text("选择", "select") == [5, 4]
+    assert engines.run.call_count == 2  # Cache only the ready native result.
+
+
+def test_failed_native_chinese_recognizer_still_caches_permanent_fallback(chinese, monkeypatch):
+    module = import_module("module.automation.automation")
+    output = RapidOCROutput(txts=("選擇",), boxes=np.array([[[1, 2], [9, 2], [9, 6], [1, 6]]]))
+    engines = SimpleNamespace(_vision_zh_cn=SimpleNamespace(ready=threading.Event(), _failed=True),
+                              run=Mock(return_value=output))
+    monkeypatch.setattr(module, "ocr", engines)
+    auto = object.__new__(module.Automation)
+    auto.screenshot = Image.new("L", (200, 100))
+    auto._ocr_image, auto._ocr_regions, auto._ocr_lock = None, {}, threading.RLock()
+    assert auto.find_language_text("选择", "select") == [5, 4]
+    assert auto.find_language_text("选择", "select") == [5, 4]
+    engines.run.assert_called_once()
+
+
+@pytest.mark.parametrize("height", [810, 1080])
+def test_partial_hard_statistics_detected_without_mistaking_it_for_full_clear(chinese, monkeypatch, height):
+    from module.automation import auto
+    from module.config import cfg
+
+    monkeypatch.setattr(cfg, "config", cfg.config.model_copy(update={"set_win_size": height}))
+    auto.clear_img_cache()
+    frame = Image.open(SOURCE_ROOT / "tests/fixtures/ios_zh_cn/partial_mirror_statistics.png").convert("L")
+    monkeypatch.setattr(auto, "screenshot", frame.resize((round(height * 16 / 9), height)))
+    assert auto.find_element("mirror/claim_reward/battle_statistics_assets.png")
+    assert auto.find_element("mirror/claim_reward/complete_mirror_100%_assets.png") is None
+
+
+@pytest.mark.parametrize("height", [810, 1080])
+def test_ios_hard_clear_badge_distinguishes_full_reward_from_forfeit(chinese, monkeypatch, height):
+    from module.automation import auto
+    from module.config import cfg
+
+    monkeypatch.setattr(cfg, "config", cfg.config.model_copy(update={"set_win_size": height}))
+    for path, expected in [
+        ("tests/fixtures/ios_zh_cn/full_hard_clear_preview.png", True),
+        ("tests/fixtures/ios_zh_cn/partial_mirror_statistics.png", False),
+        ("tests/fixtures/ios_zh_cn/partial_hard_preview.png", False),
+    ]:
+        auto.clear_img_cache()
+        frame = Image.open(SOURCE_ROOT / path).convert("L")
+        monkeypatch.setattr(auto, "screenshot", frame.resize((round(height * 16 / 9), height)))
+        assert bool(auto.find_element("mirror/claim_reward/clear_assets.png")) is expected
+
+
+@pytest.mark.parametrize("height", [810, 1080])
+def test_ios_completed_hard_statistics_recognizes_actual_100_percent(chinese, monkeypatch, height):
+    from module.automation import auto
+    from module.config import cfg
+
+    monkeypatch.setattr(cfg, "config", cfg.config.model_copy(update={"set_win_size": height}))
+    auto.clear_img_cache()
+    frame = Image.open(SOURCE_ROOT / "tests/fixtures/ios_zh_cn/full_hard_statistics.png").convert("L")
+    monkeypatch.setattr(auto, "screenshot", frame.resize((round(height * 16 / 9), height)))
+    assert auto.find_element("mirror/claim_reward/complete_mirror_100%_assets.png")

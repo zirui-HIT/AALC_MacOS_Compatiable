@@ -1,4 +1,6 @@
 {
+  "teams.ordered_page_swipe_distance": 362.5,
+  "teams.ordered_last_page_swipe_distance": 253.75,
   "luxcavation.exp_count_x": 20,
   "luxcavation.thread_enter_y": 512,
   "battle.chain_start": [

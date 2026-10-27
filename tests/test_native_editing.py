@@ -347,49 +347,67 @@ def test_old_paste_reply_does_not_close_a_new_dirty_team_editor(editor_app):
 
 
 @pytest.mark.parametrize("invalidated", ["closed", "reindexed"])
-@pytest.mark.parametrize("stage", ["save", "transfer", "refresh"])
-def test_theme_transfer_drops_late_replies_for_closed_or_reindexed_editors(editor_app, monkeypatch, invalidated, stage):
+@pytest.mark.parametrize("index", [0, 1, 2, 3])
+def test_theme_transfer_drops_late_replies_for_closed_or_reindexed_editors(editor_app, monkeypatch, invalidated, index):
     editor_app.edit_theme(2, theme_values())
     editor = editor_app.editors[-1]
-    index = 2 if stage == "save" else 1
     monkeypatch.setattr("frontend_appkit.application.choose_path", lambda **kwargs: "/tmp/weights.yaml")
     board = Mock()
     monkeypatch.setattr("frontend_appkit.application.A.NSPasteboard", Mock(generalPasteboard=Mock(return_value=board)))
-    invoke_menu_item(more_menu(editor), "复制配置码" if index == 2 else "导入 YAML")
+    title = ["导出 YAML", "导入 YAML", "复制配置码", "粘贴配置码"][index]
+    invoke_menu_item(more_menu(editor), title)
     reply = editor_app.client.request.call_args.args[2]
-    if stage == "refresh":
-        reply(True)
-        assert editor_app.client.request.call_args.args[:2] == ("theme.get", {"number": 2})
-        reply = editor_app.client.request.call_args.args[2]
     if invalidated == "closed":
         editor.close()
     else:
         editor_app.team_generation = 1
     before = editor_app.client.request.call_count
     weight = weight_field(editor)
-    reply({**theme_values(), "theme_pack_list": {"nagel": 7, "nag": 7}} if stage == "refresh" else True)
+    reply({**theme_values(), "theme_pack_list": {"nagel": 7, "nag": 7}} if index in {1, 3} else "own preset code")
     assert editor_app.client.request.call_count == before
     assert weight.stringValue() == "0"
     board.clearContents.assert_not_called()
     board.setString_forType_.assert_not_called()
 
 
-def test_current_theme_transfer_still_saves_then_copies_its_own_code(editor_app, monkeypatch):
+def test_current_theme_transfer_copies_its_draft_without_saving(editor_app, monkeypatch):
     editor_app.edit_theme(2, theme_values())
     editor = editor_app.editors[-1]
     board = Mock()
     monkeypatch.setattr("frontend_appkit.application.A.NSPasteboard", Mock(generalPasteboard=Mock(return_value=board)))
+    weight_field(editor).setStringValue_("10")
     invoke_menu_item(more_menu(editor), "复制配置码")
-    save = editor_app.client.request.call_args
-    assert save.args[:2] == ("theme.save", {"number": 2, "values": theme_values() | {
+    transfer = editor_app.client.request.call_args
+    assert transfer.args[:2] == ("theme.transfer", {"number": 2, "action": "copy", "values": theme_values() | {
+        "theme_pack_list": {"nagel": 10, "nag": 10}, "theme_pack_list_cn": {"钉与锤": 10},
         "forbidden_theme_packs": {"normal_1": []},
     }})
-    save.args[2](None)
-    transfer = editor_app.client.request.call_args
-    assert transfer.args[:2] == ("theme.transfer", {"number": 2, "action": "copy"})
     transfer.args[2]("own preset code")
+    assert editor_app.client.request.call_count == 1
+    assert editor.dirty()
     board.clearContents.assert_called_once()
     board.setString_forType_.assert_called_once_with("own preset code", A.NSPasteboardTypeString)
+
+
+def test_cleared_team_statistics_refresh_without_overwriting_the_editor_draft(editor_app):
+    previous = team_values() | {"mirror_normal_count": 3, "total_mirror_time_normal": [120.0]}
+    editor_app.data["config"]["teams"] = {"1": previous}
+    editor_app.edit_team(1)
+    editor = editor_app.team_editor
+    assert "普通镜牢 3 次 · 平均 120.0 秒" in editor.stats_label.stringValue()
+    remark = next(control for control in descendants(editor.document) if isinstance(control, A.NSTextField)
+                  and control.isEditable() and control.formatter() is None)
+    remark.setStringValue_("Unsaved remark")
+    editor_app.page_index = 0
+    editor_app.forms = []
+    editor_app.event("state", {"config": editor_app.data["config"] | {
+        "teams": {"1": previous | {"mirror_normal_count": 0, "total_mirror_time_normal": []}},
+    }})
+    assert "普通镜牢 0 次 · 平均 0.0 秒" in editor.stats_label.stringValue()
+    assert remark.stringValue() == "Unsaved remark"
+    assert editor.dirty()
+    refresh(editor.root)
+    assert "普通镜牢 0 次 · 平均 0.0 秒" in editor.stats_label.stringValue()
 
 
 def test_nullable_remark_does_not_make_an_untouched_team_dirty(editor_app):

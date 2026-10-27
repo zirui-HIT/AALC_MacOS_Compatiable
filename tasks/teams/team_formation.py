@@ -1,10 +1,12 @@
 from math import ceil
+
 from backend_host.runtime import worker_sleep as sleep
 
 from module.automation import auto
 from module.config import cfg
 from module.decorator.decorator import begin_and_finish_time_log
 from module.logger import log
+from utils.image_utils import ImageUtils
 
 WINDOWS_ORDERED_TEAM_PAGE_SWIPE_DISTANCE = 400
 NAMED_TEAM_PAGE_SWIPE_DISTANCE = 385
@@ -79,7 +81,12 @@ def team_formation(sinner_team):
 
 def _ordered_team_page_swipe_distance(page_index=None):
     if not cfg.simulator:
-        return WINDOWS_ORDERED_TEAM_PAGE_SWIPE_DISTANCE
+        return ImageUtils.layout(
+            "teams.ordered_last_page_swipe_distance"
+            if page_index == ORDERED_TEAM_LAST_PAGE_INDEX
+            else "teams.ordered_page_swipe_distance",
+            WINDOWS_ORDERED_TEAM_PAGE_SWIPE_DISTANCE,
+        )
     if getattr(cfg, "simulator_type", 10) == 0:
         if page_index == ORDERED_TEAM_LAST_PAGE_INDEX:
             return ORDERED_TEAM_LAST_PAGE_SWIPE_DISTANCE

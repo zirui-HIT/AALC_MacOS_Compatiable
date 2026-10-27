@@ -827,9 +827,17 @@ class Automation(metaclass=SingletonMeta):
                 if len(self._ocr_regions) >= 32:
                     self._ocr_regions.clear()
                 pixels = image.crop(my_crop) if my_crop is not None else image
+                cache_result = True
+                if engine == "rapid" and cfg.game_profile == "ios_zh_cn":
+                    native = getattr(ocr, "_vision_zh_cn", None)
+                    # Cold-start fallback must not hide a newly ready native
+                    # recognizer from retries against the same UI frame.
+                    cache_result = native is None or native._failed or native.ready.is_set()
                 result = ocr.run_vision(pixels) if engine == "vision" else ocr.run(pixels)
                 if result is None:  # Warming up/busy: retry Vision on a later request.
                     return None
+                if not cache_result:
+                    return result
                 self._ocr_regions[region] = result
             return self._ocr_regions[region]
 

@@ -18,6 +18,11 @@
       "reason": "Commit the verified PID only after a successful MaaTools connection.",
       "before": "        self._pid = process.pid if process else None\n        self.transport.connect(self.lifecycle.bundle_id)\n",
       "after": "        self.transport.connect(self.lifecycle.bundle_id)\n        self._pid = process.pid if process else None\n"
+    },
+    {
+      "reason": "2026-10-23 real retained hard-reward page exposed transitional frames after no-ACK touch release. Keep original actions and task control unchanged; let the PlayCover capture adapter settle for at most 0.5s since the last released contact, with cancellation.",
+      "before": "            deadline = time.monotonic() + 5\n            while True:\n",
+      "after": "            # TUCH has no delivery/render acknowledgement. Avoid recognizing\n            # a transitional pre-release frame as the next page.\n            settle = self.input.last_release_monotonic + 0.5 - time.monotonic()\n            if settle > 0:\n                self.cancel.wait(settle)\n                self.input.check_cancel()\n            deadline = time.monotonic() + 5\n            while True:\n"
     }
   ],
   "module/ocr/ocr.py": [
@@ -47,9 +52,19 @@
       "reason": "Let the PlayCover cancellation event wake the configured input wait; other backends keep the original sleep.",
       "before": "        time.sleep(wait_time)\n\n        # 计算传入的位置",
       "after": "        if cfg.backend == \"playcover\":\n            from module.backends.factory import get_playcover_session\n\n            session = get_playcover_session()\n            session.cancel.wait(wait_time)\n            session.input.check_cancel()\n        else:\n            time.sleep(wait_time)\n\n        # 计算传入的位置"
+    },
+    {
+      "reason": "2026-10-23 real observation missed Select after cold Chinese Vision fallback read 選選; do not cache fallback while the preferred native recognizer is warming, so original recognition retries can use it when ready. No task calls, decisions, clicks or timing change.",
+      "before": "                result = ocr.run_vision(pixels) if engine == \"vision\" else ocr.run(pixels)\n                if result is None:  # Warming up/busy: retry Vision on a later request.\n                    return None\n                self._ocr_regions[region] = result\n            return self._ocr_regions[region]\n",
+      "after": "                cache_result = True\n                if engine == \"rapid\" and cfg.game_profile == \"ios_zh_cn\":\n                    native = getattr(ocr, \"_vision_zh_cn\", None)\n                    # Cold-start fallback must not hide a newly ready native\n                    # recognizer from retries against the same UI frame.\n                    cache_result = native is None or native._failed or native.ready.is_set()\n                result = ocr.run_vision(pixels) if engine == \"vision\" else ocr.run(pixels)\n                if result is None:  # Warming up/busy: retry Vision on a later request.\n                    return None\n                if not cache_result:\n                    return result\n                self._ocr_regions[region] = result\n            return self._ocr_regions[region]\n"
     }
   ],
   "module/backends/playcover/input.py": [
+    {
+      "reason": "2026-10-27 user reported incorrect Mirror preset selection: PlayCover-only touch delivery, separate drag escape and stationary tail prevent lost distance and momentum; no changes to original team-selection flow.",
+      "before": "    def mouse_swipe_for_team_scroll(self, x, y, duration=0.3, dx=0, dy=0, move_back=True) -> None:\n        self.mouse_swipe_for_scroll(x, y, duration, dx, dy, move_back)\n\n",
+      "after": "    def mouse_swipe_for_team_scroll(self, x, y, duration=0.3, dx=0, dy=0, move_back=True) -> None:\n        distance = (dx * dx + dy * dy) ** 0.5\n        if not distance:\n            return\n        escape_distance = 60 * self._current_geometry().logical_size[1] / 1080\n        escape_dx, escape_dy = dx / distance * escape_distance, dy / distance * escape_distance\n        # Unity discards the movement which begins a drag. Keep that escape\n        # separate from the requested row distance; reset swipes must still\n        # end inside the client.\n        start = (x - escape_dx, y - escape_dy) if dy > 0 else (x, y)\n        escape = (start[0] + escape_dx, start[1] + escape_dy)\n        end = (escape[0] + dx, escape[1] + dy)\n        with self._gesture(start) as geometry:\n            self._wait(0.05)  # Deliver touch-down before MaaTools queues movement.\n            self._segment(geometry, start, escape, 0.015)\n            self._wait(0.1)  # Let Unity establish the drag origin.\n            self._segment(geometry, escape, end, duration)\n            # Send stationary moves so the velocity tracker stops before release.\n            self._segment(geometry, end, end, 0.5)\n\n"
+    },
     {
       "reason": "Reject stale recognized geometry after pause or gesture-lock waits, before a new touch gesture.",
       "before": "        return getattr(self._local, \"geometry\", None) or self._geometry()\n",
@@ -74,6 +89,16 @@
       "reason": "TUCH dispatch has no acknowledgement and PlayTools delivers touch phases through the main run loop. Preserve a released-contact interval after every tap; live weekly toggle de-selection still needs a new available-bonus confirmation.",
       "before": "            if index + 1 < times:\n                self._wait(self.timing.repeat_interval)\n",
       "after": "            # TUCH is queued without an acknowledgement. Let the iOS run loop\n            # deliver the released contact before another call starts a tap.\n            self._wait(self.timing.repeat_interval)\n"
+    },
+    {
+      "reason": "2026-10-23 real retained hard-reward page exposed transitional frames after no-ACK touch release. Keep original actions and task control unchanged; let the PlayCover capture adapter settle for at most 0.5s since the last released contact, with cancellation.",
+      "before": "        self.active_contacts: dict[int, tuple[int, int]] = {}\n",
+      "after": "        self.active_contacts: dict[int, tuple[int, int]] = {}\n        self.last_release_monotonic = 0.0\n"
+    },
+    {
+      "reason": "2026-10-23 real retained hard-reward page exposed transitional frames after no-ACK touch release. Keep original actions and task control unchanged; let the PlayCover capture adapter settle for at most 0.5s since the last released contact, with cancellation.",
+      "before": "        if phase == 3:\n            self.active_contacts.pop(contact, None)\n",
+      "after": "        if phase == 3:\n            self.active_contacts.pop(contact, None)\n            self.last_release_monotonic = time.monotonic()\n"
     }
   ],
   "utils/schedule_helper.py": [
@@ -135,6 +160,46 @@
     }
   ],
   "module/config/config.py": [
+    {
+      "reason": "2026-10-27 user requested configuration retention across app updates: preserve long-term values while scheduled completion overrides remain effective for the current run; serialize complete settings to a temporary file and atomically replace; backups use persistent values.",
+      "before": "import atexit\nimport copy\nimport sys\nimport threading\nimport tomllib\nfrom pathlib import Path\n",
+      "after": "import atexit\nimport copy\nimport os\nimport sys\nimport tempfile\nimport threading\nimport tomllib\nfrom pathlib import Path\n"
+    },
+    {
+      "reason": "2026-10-27 user requested configuration retention across app updates: preserve long-term values while scheduled completion overrides remain effective for the current run; serialize complete settings to a temporary file and atomically replace; backups use persistent values.",
+      "before": "                self._old_version_cfg_upgrade(saved_version, loaded_config)\n            loaded_config = migrate_backend(loaded_config)\n            self.config = ConfigModel(**{**self._defaults, **loaded_config})\n            queue_in_loaded_config = loaded_config.get(\"teams_active_queue\")\n            if queue_in_loaded_config is None:\n                normalized_queue = self._normalize_team_queue(self.migrate_legacy_team_queue())\n",
+      "after": "                self._old_version_cfg_upgrade(saved_version, loaded_config)\n            loaded_config = migrate_backend(loaded_config)\n            self.config = ConfigModel(**{**self._defaults, **loaded_config})\n            self.__dict__.pop(\"_runtime_restore_values\", None)\n            queue_in_loaded_config = loaded_config.get(\"teams_active_queue\")\n            if queue_in_loaded_config is None:\n                normalized_queue = self._normalize_team_queue(self.migrate_legacy_team_queue())\n"
+    },
+    {
+      "reason": "2026-10-27 user requested configuration retention across app updates: preserve long-term values while scheduled completion overrides remain effective for the current run; serialize complete settings to a temporary file and atomically replace; backups use persistent values.",
+      "before": "        \"\"\"保存到配置文件（立即写盘）\"\"\"\n        # 快照、YAML 实例和写盘共用同一把锁，避免旧写入覆盖新配置。\n        with self._lock:\n            snapshot = self.config.model_dump()\n            example_yaml = self._load_default_config()\n            # 从快照更新到yaml对象，保持注释不变\n            example_yaml.update(snapshot)\n\n            self.config_path.parent.mkdir(parents=True, exist_ok=True)\n            with open(self.config_path, \"w\", encoding=\"utf-8\") as file:\n                self.yaml.dump(example_yaml, file)\n\n    def get_value(self, key: str, default: Any = None, *, config_obj: Optional[BaseModel] = None) -> Any:\n        \"\"\"获取配置项的值, 如果是可变对象，则返回其指针\"\"\"\n",
+      "after": "        \"\"\"保存到配置文件（立即写盘）\"\"\"\n        # 快照、YAML 实例和写盘共用同一把锁，避免旧写入覆盖新配置。\n        with self._lock:\n            snapshot = self.persistent_snapshot()\n            example_yaml = self._load_default_config()\n            # 从快照更新到yaml对象，保持注释不变\n            example_yaml.update(snapshot)\n\n            self.config_path.parent.mkdir(parents=True, exist_ok=True)\n            temporary = None\n            try:\n                with tempfile.NamedTemporaryFile(mode=\"w\", encoding=\"utf-8\", dir=self.config_path.parent,\n                                                 prefix=\".config-\", suffix=\".tmp\", delete=False) as file:\n                    temporary = Path(file.name)\n                    self.yaml.dump(example_yaml, file)\n                    file.flush()\n                    os.fsync(file.fileno())\n                temporary.replace(self.config_path)\n            finally:\n                if temporary is not None:\n                    temporary.unlink(missing_ok=True)\n\n    def persistent_snapshot(self) -> dict:\n        \"\"\"Exclude temporary command-line/scheduled overrides from saved preferences.\"\"\"\n        with self._lock:\n            return self.config.model_dump() | copy.deepcopy(self.__dict__.get(\"_runtime_restore_values\", {}))\n\n    def set_runtime_values(self, **values) -> None:\n        with self._lock:\n            restore = self.__dict__.setdefault(\"_runtime_restore_values\", {})\n            for key, value in values.items():\n                if key not in restore:\n                    restore[key] = copy.deepcopy(self.get_value(key))\n                self.unsaved_set_value(key, value)\n\n    def get_value(self, key: str, default: Any = None, *, config_obj: Optional[BaseModel] = None) -> Any:\n        \"\"\"获取配置项的值, 如果是可变对象，则返回其指针\"\"\"\n"
+    },
+    {
+      "reason": "2026-10-27 user requested configuration retention across app updates: preserve long-term values while scheduled completion overrides remain effective for the current run; serialize complete settings to a temporary file and atomically replace; backups use persistent values.",
+      "before": "    def set_value(self, key: str, value: Any, *, config_obj: Optional[BaseModel | dict] = None) -> None:\n        \"\"\"设置配置项的值并延迟保存\"\"\"\n        with self._lock:\n            if config_obj is None and key.startswith((\"playcover_\", \"backend\", \"game_profile\")):\n                import module.automation\n\n",
+      "after": "    def set_value(self, key: str, value: Any, *, config_obj: Optional[BaseModel | dict] = None) -> None:\n        \"\"\"设置配置项的值并延迟保存\"\"\"\n        with self._lock:\n            if config_obj is None:\n                self.__dict__.get(\"_runtime_restore_values\", {}).pop(key, None)\n            if config_obj is None and key.startswith((\"playcover_\", \"backend\", \"game_profile\")):\n                import module.automation\n\n"
+    },
+    {
+      "reason": "2026-10-27 user requested configuration retention across app updates: preserve long-term values while scheduled completion overrides remain effective for the current run; serialize complete settings to a temporary file and atomically replace; backups use persistent values.",
+      "before": "            if loaded_config:\n                loaded_config = migrate_backend(loaded_config)\n                self.config = ConfigModel(**{**self._defaults, **loaded_config})\n                queue_in_loaded_config = loaded_config.get(\"teams_active_queue\")\n                if queue_in_loaded_config is None:\n                    normalized_queue = self._normalize_team_queue(self.migrate_legacy_team_queue())\n",
+      "after": "            if loaded_config:\n                loaded_config = migrate_backend(loaded_config)\n                self.config = ConfigModel(**{**self._defaults, **loaded_config})\n                self.__dict__.pop(\"_runtime_restore_values\", None)\n                queue_in_loaded_config = loaded_config.get(\"teams_active_queue\")\n                if queue_in_loaded_config is None:\n                    normalized_queue = self._normalize_team_queue(self.migrate_legacy_team_queue())\n"
+    },
+    {
+      "reason": "2026-10-27 user requested configuration retention across app updates: preserve long-term values while scheduled completion overrides remain effective for the current run; serialize complete settings to a temporary file and atomically replace; backups use persistent values.",
+      "before": "            if latest_time[:3] != now_time[:3]:\n                backup_file = self.backup_path / f\"config_{strftime('%Y%m%d_%H%M%S', now_time)}.yaml\"\n                with open(backup_file, \"w\", encoding=\"utf-8\") as f:\n                    self.yaml.dump(self.config.model_dump(), f)\n            # 删除旧备份文件，保留最近的10个\n            files = [f for f in self.backup_path.iterdir() if f.is_file() and f.suffix == \".yaml\"]\n            files.sort(key=lambda f: f.stat().st_birthtime)\n",
+      "after": "            if latest_time[:3] != now_time[:3]:\n                backup_file = self.backup_path / f\"config_{strftime('%Y%m%d_%H%M%S', now_time)}.yaml\"\n                with open(backup_file, \"w\", encoding=\"utf-8\") as f:\n                    self.yaml.dump(self.persistent_snapshot(), f)\n            # 删除旧备份文件，保留最近的10个\n            files = [f for f in self.backup_path.iterdir() if f.is_file() and f.suffix == \".yaml\"]\n            files.sort(key=lambda f: f.stat().st_birthtime)\n"
+    },
+    {
+      "reason": "2026-10-27 user requested configuration retention across app updates: preserve long-term values while scheduled completion overrides remain effective for the current run; serialize complete settings to a temporary file and atomically replace; backups use persistent values.",
+      "before": "        else:\n            backup_file = self.backup_path / f\"config_{strftime('%Y%m%d_%H%M%S', now_time)}.yaml\"\n            with open(backup_file, \"w\", encoding=\"utf-8\") as f:\n                self.yaml.dump(self.config.model_dump(), f)\n\n    def unsaved_del_key(self, key: str, *, config_obj: Optional[BaseModel | dict] = None) -> None:\n        \"\"\"仅删除配置项 不保存\"\"\"\n",
+      "after": "        else:\n            backup_file = self.backup_path / f\"config_{strftime('%Y%m%d_%H%M%S', now_time)}.yaml\"\n            with open(backup_file, \"w\", encoding=\"utf-8\") as f:\n                self.yaml.dump(self.persistent_snapshot(), f)\n\n    def unsaved_del_key(self, key: str, *, config_obj: Optional[BaseModel | dict] = None) -> None:\n        \"\"\"仅删除配置项 不保存\"\"\"\n"
+    },
+    {
+      "reason": "2026-10-21 independently reproduced missing-game startup repair: inspect only existing automation state before changing backend settings so an invalid old app path cannot block replacement; active tasks stay protected.",
+      "before": "                from module.automation import auto\n\n                if auto.task_running:\n                    raise ValueError(\"Stop the task before changing backend settings\")",
+      "after": "                import module.automation\n\n                auto = vars(module.automation).get(\"auto\")\n                if auto is not None and auto.task_running:\n                    raise ValueError(\"Stop the task before changing backend settings\")"
+    },
     {
       "reason": "2026-10-14 user authorized final repairs of known bugs: serialize pending/inflight writes, preserve save events, load stored legacy values, validate YAML and try all backups, compare full backup dates.",
       "before": "        \"\"\"旧版本配置升级处理\n\n        本身不进行保存文件操作\n        \"\"\"\n        log.info(\"检测到旧版本配置文件，正在进行升级...\")\n\n        # 镜牢历史数据格式转换\n        if saved_version < 1768403022:\n            team_num = len(self.get_value(\"teams_be_select\", []))\n\n            def _calculate_time_history(time_list: list[float], count: int) -> list[float]:\n                \"\"\"从每局都记录转换为只记录三种平均值\"\"\"\n                if count == 0:\n                    return [0.0, 0.0, 0.0]\n                if len(time_list) == 3 and count != 3:\n                    return time_list  # 已经是新格式，直接返回\n                elif len(time_list) == 3 and count == 3:\n",
@@ -243,6 +308,16 @@
   ],
   "tasks/mirror/in_shop.py": [
     {
+      "reason": "2026-10-21 independently reproduced aggressive-anchor miss: retain ordinary fusion when no first-row coordinate was detected.",
+      "before": "            if self.fuse_aggressive_switch:\n                unique_list = [items for items in unique_list if items[1] >= self.the_first_line_position]",
+      "after": "            if self.fuse_aggressive_switch and self.the_first_line_position is not None:\n                unique_list = [items for items in unique_list if items[1] >= self.the_first_line_position]"
+    },
+    {
+      "reason": "2026-10-21 remove unreachable negative-fifty branch: every negative retry count already returns or raises in the preceding branch.",
+      "before": "            if loop_try_count < -50:\n                log.error(\"不应该发生这样的问题，请提交issue\")\n                return False\n\n        loop_count = 30\n        auto.model = \"clam\"\n        system_level_IV = False",
+      "after": "        loop_count = 30\n        auto.model = \"clam\"\n        system_level_IV = False"
+    },
+    {
       "reason": "2026-10-21 remove an identical unreachable elif using the same captured frame.",
       "before": "                elif auto.find_element(\"mirror/shop/heal_sinner/heal_sinner_return_assets.png\"):\n                    continue\n                elif auto.find_element(\"mirror/shop/heal_sinner/heal_sinner_return_assets.png\"):\n                    continue\n",
       "after": "                elif auto.find_element(\"mirror/shop/heal_sinner/heal_sinner_return_assets.png\"):\n                    continue\n"
@@ -269,6 +344,16 @@
     }
   ],
   "tasks/mirror/mirror.py": [
+    {
+      "reason": "2026-10-21 independently reproduced OCR-only refusal page: failed image-anchor selection falls through to the existing main-loop recognition budget instead of crashing or retrying forever.",
+      "before": "                self.acquire_ego_gift(type=2)\n                continue\n            if main_loop_count < 30 and auto.find_language_text(\"拒绝饰品\", \"refuse\"):\n                self.acquire_ego_gift(type=2)\n                continue",
+      "after": "                if self.acquire_ego_gift(type=2) is not False:\n                    continue\n            if main_loop_count < 30 and auto.find_language_text(\"拒绝饰品\", \"refuse\"):\n                if self.acquire_ego_gift(type=2) is not False:\n                    continue"
+    },
+    {
+      "reason": "2026-10-21 independently reproduced OCR-only refusal page: report the existing selection failure when its image coordinate is absent; recognized-anchor actions stay unchanged.",
+      "before": "            pos = auto.find_element(\"mirror/road_in_mir/acquire_ego_gift_refuse_assets.png\")\n            auto.mouse_click(pos[0] - 500 * my_scale, pos[1] - 500 * my_scale)",
+      "after": "            pos = auto.find_element(\"mirror/road_in_mir/acquire_ego_gift_refuse_assets.png\")\n            if not pos:\n                return False\n            auto.mouse_click(pos[0] - 500 * my_scale, pos[1] - 500 * my_scale)"
+    },
     {
       "reason": "2026-10-21 remove three unused coordinate calculations with no side effects; starlight selection and gesture logic stay unchanged.",
       "before": "        starlights_Y = [first_starlight[1] + (i // 5) * 480 * scale for i in range(10)]\n\n        first_single_plus = (first_starlight[0] - 80 * scale, first_starlight[1] + 320 * scale)\n        double_plus_offset = 80 * scale * 2\n        star_card_size = (400 * scale, 480 * scale)\n\n",
@@ -374,9 +459,43 @@
   ],
   "tasks/mirror/search_road.py": [
     {
+      "reason": "2026-10-21 independently reproduced hard-mode visible distant Boss: restrict terminal selection to the existing two-edge planning horizon, reusing the existing third-column fallback.",
+      "before": "        start_node = self.columns[\"column1\"][self.bus_row]\n        end_nodes = {\n            node for column in self.columns.values() for node in column.values()",
+      "after": "        start_node = self.columns[\"column1\"][self.bus_row]\n        end_column = min(self.column_count, 3) if self.hard_mode else self.column_count\n        end_nodes = {\n            node for number in range(1, end_column + 1) for node in self.columns[f\"column{number}\"].values()"
+    },
+    {
       "reason": "2026-10-21 independent repository search confirmed this helper has no callers; remove its unused body without changing active task functions.",
       "before": "def divide_the_area_by_y(data):\n    # 步骤1：按y坐标从小到大排序（确保相近的y相邻）\n    sorted_by_y = sorted(data, key=lambda item: item[1][1])  # item[1]是坐标元组，item[1][1]是y值\n\n    # 步骤2：分组（y相近的归为一组，阈值可根据需求调整）\n    tolerance = ROAD_ROW_GAP * cfg.set_win_size / 1440 / 4\n    groups = []\n    for item in sorted_by_y:\n        current_y = item[1][1]\n        if not groups:\n            # 第一个元素，新建组\n            groups.append([item])\n        else:\n            # 检查当前元素与最后一个组的最后一个元素的y差值\n            last_group_last_y = groups[-1][-1][1][1]\n            if current_y - last_group_last_y <= tolerance:\n                # 加入最后一个组\n                groups[-1].append(item)\n            else:\n                # 新建组\n                groups.append([item])\n    return groups\n\n\ndef divide_the_area_by_x(data):",
       "after": "def divide_the_area_by_x(data):"
+    }
+  ],
+  "module/hotkey_listener.py": [
+    {
+      "reason": "2026-10-21 independently reproduced macOS Option shortcut mismatch: normalize event virtual codes using the existing current keyboard-layout translator before original canonicalization; exact modifiers and callbacks stay unchanged.",
+      "before": "    def _on_press(self, key, injected=False):",
+      "after": "    def _canonical_key(self, key):\n        if sys.platform == \"darwin\" and isinstance(key, keyboard.KeyCode) and key.vk is not None:\n            from pynput._util.darwin import keycode_context, keycode_to_string\n\n            # Option produces characters such as π/®; match the configured\n            # letter using the current layout without altering modifier state.\n            with keycode_context() as context:\n                char = keycode_to_string(context, key.vk) if context[1] is not None else \"\"\n            if len(char) == 1:\n                key = keyboard.KeyCode.from_char(char)\n        return self._canonicalize(key)\n\n    def _on_press(self, key, injected=False):"
+    },
+    {
+      "reason": "2026-10-21 apply the macOS key normalization to presses before the original exact-modifier matching.",
+      "before": "            canonical_key = self._canonicalize(key)\n            self._pressed_keys.add(canonical_key)",
+      "after": "            canonical_key = self._canonical_key(key)\n            self._pressed_keys.add(canonical_key)"
+    },
+    {
+      "reason": "2026-10-21 apply the same macOS key normalization to releases so held-key state clears correctly.",
+      "before": "            canonical_key = self._canonicalize(key)\n            for hotkey in self._hotkeys:",
+      "after": "            canonical_key = self._canonical_key(key)\n            for hotkey in self._hotkeys:"
+    }
+  ],
+  "tasks/teams/team_formation.py": [
+    {
+      "reason": "2026-10-27 user reported wrong Mirror preset selection: iOS page-distance layout parameters only; preserve the original ordered-team loops and desktop/simulator distances.",
+      "before": "from math import ceil\nfrom backend_host.runtime import worker_sleep as sleep\n\nfrom module.automation import auto\nfrom module.config import cfg\nfrom module.decorator.decorator import begin_and_finish_time_log\nfrom module.logger import log\n\nWINDOWS_ORDERED_TEAM_PAGE_SWIPE_DISTANCE = 400\nNAMED_TEAM_PAGE_SWIPE_DISTANCE = 385\n",
+      "after": "from math import ceil\n\nfrom backend_host.runtime import worker_sleep as sleep\n\nfrom module.automation import auto\nfrom module.config import cfg\nfrom module.decorator.decorator import begin_and_finish_time_log\nfrom module.logger import log\nfrom utils.image_utils import ImageUtils\n\nWINDOWS_ORDERED_TEAM_PAGE_SWIPE_DISTANCE = 400\nNAMED_TEAM_PAGE_SWIPE_DISTANCE = 385\n"
+    },
+    {
+      "reason": "2026-10-27 user reported wrong Mirror preset selection: iOS page-distance layout parameters only; preserve the original ordered-team loops and desktop/simulator distances.",
+      "before": "\ndef _ordered_team_page_swipe_distance(page_index=None):\n    if not cfg.simulator:\n        return WINDOWS_ORDERED_TEAM_PAGE_SWIPE_DISTANCE\n    if getattr(cfg, \"simulator_type\", 10) == 0:\n        if page_index == ORDERED_TEAM_LAST_PAGE_INDEX:\n            return ORDERED_TEAM_LAST_PAGE_SWIPE_DISTANCE\n",
+      "after": "\ndef _ordered_team_page_swipe_distance(page_index=None):\n    if not cfg.simulator:\n        return ImageUtils.layout(\n            \"teams.ordered_last_page_swipe_distance\"\n            if page_index == ORDERED_TEAM_LAST_PAGE_INDEX\n            else \"teams.ordered_page_swipe_distance\",\n            WINDOWS_ORDERED_TEAM_PAGE_SWIPE_DISTANCE,\n        )\n    if getattr(cfg, \"simulator_type\", 10) == 0:\n        if page_index == ORDERED_TEAM_LAST_PAGE_INDEX:\n            return ORDERED_TEAM_LAST_PAGE_SWIPE_DISTANCE\n"
     }
   ]
 }

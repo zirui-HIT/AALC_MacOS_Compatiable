@@ -218,3 +218,50 @@ def test_failed_async_save_is_retried_by_flush(config, writer, monkeypatch):
     assert completed.wait(2)
     config.flush()
     assert YAML().load(config.config_path.read_text())["set_EXP_count"] == 8
+
+
+def test_temporary_completion_does_not_replace_saved_preferences_or_new_teams(config):
+    from module.config import TeamSetting
+
+    config.set_value("keep_after_completion", True)
+    config.set_value("after_completion_actions", ["exit_game", "exit_aalc"])
+    config.set_runtime_values(keep_after_completion=False, after_completion_actions=[])
+    config.set_runtime_values(keep_after_completion=False, after_completion_actions=["exit_aalc"])
+    config.set_value("2", TeamSetting(team_number=20, remark_name="retained"), config_obj=config.config.teams)
+    config.set_value("set_mirror_count", 17)
+    config.flush()
+    assert config.after_completion_actions == ["exit_aalc"]  # This run still follows the command.
+    saved = YAML().load(config.config_path.read_text())
+    assert saved["keep_after_completion"] is True
+    assert saved["after_completion_actions"] == ["exit_game", "exit_aalc"]
+    assert saved["teams"]["2"]["team_number"] == 20
+    config.backup_config()
+    assert YAML().load(next(config.backup_path.glob("*.yaml")).read_text())["keep_after_completion"] is True
+    config._load_config()
+    assert config.keep_after_completion is True
+    assert config.config.teams["2"].remark_name == "retained"
+    assert config.set_mirror_count == 17
+    assert not config.__dict__.get("_runtime_restore_values")
+
+
+def test_explicit_new_preference_replaces_temporary_override(config):
+    config.set_runtime_values(after_completion_actions=["exit_aalc"])
+    config.set_value("after_completion_actions", ["exit_game"])
+    config.flush()
+    config._load_config()
+    assert config.after_completion_actions == ["exit_game"]
+
+
+def test_failed_yaml_serialization_keeps_the_complete_previous_config(config, monkeypatch):
+    before = config.config_path.read_bytes()
+
+    def fail_dump(value, stream):
+        stream.write("incomplete YAML")
+        raise OSError("simulated interrupted write")
+
+    with monkeypatch.context() as patch:
+        patch.setattr(config.yaml, "dump", fail_dump)
+        with pytest.raises(OSError, match="interrupted write"):
+            config._save_config()
+    assert config.config_path.read_bytes() == before
+    assert not list(config.config_path.parent.glob(".config-*.tmp"))

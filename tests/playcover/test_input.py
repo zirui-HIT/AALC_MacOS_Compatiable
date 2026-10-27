@@ -162,9 +162,59 @@ def test_geometry_change_during_pause_rejects_old_frame_before_touch(monkeypatch
 
 def test_scroll_has_no_long_endpoint_hold():
     handler, recorder = make_input()
-    handler.mouse_swipe_for_team_scroll(100, 500, dy=-100, duration=0)
+    handler.mouse_swipe_for_scroll(100, 500, dy=-100, duration=0)
     assert [event[0] for event in recorder.events] == [0, 1, 1, 3]
     assert recorder.events[-1][1:3] == (200, 800)
+
+
+@pytest.mark.parametrize("height", [720, 1080, 1440])
+@pytest.mark.parametrize("dy", [-271.875, 495])
+def test_team_scroll_delivers_down_then_escape_and_stops_velocity(height, dy, monkeypatch):
+    handler, recorder = make_input()
+    geometry = replace(handler._current_geometry(), logical_size=(height * 16 // 9, height))
+    scale = height / 1080
+    start_y = 540 if dy > 0 else 750
+    waits = []
+    monkeypatch.setattr(handler, "_wait", lambda seconds: waits.append((seconds, recorder.events[-1])))
+    with handler.geometry_context(geometry):
+        handler.mouse_swipe_for_team_scroll(190 * scale, start_y * scale, dy=dy * scale)
+
+    start = (190 * scale, (start_y - 60 if dy > 0 else start_y) * scale)
+    escape = (start[0], start[1] + (60 if dy > 0 else -60) * scale)
+    end = (escape[0], escape[1] + dy * scale)
+    assert recorder.events[0] == (0, *geometry.point(*start), 0)
+    assert waits[0] == (0.05, recorder.events[0])
+    assert (0.1, (1, *geometry.point(*escape), 0)) in waits
+    assert recorder.events[-1] == (3, *geometry.point(*end), 0)
+    # A sustained stationary stream must precede release, even when the input
+    # transport coalesces events. A sleep without moves leaves iOS momentum.
+    tail = recorder.events[-34:-1]
+    assert len(tail) == 33
+    assert all(event == (1, *geometry.point(*end), 0) for event in tail)
+    assert sum(seconds for seconds, _ in waits[-33:]) == pytest.approx(0.5)
+    assert not handler.active_contacts
+
+
+def test_team_scroll_zero_distance_does_not_press_a_team():
+    handler, recorder = make_input()
+    handler.mouse_swipe_for_team_scroll(190, 750)
+    assert not recorder.events
+
+
+def test_team_scroll_cancel_during_stationary_tail_releases_contact(monkeypatch):
+    handler, recorder = make_input()
+    monkeypatch.setattr(handler, "_wait", lambda _: None)
+    end = handler._current_geometry().point(190, 750 - 60 - 100)
+
+    def cancel_at_tail(phase):
+        if phase == 1 and sum(event == (1, *end, 0) for event in recorder.events) == 2:
+            handler.cancel.set()
+
+    recorder.on_touch = cancel_at_tail
+    with pytest.raises(BackendCancelled):
+        handler.mouse_swipe_for_team_scroll(190, 750, dy=-100)
+    assert recorder.events[-1] == (3, *end, 0)
+    assert not handler.active_contacts
 
 
 def test_pause_during_gesture_takes_effect_after_release():
