@@ -1,0 +1,19 @@
+{
+  "source": ".runtime/recognition-fixes-20261012/chinese-shop-parent.png",
+  "source_sha256": "2a918dcdf51c74b0d1231b6788dc6e8ebf605da047410e44a13c9ca37776107e",
+  "logical_size": [
+    1920,
+    1080
+  ],
+  "language": "ios_zh_cn",
+  "redactions": [],
+  "privacy_review": "Complete shop screen contains no account UID or custom team names; original image bytes retained.",
+  "expected_prices": [
+    152,
+    155,
+    219,
+    183,
+    250
+  ],
+  "special_shop": false
+}

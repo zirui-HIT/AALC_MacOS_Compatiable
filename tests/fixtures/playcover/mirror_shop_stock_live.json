@@ -1,0 +1,23 @@
+{
+  "source": ".runtime/quick-shop-20261028/live/shop-before.png",
+  "source_sha256": "b0e87d2f532cb8a6880416c0257d9b0035dfbe38afda2b17e0e42b0eeabbb017",
+  "logical_size": [
+    1920,
+    1080
+  ],
+  "language": "ios_zh_cn",
+  "redactions": [],
+  "privacy_review": "Complete shop screen visually checked: no account UID or custom team names; original image bytes retained.",
+  "expected_prices": [
+    142,
+    201,
+    147,
+    148
+  ],
+  "coins_anchor": [
+    826,
+    205
+  ],
+  "balance": 425,
+  "special_shop": false
+}

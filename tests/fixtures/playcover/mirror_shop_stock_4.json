@@ -1,0 +1,18 @@
+{
+  "source": ".runtime/hard-mirror-audit-20261017/live/frame-00195.png",
+  "source_sha256": "76f9976dffa639f4d94977832bb5d4f7bc1e7c7d3a3b8e35f94e6c736dd15000",
+  "logical_size": [
+    1920,
+    1080
+  ],
+  "language": "ios_zh_cn",
+  "redactions": [],
+  "privacy_review": "Complete shop screen contains no account UID or custom team names; original image bytes retained.",
+  "expected_prices": [
+    158,
+    219,
+    246,
+    148
+  ],
+  "special_shop": false
+}

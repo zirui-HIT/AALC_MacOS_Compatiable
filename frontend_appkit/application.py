@@ -15,7 +15,7 @@ from PyObjCTools import AppHelper
 
 from frontend_appkit.client import BackendClient
 from frontend_appkit.edit_models import SINNERS, SYSTEMS, TeamDraft
-from frontend_appkit.forms import DISPLAY_LABELS, Form
+from frontend_appkit.forms import DISPLAY_LABELS, SHOPPING_TRANSLATIONS, Form
 from frontend_appkit.presentation import (
     TOOLBAR_HEIGHT,
     TOOLBAR_SLOT_WIDTH,
@@ -191,6 +191,7 @@ class Application:
                     self.translations[message.findtext("source")] = translation
         self.translations.update({"完成后": "After run", "关闭": "Off", "一场连续作战的最大次数": "Maximum consecutive battles", "经验": "EXP", "纽本": "Thread"})
         self.translations.update({cn: en for cn, en in DISPLAY_LABELS.values()})
+        self.translations.update(SHOPPING_TRANSLATIONS)
         self.translations.update({"打开自动战斗…": "Open automatic battle…", "打开截图小工具…": "Open screenshot tool…", "截图": "Capture", "点击截图获取当前游戏画面": "Capture to preview the current game view", "更新时间": "Updated", "暂无公告": "No announcements", "更新为当前时间": "Update to now", "拖动调整日志高度": "Drag to resize the log"})
         for number in range(1, 5):
             self.translations[f"定时任务 {number}"] = f"Schedule {number}"

@@ -1328,6 +1328,11 @@ class Shop:
         skill = False
         try:
             while True:
+                if self.shopping_strategy and self.shopping_strategy_select == 6:
+                    from tasks.mirror.quick_shop import buy_current_page
+
+                    buy_current_page(self)
+                    break
                 # 忽略楼层商店的情况
                 if 1 <= layer <= 5 and self.ignore_shop[layer - 1]:
                     msg = f"第{layer}楼层商店被忽略"

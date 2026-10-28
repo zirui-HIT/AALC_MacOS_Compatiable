@@ -30,6 +30,10 @@ DISPLAY_LABELS = {
     "check_update": ("启动时检查官方更新", "Check official updates at launch"),
     "after_completion_actions": ("完成后操作", "After-run actions"),
 }
+SHOPPING_TRANSLATIONS = {
+    "快速购买当前页并离店": "Quick buy current page and leave",
+    FIELDS["TeamSetting"]["shopping_strategy_select"]["description"]: "Enable Custom shopping strategy first. Quick buy supports normal and special shops: buy the current page until it is sold out or unaffordable, without setting tags or refreshing. It overrides shop floor exclusions and skips healing, selling, fusion, enhancement and skill replacement.",
+}
 for suffix in ("", "2", "3", "4"):
     DISPLAY_LABELS.update({
         "autodaily" + suffix: ("启用定时任务", "Enable schedule"),

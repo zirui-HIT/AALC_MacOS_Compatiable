@@ -1,0 +1,19 @@
+{
+  "source": "MaaTools current-page quick-shop validation 2026-10-28",
+  "logical_size": [
+    1920,
+    1080
+  ],
+  "language": "ios_zh_cn",
+  "page": "shop gift purchase confirmation, enabled",
+  "price": 142,
+  "balance_before": 425,
+  "balance_after_if_confirmed": 283,
+  "purchase_button_rect": [
+    990,
+    690,
+    1255,
+    760
+  ],
+  "redactions": []
+}
