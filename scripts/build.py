@@ -8,6 +8,7 @@ from pathlib import Path
 import psutil
 
 ROOT = Path(__file__).resolve().parents[1]
+LSREGISTER = '/System/Library/Frameworks/CoreServices.framework/Frameworks/LaunchServices.framework/Support/lsregister'
 
 
 def backup_user_config():
@@ -39,16 +40,28 @@ def ensure_bundle_stopped(bundle):
                          'Updating a running bundle breaks subsequent task imports.')
 
 
+def register_installed_bundle(bundle, destination):
+    """Keep the build copy out of the application catalog after installation."""
+    for option, path in (('-u', bundle), ('-f', destination)):
+        try:
+            # An unindexed build may never have been registered; -u then returns nonzero.
+            subprocess.run([LSREGISTER, option, str(path)], check=option == '-f', capture_output=True)
+        except (OSError, subprocess.CalledProcessError) as error:
+            sys.stderr.write(f'Application registration failed for {path}: {error}\n')
+
+
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument('--install', action='store_true')
     arguments = parser.parse_args()
     if sys.platform != 'darwin':
         raise SystemExit('The AppKit frontend requires macOS')
-    ensure_bundle_stopped(ROOT / 'dist/AALC.app')
+    # Spotlight also lists .app build products unless their directory is excluded.
+    distribution = ROOT / '.runtime/dist.noindex'
+    bundle = distribution / 'AALC.app'
+    ensure_bundle_stopped(bundle)
     env = {**os.environ, 'PYINSTALLER_CONFIG_DIR': str(ROOT / '.runtime/cache/pyinstaller'), 'TMPDIR': str(ROOT / '.runtime/tmp')}
-    subprocess.run([sys.executable, '-m', 'PyInstaller', str(ROOT / 'main_macos.spec'), '--clean', '--noconfirm'], cwd=ROOT, env=env, check=True)
-    bundle = ROOT / 'dist/AALC.app'
+    subprocess.run([sys.executable, '-m', 'PyInstaller', str(ROOT / 'main_macos.spec'), '--distpath', str(distribution), '--clean', '--noconfirm'], cwd=ROOT, env=env, check=True)
     subprocess.run(['/usr/bin/codesign', '--verify', '--deep', '--strict', str(bundle)], check=True)
     if arguments.install:
         destination = Path('/Applications/AALC.app')
@@ -77,6 +90,7 @@ def main():
             raise
         if previous.exists():
             shutil.rmtree(previous)
+        register_installed_bundle(bundle, destination)
 
 
 if __name__ == '__main__':

@@ -182,12 +182,14 @@ macOS 等待线程结束后使用排队关闭，并补查线程是否已结束�
 QT_QPA_PLATFORM=offscreen .venv/bin/python main.py --smoke-test
 .venv/bin/python main.py --ocr-smoke-test
 .venv/bin/python scripts/build.py --install
-dist/AALC.app/Contents/MacOS/AALC --smoke-test
-dist/AALC.app/Contents/MacOS/AALC --ocr-smoke-test
+.runtime/dist.noindex/AALC.app/Contents/MacOS/AALC --smoke-test
+.runtime/dist.noindex/AALC.app/Contents/MacOS/AALC --ocr-smoke-test
 ```
 
 更新前须完全退出 AALC，包括后台进程；关闭主窗口只会隐藏应用。
-构建脚本在重建 `dist/AALC.app` 和替换 `/Applications/AALC.app` 前检查相关进程，
+构建产物保存在不参与 Spotlight 索引的 `.runtime/dist.noindex/`，避免与“应用程序”中的正式版本形成重复入口。
+安装后只更新构建副本和正式应用的启动注册，保留配置及备份文件。
+构建脚本在重建 `.runtime/dist.noindex/AALC.app` 和替换 `/Applications/AALC.app` 前检查相关进程，
 仍在运行时中止更新。2026-10-14 已复现：覆盖运行中的 PyInstaller 应用后，
 旧进程以旧索引读取新包内的延迟加载模块，定时任务会报
 `Error -3 while decompressing data: incorrect header check`；完整退出后重新打开新包即可恢复。
@@ -196,9 +198,9 @@ dist/AALC.app/Contents/MacOS/AALC --ocr-smoke-test
 `tests/fixtures/playcover/`，记录版本、语言、原始/逻辑/触控尺寸与脱敏范围。
 CI 增加纯协议和 macOS arm64 测试/构建，保留现有 Windows 工作流；本机不冒称已跑 Windows。
 
-目录式 `dist/AALC.app` 包含 Qt 插件、OCR 模型、YAML、字体和图片资源。
+目录式 `.runtime/dist.noindex/AALC.app` 包含 Qt 插件、OCR 模型、YAML、字体和图片资源。
 这是本地 ad-hoc 签名构建，尚无 Developer ID 签名或公证。发布者需要自己的凭据执行
-`codesign --force --deep --options runtime --sign '<Developer ID Application identity>' dist/AALC.app`，
+`codesign --force --deep --options runtime --sign '<Developer ID Application identity>' .runtime/dist.noindex/AALC.app`，
 再按 Apple notarization 流程提交和装订；须重新验证嵌套二进制签名与启动。
 Mac 软件更新仅提示，禁止下载安装上游 Windows `.7z`/`.exe`。
 图片更新来源是 [AALCImageResources](https://github.com/KIYI671/AALCImageResources) 的
