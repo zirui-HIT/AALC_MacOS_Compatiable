@@ -1,0 +1,12 @@
+{
+  "source": "MaaTools fast-shop validation 2026-10-28",
+  "source_sha256": "544857c8072a0e50428977b77514ce9dd9243ccc0d4d06e48ad8963c552a1f05",
+  "logical_size": [
+    1920,
+    1080
+  ],
+  "language": "ios_zh_cn",
+  "special_shop": false,
+  "expected_prices": [],
+  "redactions": []
+}

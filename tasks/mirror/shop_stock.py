@@ -32,8 +32,7 @@ def _cached_service_template(height, path, mtime_ns, size):
     return cv2.resize(pattern, None, fx=scale, fy=scale, interpolation=cv2.INTER_AREA)
 
 
-def _service_template(height):
-    target = "mirror/shop/skill_replacement_assets.png"
+def _marker_template(height, target):
     for profile in ImageUtils.existing_image_paths(target):
         try:
             path = ImageUtils.resolve_path(profile, target).resolve()
@@ -45,6 +44,14 @@ def _service_template(height):
         except (OSError, ValueError, IndexError, cv2.error):
             return None  # Failed reads raise out of the cache and can recover next frame.
     return None
+
+
+def _service_template(height):
+    return _marker_template(height, "mirror/shop/skill_replacement_assets.png")
+
+
+def _purchased_template(height):
+    return _marker_template(height, "mirror/shop/ID_skill_replace_0_purchased_assets.png")
 
 
 def _price_line(pixels, center_y, scale):
@@ -92,6 +99,7 @@ def current_page_items(image: Image.Image, coins: tuple) -> list[ShopItem]:
     template = _service_template(image.height)
     if template is None:
         return []  # An unavailable service guard must not turn services into gifts.
+    purchased_template = _purchased_template(image.height)
 
     price_bounds = [(round(first_x + column * step - 20 * scale),
                      round(first_x + column * step + 110 * scale)) for column in range(4)]
@@ -101,6 +109,16 @@ def current_page_items(image: Image.Image, coins: tuple) -> list[ShopItem]:
         pixels = np.asarray(source.crop((left, top, right, bottom)))
         for column in range(4):
             center = first_x + column * step - left
+            if purchased_template is not None:
+                x = first_x + column * step
+                y = first_y + row * step - 180 * scale
+                header = np.asarray(source.crop((round(x - 130 * scale), round(y - 35 * scale),
+                                                 round(x + 130 * scale), round(y + 35 * scale))))
+                if (header.shape[0] >= purchased_template.shape[0]
+                        and header.shape[1] >= purchased_template.shape[1]
+                        and cv2.minMaxLoc(cv2.matchTemplate(
+                            header, purchased_template, cv2.TM_CCOEFF_NORMED))[1] >= 0.8):
+                    continue
             cell = pixels[:, max(0, round(center - 90 * scale)):round(center + 90 * scale)]
             if cell.shape[0] >= template.shape[0] and cell.shape[1] >= template.shape[1]:
                 similarity = cv2.minMaxLoc(cv2.matchTemplate(cell, template, cv2.TM_CCOEFF_NORMED))[1]
