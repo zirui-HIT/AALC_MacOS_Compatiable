@@ -307,6 +307,18 @@ class Automation(metaclass=SingletonMeta):
             my_crop=my_crop,
             additional_stack=1,
         )
+        if (sys.platform == "darwin" and cfg.backend == "playcover"
+                and cfg.game_profile in {"ios_en", "ios_zh_cn"}
+                and target == "mirror/claim_reward/claim_rewards_assets.png"
+                and find_type == "image" and click and action == "click"
+                and times == 1 and dx == 0 and dy == 0 and my_crop is None
+                and self.find_element("mirror/claim_reward/use_enkephalin_assets.png")
+                and self.find_element("mirror/claim_reward/coins.png")):
+            # iOS leaves the opening button visible behind its reward panel.
+            # Tapping it again dismisses the panel. Treat an already open panel
+            # as success so the original bonus selection and XP reading still run.
+            log.debug("镜牢奖励面板已打开，复用当前面板，保留原周常加成和领奖流程")
+            return True
         if coordinates:
             if click:
                 return self.mouse_action_with_pos(
