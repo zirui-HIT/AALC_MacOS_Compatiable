@@ -1,7 +1,9 @@
 import logging
 import sys
+from copy import deepcopy
 from pathlib import Path
 from threading import RLock
+from time import monotonic
 
 import cv2
 import numpy as np
@@ -106,7 +108,33 @@ class OCR(metaclass=SingletonMeta):
             clahe = createCLAHE(clipLimit=2.0, tileGridSize=(8, 8))
             processed_image = clahe.apply(img_cv_gray)
             with self._inference_lock:
-                results = self.engine(processed_image)
+                # Original retry loops can read the same small grayscale crop
+                # repeatedly. Reuse only identical input for at most one second;
+                # keep independent outputs and every caller's original log.
+                profile = cfg.game_profile if sys.platform == "darwin" else None
+                cacheable = (profile in {"ios_en", "ios_zh_cn"}
+                             and isinstance(image, np.ndarray) and image.ndim == 2
+                             and processed_image.size <= 65536)
+                cached = getattr(self, "_small_crop_cache", None)
+                results = None
+                if (cacheable and cached is not None and cached[0] is self.engine
+                        and cached[1] == profile and monotonic() < cached[4]
+                        and np.array_equal(processed_image, cached[2])):
+                    try:
+                        results = deepcopy(cached[3])
+                    except Exception:
+                        pass  # A cache-copy failure must still run normal OCR.
+                if results is None:
+                    self._small_crop_cache = None
+                    results = self.engine(processed_image)
+                    if cacheable and results.txts:
+                        try:
+                            self._small_crop_cache = (
+                                self.engine, profile, processed_image.copy(),
+                                deepcopy(results), monotonic() + 1.0,
+                            )
+                        except Exception:
+                            pass  # Caching is optional; keep a valid OCR result.
             self.log_results(results)
             return results
         except Exception as e:
