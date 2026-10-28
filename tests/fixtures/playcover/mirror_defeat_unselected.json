@@ -1,0 +1,35 @@
+{
+  "game_version": "1.117.1",
+  "language": "ios_zh_cn",
+  "bundle_id": "com.ProjectMoon.LimbusCompany",
+  "protocol_version": 4,
+  "raw_size": [
+    3942,
+    2216
+  ],
+  "touch_size": [
+    5120,
+    2880
+  ],
+  "logical_size": [
+    1920,
+    1080
+  ],
+  "image_mode": "L",
+  "page": "mirror_defeat_unselected",
+  "captured_at": "2026-10-28",
+  "redactions": [],
+  "source": "Real MaaTools BGR capture of the retained floor-5 defeat dialog, normalized and converted to grayscale; no synthesized game pixels",
+  "retry_option_content_rect": [
+    950,
+    485,
+    1415,
+    580
+  ],
+  "confirm_button_rect": [
+    828,
+    765,
+    1106,
+    818
+  ]
+}

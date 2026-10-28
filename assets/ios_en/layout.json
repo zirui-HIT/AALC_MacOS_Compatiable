@@ -15,6 +15,10 @@
     40,
     -180
   ],
+  "battle.defeat_choice": [
+    200,
+    0
+  ],
   "image.battle/gear_right.png.anchor": [
     0,
     44

@@ -157,6 +157,11 @@
       "reason": "Initialize only the diagnostic message when the existing defense branch recognizes no gear; all game actions and branch conditions remain frozen.",
       "before": "",
       "after": "        msg = \"未识别到左齿轮，等待下一次识别\"\n"
+    },
+    {
+      "reason": "2026-10-28 real iOS defeat dialog: the existing three-option matcher locates narrow left borders outside the selectable content. Offset only the existing middle-option tap using the iOS layout; sorting, confirmation, failure accounting and desktop coordinates stay unchanged.",
+      "before": "                    auto.mouse_click(dead_select[1][0], dead_select[1][1])\n",
+      "after": "                    choice_position = ImageUtils.layout_point(\"battle.defeat_choice\", dead_select[1], cfg.set_win_size / 1440)\n                    auto.mouse_click(choice_position[0], choice_position[1])\n"
     }
   ],
   "module/config/config.py": [

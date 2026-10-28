@@ -287,7 +287,8 @@ class Battle:
                 dead_select = auto.find_element("battle/dead_all.png", find_type="image_with_multiple_targets")
                 if len(dead_select) == 3:
                     dead_select = sorted(dead_select, key=lambda y: y[1])
-                    auto.mouse_click(dead_select[1][0], dead_select[1][1])
+                    choice_position = ImageUtils.layout_point("battle.defeat_choice", dead_select[1], cfg.set_win_size / 1440)
+                    auto.mouse_click(choice_position[0], choice_position[1])
                 else:
                     confirm_button = auto.find_element("battle/dead_all_confirm_assets.png")
                     try:
