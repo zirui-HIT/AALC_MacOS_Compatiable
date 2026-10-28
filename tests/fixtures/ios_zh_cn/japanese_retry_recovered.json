@@ -1,0 +1,13 @@
+{
+  "game_version": "1.117.1",
+  "game_profile": "ios_zh_cn",
+  "captured_at": "2026-10-28",
+  "page": "Event result after one original RetryMonitor retry click",
+  "logical_size": [
+    1920,
+    1080
+  ],
+  "source": "Actual MaaTools BGR normalized by production capture adapter, grayscale conversion only",
+  "redactions": [],
+  "retry_popup_present": false
+}

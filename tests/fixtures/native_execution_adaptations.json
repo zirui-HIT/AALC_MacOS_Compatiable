@@ -140,6 +140,11 @@
       "reason": "Honor removals from a successfully synchronized macOS image tree instead of restoring bundled templates; pre-sync fallback and recognition methods stay unchanged.",
       "before": "        return updated if updated.exists() else resource_path(f\"assets/images/{profile}/{image_path}\")\n",
       "after": "        return updated if updated.exists() or synced_image_tree() else resource_path(f\"assets/images/{profile}/{image_path}\")\n"
+    },
+    {
+      "reason": "2026-10-28 hybrid Chinese localization leaves server errors in Japanese. Keep the original Chinese retry template when adding the Japanese iOS candidate; explicit custom user overrides retain their original precedence.",
+      "before": "        # RetryMonitor explicitly asks for this desktop path. Only substitute\n        # its Chinese image; polling, cooldown and interaction gates stay intact.\n        if cfg.game_profile == \"ios_zh_cn\" and profile == \"default/zh_cn\" and image_path == \"base/retry.png\":\n            overlay = ImageUtils.resolve_path(\"default/ios_zh_cn\", image_path)\n",
+      "after": "        # Keep explicit user overrides compatible. The bundled hybrid fallback\n        # is a separate candidate, so the original Chinese template stays usable.\n        if cfg.game_profile == \"ios_zh_cn\" and profile == \"default/zh_cn\" and image_path == \"base/retry.png\":\n            overlay = data_path(\"templates/ios_zh_cn/default/base/retry.png\")\n"
     }
   ],
   "tasks/battle/battle.py": [
@@ -501,6 +506,13 @@
       "reason": "2026-10-27 user reported wrong Mirror preset selection: iOS page-distance layout parameters only; preserve the original ordered-team loops and desktop/simulator distances.",
       "before": "\ndef _ordered_team_page_swipe_distance(page_index=None):\n    if not cfg.simulator:\n        return WINDOWS_ORDERED_TEAM_PAGE_SWIPE_DISTANCE\n    if getattr(cfg, \"simulator_type\", 10) == 0:\n        if page_index == ORDERED_TEAM_LAST_PAGE_INDEX:\n            return ORDERED_TEAM_LAST_PAGE_SWIPE_DISTANCE\n",
       "after": "\ndef _ordered_team_page_swipe_distance(page_index=None):\n    if not cfg.simulator:\n        return ImageUtils.layout(\n            \"teams.ordered_last_page_swipe_distance\"\n            if page_index == ORDERED_TEAM_LAST_PAGE_INDEX\n            else \"teams.ordered_page_swipe_distance\",\n            WINDOWS_ORDERED_TEAM_PAGE_SWIPE_DISTANCE,\n        )\n    if getattr(cfg, \"simulator_type\", 10) == 0:\n        if page_index == ORDERED_TEAM_LAST_PAGE_INDEX:\n            return ORDERED_TEAM_LAST_PAGE_SWIPE_DISTANCE\n"
+    }
+  ],
+  "tasks/base/retry_monitor.py": [
+    {
+      "reason": "2026-10-28 add only the Japanese retry image candidate for the existing hybrid iOS profile. Monitor timing, matching threshold, click cooldown and interaction gate behavior remain unchanged.",
+      "before": "        for path in self.TEMPLATE_PATHS:\n",
+      "after": "        paths = self.TEMPLATE_PATHS\n        if cfg.game_profile == \"ios_zh_cn\":\n            paths += (\"default/ios_zh_cn\",)\n        for path in paths:\n"
     }
   ]
 }

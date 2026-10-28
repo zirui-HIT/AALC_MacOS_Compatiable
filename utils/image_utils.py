@@ -65,10 +65,10 @@ class ImageUtils:
             if f"{theme}/{image_path}" in ImageUtils.ios_zh_cn_profile().get("reuse_ios_en", []):
                 return resource_path(f"assets/ios_en/{theme}/{image_path}")
             return bundled
-        # RetryMonitor explicitly asks for this desktop path. Only substitute
-        # its Chinese image; polling, cooldown and interaction gates stay intact.
+        # Keep explicit user overrides compatible. The bundled hybrid fallback
+        # is a separate candidate, so the original Chinese template stays usable.
         if cfg.game_profile == "ios_zh_cn" and profile == "default/zh_cn" and image_path == "base/retry.png":
-            overlay = ImageUtils.resolve_path("default/ios_zh_cn", image_path)
+            overlay = data_path("templates/ios_zh_cn/default/base/retry.png")
             if overlay.exists():
                 return overlay
         updated = data_path(f"resources/images/{profile}/{image_path}")

@@ -1,0 +1,34 @@
+{
+  "game_version": "1.117.1",
+  "game_profile": "ios_zh_cn",
+  "language": "mixed Chinese/Japanese",
+  "page": "Japanese server error over an event",
+  "captured_at": "2026-10-28",
+  "raw_size": [
+    3942,
+    2216
+  ],
+  "touch_size": [
+    5120,
+    2880
+  ],
+  "logical_size": [
+    1920,
+    1080
+  ],
+  "image_mode": "L",
+  "redactions": [],
+  "source": "Actual MaaTools BGR normalized with production Geometry; grayscale conversion only",
+  "retry_button_content_rect": [
+    996,
+    680,
+    1220,
+    727
+  ],
+  "template_crop_1080": [
+    1056,
+    685,
+    1160,
+    717
+  ]
+}

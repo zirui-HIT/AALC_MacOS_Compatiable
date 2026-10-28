@@ -75,7 +75,10 @@ class RetryMonitor:
 
     def _load_templates(self) -> tuple[np.ndarray, ...]:
         templates = []
-        for path in self.TEMPLATE_PATHS:
+        paths = self.TEMPLATE_PATHS
+        if cfg.game_profile == "ios_zh_cn":
+            paths += ("default/ios_zh_cn",)
+        for path in paths:
             template = ImageUtils.load_from_specific_path(self.RETRY_TEMPLATE, path)
             if template is not None:
                 templates.append(template)
