@@ -1,0 +1,46 @@
+{
+  "game_version": "1.117.1",
+  "game_profile": "ios_zh_cn",
+  "page": "Select event effect, original right option selected",
+  "captured_at": "2026-10-28",
+  "raw_size": [
+    3942,
+    2216
+  ],
+  "touch_size": [
+    5120,
+    2880
+  ],
+  "logical_size": [
+    1920,
+    1080
+  ],
+  "source": "Actual MaaTools BGR normalized by production Geometry; grayscale conversion only",
+  "redactions": [],
+  "confirm_button_rect": [
+    785,
+    750,
+    1135,
+    795
+  ],
+  "template_crop_1080": [
+    899,
+    750,
+    1022,
+    795
+  ],
+  "original_option_rects": [
+    [
+      425,
+      355,
+      925,
+      680
+    ],
+    [
+      1000,
+      355,
+      1490,
+      680
+    ]
+  ]
+}
