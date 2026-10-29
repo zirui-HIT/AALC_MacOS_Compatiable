@@ -231,14 +231,15 @@ theme_pack_list_hard_cn:
 # 硬禁选独立于权重，按实际楼层及难度生效；填写上述中英文关键词。
 # 全局禁选始终生效，队伍文件只能追加；名单非空时未知/编号不明的包也不自动选。
 # 刷新耗尽且没有允许的卡包时停止任务，留在选包界面。
+# LCB定期体检及复刻共用 check / 体检，普通与困难的所有楼层均禁选。
 forbidden_theme_packs:
-  normal_1: [automated, unloving, 自动, 无慈悲, 无法去爱]
-  normal_2: [automated, unloving, lake, 自动, 无慈悲, 无法去爱, 湖的]
-  normal_3: [unconf, dregs, 无作为, 未曾面对, 宅邸]
-  normal_4: []
-  normal_5: []
-  hard_1: []
-  hard_2: []
-  hard_3: []
-  hard_4: [violet, miracle, evil, 紫罗兰, 区的奇, 定义为]
-  hard_5: [line 4&&section&&#3, line 4&&section&&#4, line 5, evil, ending, 4号线&&3区段, 4号线&&4区段, 5号线, 定义为, 终焉]
+  normal_1: [automated, unloving, 自动, 无慈悲, 无法去爱, check, 体检]
+  normal_2: [automated, unloving, lake, 自动, 无慈悲, 无法去爱, 湖的, check, 体检]
+  normal_3: [unconf, dregs, 无作为, 未曾面对, 宅邸, check, 体检]
+  normal_4: [check, 体检]
+  normal_5: [check, 体检]
+  hard_1: [check, 体检]
+  hard_2: [check, 体检]
+  hard_3: [check, 体检]
+  hard_4: [violet, miracle, evil, 紫罗兰, 区的奇, 定义为, check, 体检]
+  hard_5: [line 4&&section&&#3, line 4&&section&&#4, line 5, evil, ending, 4号线&&3区段, 4号线&&4区段, 5号线, 定义为, 终焉, check, 体检]
