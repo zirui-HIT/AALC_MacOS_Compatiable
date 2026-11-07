@@ -316,6 +316,11 @@
   ],
   "tasks/base/script_task_scheme.py": [
     {
+      "reason": "2026-11-07 user explicitly requested iOS startup network-exit confirmation, restart and a four-launch limit. Reuse the existing init_game unwind and BackendCancelled task-stop mechanism; gameplay and other platforms retain their original flow.",
+      "before": "        get_playcover_session().start_game()\n",
+      "after": "        from tasks.base.playcover_startup import begin_startup\n\n        session = get_playcover_session()\n        begin_startup(session)\n        session.start_game()\n"
+    },
+    {
       "reason": "2026-10-21 bound screenshot recovery recursion without changing initialization actions or their order.",
       "before": "def init_game():",
       "after": "@repeat_initialization\ndef init_game():"
@@ -427,6 +432,11 @@
     }
   ],
   "tasks/base/retry.py": [
+    {
+      "reason": "2026-11-07 user explicitly requested iOS startup network-exit confirmation, restart and a four-launch limit. Reuse the existing init_game unwind and BackendCancelled task-stop mechanism; gameplay and other platforms retain their original flow.",
+      "before": "",
+      "after": "        if cfg.backend == \"playcover\":\n            from tasks.base.playcover_startup import recover_network_exit_notice\n\n            if recover_network_exit_notice():\n                from tasks.base.script_task_scheme import init_game\n\n                init_game()\n                continue\n"
+    },
     {
       "reason": "2026-10-21 confirmed take_screenshot/init_game recovery recursion: repeat the existing initialization body on reentry, with a thread-local guard cleared on cancellation.",
       "before": "",

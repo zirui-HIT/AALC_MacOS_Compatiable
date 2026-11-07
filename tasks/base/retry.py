@@ -230,6 +230,14 @@ def retry(*, reuse_screenshot=False):
             continue
         if cfg.backend == "playcover" and auto.find_element("base/sign_in_assets.png"):
             raise RuntimeError("Limbus requires manual Google / Apple login before automation can continue")
+        if cfg.backend == "playcover":
+            from tasks.base.playcover_startup import recover_network_exit_notice
+
+            if recover_network_exit_notice():
+                from tasks.base.script_task_scheme import init_game
+
+                init_game()
+                continue
         if auto.find_element("base/connecting_assets.png"):
             continue
         if position := auto.find_element("base/retry_countdown.png"):

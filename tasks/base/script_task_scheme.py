@@ -130,7 +130,11 @@ def init_game():
         from module.backends.factory import get_playcover_session
 
         auto.init_input()
-        get_playcover_session().start_game()
+        from tasks.base.playcover_startup import begin_startup
+
+        session = get_playcover_session()
+        begin_startup(session)
+        session.start_game()
         auto.take_screenshot(False)
         from tasks.base.retry import retry
 
