@@ -365,6 +365,7 @@ def test_resumed_hard_page_selects_known_pack_with_normal_config(chinese, monkey
 
     from module.automation import auto
     from module.config import theme_list
+    from module.ocr import ocr
 
     cfg, _, paths = chinese
     monkeypatch.setattr(cfg, "config", cfg.config.model_copy(update={
@@ -379,6 +380,10 @@ def test_resumed_hard_page_selects_known_pack_with_normal_config(chinese, monkey
         image.paste(content, (480, 0))
     if height != 1080:
         image = image.resize((round(height * 16 / 9), height), Image.Resampling.LANCZOS)
+    # This opt-in replay exercises native OCR, independently of test order.
+    # Production keeps its existing nonblocking cold-start fallback.
+    ocr.run(Image.new("L", (240, 80), 255))
+    assert ocr._vision_zh_cn.ready.wait(10), "Chinese Vision failed to warm up"
 
     def capture(*args, **kwargs):
         auto.screenshot = image
