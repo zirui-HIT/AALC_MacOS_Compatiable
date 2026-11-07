@@ -426,6 +426,11 @@
   ],
   "tasks/mirror/select_theme_pack.py": [
     {
+      "reason": "2026-11-07 actual MaaTools capture and logs confirmed HARD floor 5 was read with normal-only names after a difficulty switch failed, turning all three known packs into unknown. For PlayCover only, reuse the existing read-only difficulty recognizer to select the catalog and matching hard-ban policy from the visible page. Preserve configured difficulty, switching, weighting, refresh, fallback and forbidden-only stop actions.",
+      "before": "",
+      "after": "    if cfg.backend == \"playcover\":\n        # A resumed iOS run can already be HARD even when the configured\n        # target is normal. Match both names and bans against the visible page.\n        actual_difficulty = get_theme_pack_difficulty()\n        if actual_difficulty is not None:\n            actual_hard_mode = actual_difficulty == \"hard\"\n            if actual_hard_mode != hard_mode:\n                log.warning(f\"主题包页面实际难度为 {actual_difficulty}，按实际难度读取名称和禁选名单\")\n            hard_mode = actual_hard_mode\n"
+    },
+    {
       "reason": "2026-10-21 independently confirmed empty candidate list after skipping the only event pack: retain existing refresh/recovery paths instead of retrying max([]) forever.",
       "before": "                max_weight = max(weight_list)\n                log.debug(f\"当前主题包权重列表：{list(zip(pack_name, weight_list))}\")",
       "after": "                max_weight = max(weight_list, default=float(\"-inf\"))\n                log.debug(f\"当前主题包权重列表：{list(zip(pack_name, weight_list))}\")"

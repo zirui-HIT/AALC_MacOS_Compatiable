@@ -37,6 +37,15 @@ def switch_theme_pack_difficulty(hard_mode=False):
 def select_theme_pack(hard_mode=False, floor=None, team_num=None, use_custom_theme_pack_weight=False):
     loop_count = 30
     auto.model = "clam"
+    if cfg.backend == "playcover":
+        # A resumed iOS run can already be HARD even when the configured
+        # target is normal. Match both names and bans against the visible page.
+        actual_difficulty = get_theme_pack_difficulty()
+        if actual_difficulty is not None:
+            actual_hard_mode = actual_difficulty == "hard"
+            if actual_hard_mode != hard_mode:
+                log.warning(f"主题包页面实际难度为 {actual_difficulty}，按实际难度读取名称和禁选名单")
+            hard_mode = actual_hard_mode
     scale = cfg.set_win_size / 1080
     if path_manager.current_language == "zh_cn":
         theme_pack_list_zh = theme_list.get_effective_theme_pack_list(

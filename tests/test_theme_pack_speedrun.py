@@ -149,6 +149,37 @@ def test_all_forbidden_refreshes_before_safe_selection(monkeypatch, next_pack):
     home.assert_not_called()
 
 
+@pytest.mark.parametrize("requested,visible,pages,floor,expected", [
+    (False, "hard", [["无割舍者", "电闪雷鸣"]], 5, "电闪雷鸣"),
+    (True, "normal", [["自动工厂", "被遗忘者们"]], 1, "被遗忘者们"),
+    (True, None, [["无割舍者", "电闪雷鸣"]], 5, "电闪雷鸣"),
+    (False, None, [["自动工厂", "被遗忘者们"]], 1, "被遗忘者们"),
+])
+def test_playcover_visible_difficulty_controls_both_catalog_and_hard_bans(
+    monkeypatch, requested, visible, pages, floor, expected
+):
+    task, auto, home = selection(monkeypatch, pages, 0, banned_weight=99)
+    task.cfg.backend = "playcover"
+    task.cfg.hard_mirror = requested
+    recognize = Mock(return_value=visible)
+    monkeypatch.setattr(task, "get_theme_pack_difficulty", recognize)
+    task.select_theme_pack(requested, floor, 1, True)
+    recognize.assert_called_once_with()
+    assert auto.selected == expected
+    assert task.cfg.hard_mirror == requested
+    assert auto.refresh_count == 0
+    home.assert_not_called()
+
+
+def test_other_backends_keep_configured_catalog_without_page_override(monkeypatch):
+    task, auto, _ = selection(monkeypatch, [["电闪雷鸣"]], 0)
+    recognize = Mock(return_value="normal")
+    monkeypatch.setattr(task, "get_theme_pack_difficulty", recognize)
+    task.select_theme_pack(True, 5, 1, True)
+    recognize.assert_not_called()
+    assert auto.selected == "电闪雷鸣"
+
+
 @pytest.mark.parametrize("pack", ["N", "4号綫", "未来新卡包", "未知"])
 def test_unconfirmed_packs_cannot_bypass_active_bans(monkeypatch, pack):
     task, auto, home = selection(monkeypatch, [[pack, "解放的暴怒"]], 0)
@@ -322,7 +353,7 @@ def selection(monkeypatch, pages, refreshes, *, language="zh_cn", banned_weight=
     auto = FakeAutomation()
     home = Mock()
     monkeypatch.setattr(task, "auto", auto)
-    monkeypatch.setattr(task, "cfg", SimpleNamespace(set_win_size=1080, select_event_pack=False, skip_event_pack=False))
+    monkeypatch.setattr(task, "cfg", SimpleNamespace(backend="windows", set_win_size=1080, select_event_pack=False, skip_event_pack=False))
     monkeypatch.setattr(task, "theme_list", SimpleNamespace(preferred_thresholds=data["preferred_thresholds"], get_effective_theme_pack_list=weights, get_forbidden_theme_packs=forbidden))
     monkeypatch.setattr(task, "path_manager", SimpleNamespace(current_language=language))
     monkeypatch.setattr(task, "back_init_menu", home)

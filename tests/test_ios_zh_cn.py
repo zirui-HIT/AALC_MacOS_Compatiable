@@ -357,6 +357,59 @@ def test_original_selector_uses_real_refresh_button_and_exhaustion(chinese, monk
     assert all(1510 <= x <= 1570 and 45 <= y <= 95 for x, y in refreshes)
 
 
+@pytest.mark.parametrize("height", [810, 1080])
+@pytest.mark.skipif(sys.platform != "darwin" or os.environ.get("AALC_NATIVE_VISION_TEST") != "1",
+                    reason="Opt-in actual HARD page OCR requires macOS model access")
+def test_resumed_hard_page_selects_known_pack_with_normal_config(chinese, monkeypatch, height):
+    from ruamel.yaml import YAML
+
+    from module.automation import auto
+    from module.config import theme_list
+
+    cfg, _, paths = chinese
+    monkeypatch.setattr(cfg, "config", cfg.config.model_copy(update={
+        "backend": "playcover", "hard_mirror": False, "set_win_size": height,
+    }))
+    paths.set_theme("default")
+    weights = YAML(typ="safe").load((SOURCE_ROOT / "assets/config/theme_pack_list.speedrun.yaml").read_text())
+    monkeypatch.setattr(theme_list, "config", weights)
+    task = import_module("tasks.mirror.select_theme_pack")
+    image = Image.new("L", (1920, 1080))
+    with Image.open(FIXTURES / "theme_pack_hard_resumed.png") as content:
+        image.paste(content, (480, 0))
+    if height != 1080:
+        image = image.resize((round(height * 16 / 9), height), Image.Resampling.LANCZOS)
+
+    def capture(*args, **kwargs):
+        auto.screenshot = image
+        return image
+
+    names = []
+    original = auto.find_language_text
+
+    def recognize(*args, **kwargs):
+        result = original(*args, **kwargs)
+        names.append(result.text if result else None)
+        return result
+
+    monkeypatch.setattr(auto, "take_screenshot", capture)
+    monkeypatch.setattr(auto, "find_language_text", recognize)
+    monkeypatch.setattr(auto, "mouse_action_with_pos", Mock(side_effect=AssertionError("No enabled refresh on this page")))
+    drag = Mock()
+    monkeypatch.setattr(auto, "mouse_drag_down", drag)
+    monkeypatch.setattr(auto, "mouse_to_blank", Mock())
+    monkeypatch.setattr(task, "sleep", lambda _: None)
+    auto.clear_img_cache()
+    task.select_theme_pack(False, 5, 2, False)
+    assert set(names) == {"观望", "电闪雷鸣", "破竹"}
+    drag.assert_called_once()
+    scale = height / 1080
+    x, y = drag.call_args.args
+    assert 1000 * scale <= x <= 1370 * scale  # Either maximum-weight allowed pack.
+    assert 320 * scale <= y <= 355 * scale
+    assert cfg.hard_mirror is False
+
+
 @pytest.mark.skipif(sys.platform != "darwin" or os.environ.get("AALC_NATIVE_VISION_TEST") != "1",
                     reason="Opt-in native Vision replay requires macOS model access")
 def test_native_chinese_ocr_replay(chinese, monkeypatch):
