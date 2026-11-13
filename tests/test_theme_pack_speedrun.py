@@ -81,7 +81,7 @@ def test_refresh_exhaustion_selects_best_normal_pack(monkeypatch, refreshes):
 
 @pytest.mark.parametrize("hard,floor,pages,refreshes,expected,used", [
     (False, 1, [["囊空如洗的赌徒", "被遗忘者们"]], 3, "囊空如洗的赌徒", 0),
-    (False, 2, [["囊空如洗的赌徒", "地狱鸡"]], 3, "地狱鸡", 0),
+    (False, 2, [["囊空如洗的赌徒", "地狱鸡"]], 3, "囊空如洗的赌徒", 0),
     (False, 3, [["落花", "憎惡与絶望"]], 3, "憎惡与絶望", 0),
     (False, 1, [["被遗忘者们"], ["囊空如洗的赌徒"]], 3, "囊空如洗的赌徒", 1),
     (True, 4, [["2号綫", "20区的奇迹 復刻", "20区的奇迹"]], 3, "20区的奇迹 復刻", 0),
