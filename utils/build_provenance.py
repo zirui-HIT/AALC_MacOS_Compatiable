@@ -1,6 +1,7 @@
 """Read-only Git provenance shared by source checks and macOS packaging."""
 
 import hashlib
+import json
 import os
 import re
 import stat
@@ -47,6 +48,23 @@ def _working_file(path):
     return mode + ":" + digest
 
 
+def _adapted_releases(root, ancestors):
+    path = root / "assets/config/official-release-adaptations.json"
+    if not path.is_file():
+        return []
+    data = json.loads(path.read_text(encoding="utf-8"))
+    if not isinstance(data, dict) or data.get("schema") != 1 or data.get("repository") != OFFICIAL_REPOSITORY:
+        return []
+    records = data.get("releases")
+    if not isinstance(records, list):
+        return []
+    return [record for record in records if isinstance(record, dict)
+            and isinstance(record.get("tag"), str) and record["tag"]
+            and isinstance(record.get("sha"), str) and SHA.fullmatch(record["sha"])
+            and isinstance(record.get("local_commit"), str) and SHA.fullmatch(record["local_commit"])
+            and record["local_commit"] in ancestors and record.get("scope") == "selected_macos_fixes"]
+
+
 def build_provenance(root):
     """Snapshot Git history and changed source files without changing refs/index."""
     root = Path(root).resolve()
@@ -80,6 +98,6 @@ def build_provenance(root):
             break
     return {"schema": 1, "repository": OFFICIAL_REPOSITORY, "head": head,
             "head_tree": _git(root, "rev-parse", "HEAD^{tree}").decode().strip(),
-            "ancestors": ancestors, "upstream_base": base,
+            "ancestors": ancestors, "adapted_releases": _adapted_releases(root, ancestors), "upstream_base": base,
             "upstream_files": _tree(root, base) if base else {}, "files": files,
             "dirty": bool(changes)}

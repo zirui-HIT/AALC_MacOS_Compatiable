@@ -1,0 +1,12 @@
+{
+  "schema": 1,
+  "repository": "KIYI671/AhabAssistantLimbusCompany",
+  "releases": [
+    {
+      "tag": "V1.6.1",
+      "sha": "2fcb1b4620108c9bb0cf138f82790dd13f46356c",
+      "local_commit": "20d490a0faa93bbf990faa91483482b6bdf8e6c4",
+      "scope": "selected_macos_fixes"
+    }
+  ]
+}

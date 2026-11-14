@@ -39,6 +39,15 @@ def _valid_ancestry(value):
     )
 
 
+def _selectively_adapted(provenance, tag, sha):
+    records = provenance.get("adapted_releases", [])
+    if not isinstance(records, list):
+        return False
+    return any(isinstance(record, dict) and record.get("tag") == tag and record.get("sha") == sha
+               and record.get("scope") == "selected_macos_fixes"
+               and record.get("local_commit") in provenance["ancestors"] for record in records)
+
+
 def check_official_release(current_version, provenance, get_json):
     """Notify only for a published stable release not already included locally."""
     result = {
@@ -78,6 +87,12 @@ def check_official_release(current_version, provenance, get_json):
             raise ValueError("官方 Release 标签未返回有效提交")
         if sha in provenance["ancestors"]:
             result.update(reason="release_included", message=f"本地已包含官方最新 Release {tag}，无需更新。")
+            return result
+        if _selectively_adapted(provenance, tag, sha):
+            result.update(
+                reason="release_selectively_adapted",
+                message=f"本地已按计划适配官方 {tag} 的所选更新；未纳入的功能保持原设置。",
+            )
             return result
     try:
         local = Version(current_version.strip().lstrip("Vv"))

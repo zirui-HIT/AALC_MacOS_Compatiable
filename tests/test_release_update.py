@@ -35,6 +35,16 @@ def provenance(included=False):
     }
 
 
+def selectively_adapted():
+    return {
+        **provenance(),
+        "adapted_releases": [{
+            "tag": "V1.6.1", "sha": RELEASE_COMMIT,
+            "local_commit": HEAD, "scope": "selected_macos_fixes",
+        }],
+    }
+
+
 def api(data=None, *, sha=RELEASE_COMMIT):
     payload = release() if data is None else data
 
@@ -72,6 +82,36 @@ def test_release_already_in_local_history_does_not_repeat_despite_old_display_ve
     result = release_update.check_official_release("1.0.9", provenance(True), get)
     assert result["status"] == "CURRENT" and result["reason"] == "release_included"
     assert get.call_args_list == [call("/releases/latest"), call("/commits/V1.6.0")]
+
+
+def test_reviewed_selective_adaptation_does_not_claim_full_integration_or_repeat_update():
+    get = api(release("V1.6.1"))
+    result = release_update.check_official_release("1.0.9", selectively_adapted(), get)
+    assert result["status"] == "CURRENT" and result["reason"] == "release_selectively_adapted"
+    assert "所选更新" in result["message"] and "未纳入" in result["message"]
+    assert result["content"] == ""
+    assert RELEASE_COMMIT not in selectively_adapted()["ancestors"]
+    assert get.call_args_list == [call("/releases/latest"), call("/commits/V1.6.1")]
+
+
+@pytest.mark.parametrize("tag,sha", [("V1.6.2", "c" * 40), ("V1.6.1", "c" * 40)])
+def test_new_release_or_changed_release_tag_still_notifies_after_selective_adaptation(tag, sha):
+    result = release_update.check_official_release("1.0.9", selectively_adapted(), api(release(tag), sha=sha))
+    assert result["status"] == "UPDATE_AVAILABLE" and result["reason"] == "new_release"
+
+
+@pytest.mark.parametrize(
+    "records",
+    [
+        None, {}, [None], [{}],
+        [{"tag": "V1.6.1", "sha": RELEASE_COMMIT, "local_commit": "c" * 40, "scope": "selected_macos_fixes"}],
+        [{"tag": "V1.6.1", "sha": RELEASE_COMMIT, "local_commit": HEAD, "scope": "unreviewed"}],
+    ],
+)
+def test_incomplete_or_unapplied_adaptation_records_do_not_hide_releases(records):
+    metadata = {**provenance(), "adapted_releases": records}
+    result = release_update.check_official_release("1.0.9", metadata, api(release("V1.6.1")))
+    assert result["status"] == "UPDATE_AVAILABLE"
 
 
 def test_only_the_published_release_tag_is_compared_never_branch_or_pr_activity():
@@ -152,6 +192,16 @@ def test_frozen_bundle_reads_its_own_provenance_without_git(tmp_path, monkeypatc
     monkeypatch.setattr(release_update, "build_provenance", builder)
     assert release_update.load_provenance() == provenance(True)
     builder.assert_not_called()
+
+
+def test_installed_selective_adaptation_check_uses_only_bundled_metadata(tmp_path, monkeypatch):
+    metadata = tmp_path / "native-build.json"
+    metadata.write_text(json.dumps(selectively_adapted()))
+    monkeypatch.setattr(release_update.sys, "frozen", True, raising=False)
+    monkeypatch.setattr(release_update, "resource_path", lambda _: metadata)
+    monkeypatch.setattr(release_update, "build_provenance", Mock(side_effect=AssertionError("Must not run Git")))
+    result = release_update.check_official_release("1.0.9", release_update.load_provenance(), api(release("V1.6.1")))
+    assert result["status"] == "CURRENT" and result["reason"] == "release_selectively_adapted"
 
 
 @pytest.mark.parametrize(

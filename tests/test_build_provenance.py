@@ -1,6 +1,7 @@
 """Build snapshots record actual source content without modifying Git refs."""
 
 import hashlib
+import json
 import subprocess
 
 import pytest
@@ -47,3 +48,26 @@ def test_build_provenance_records_ancestry_and_actual_dirty_content_without_chan
     assert provenance["upstream_files"]["code.py"] == blob("old official code\n")
     assert provenance["dirty"]
     assert git(checkout, "show-ref") == refs
+
+
+def test_build_records_only_reviewed_releases_applied_in_current_history(checkout):
+    applied = {"tag": "V1.6.1", "sha": "b" * 40,
+               "local_commit": git(checkout, "rev-parse", "HEAD"), "scope": "selected_macos_fixes"}
+    path = checkout / "assets/config/official-release-adaptations.json"
+    path.parent.mkdir(parents=True)
+    path.write_text(json.dumps({
+        "schema": 1, "repository": OFFICIAL_REPOSITORY,
+        "releases": [applied, {**applied, "local_commit": "c" * 40},
+                     {**applied, "sha": "invalid"}, {**applied, "scope": "unreviewed"}, None],
+    }))
+    metadata = build_provenance(checkout)
+    assert metadata["adapted_releases"] == [applied]
+    assert applied["sha"] not in metadata["ancestors"]
+
+
+@pytest.mark.parametrize("invalid", [[], {"schema": 0}, {"schema": 1, "repository": "other/repo", "releases": []}])
+def test_unknown_review_manifest_does_not_suppress_updates(checkout, invalid):
+    path = checkout / "assets/config/official-release-adaptations.json"
+    path.parent.mkdir(parents=True)
+    path.write_text(json.dumps(invalid))
+    assert build_provenance(checkout)["adapted_releases"] == []
