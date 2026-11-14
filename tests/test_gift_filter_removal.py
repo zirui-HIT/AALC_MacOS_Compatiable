@@ -32,7 +32,7 @@ def test_reward_uses_ordinary_gift_rules_without_name_ocr(
         return [(0, 0), (1, 1)]  # Would identify White Gossypium in the old filter.
 
     automation.find_language_text.side_effect = language
-    automation.find_text_element.return_value = True  # Choose one of several gifts.
+    automation.find_text_element.side_effect = lambda target, **kwargs: isinstance(target, list) and "0/1" in target
     monkeypatch.setattr(task, "auto", automation)
     monkeypatch.setattr(task, "sleep", lambda _: None)
     monkeypatch.setattr(task.time, "sleep", lambda _: None)

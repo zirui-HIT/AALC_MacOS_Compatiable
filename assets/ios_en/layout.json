@@ -1,4 +1,5 @@
 {
+  "event.sinner_grade_band": [0, 1180, 2560, 1280],
   "teams.ordered_page_swipe_distance": 362.5,
   "teams.ordered_last_page_swipe_distance": 253.75,
   "luxcavation.exp_count_x": 20,

@@ -142,7 +142,7 @@ def test_second_system_reward_uses_configured_timing_and_action(monkeypatch, tim
 
     automation.find_element.side_effect = find
     automation.find_language_text.return_value = None
-    automation.find_text_element.return_value = (1, 1)
+    automation.find_text_element.side_effect = lambda target, **kwargs: (1, 1) if isinstance(target, list) and "0/1" in target else None
     automation.click_element.return_value = False
     monkeypatch.setattr(task, "auto", automation)
     monkeypatch.setattr(task.ImageUtils, "load_image", lambda _: None)

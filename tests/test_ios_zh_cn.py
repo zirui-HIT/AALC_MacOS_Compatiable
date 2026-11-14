@@ -516,6 +516,7 @@ def test_original_event_loop_clicks_ios_result_then_returns_to_map(chinese, monk
     monkeypatch.setattr(auto, "mouse_click", Mock(side_effect=AssertionError("Unexpected event input")))
     auto.clear_img_cache()
     mirror = object.__new__(module.Mirror)
+    mirror.defense_for_solo = False
     mirror.event_total_time = 0
     mirror.event_times = 0
     mirror.event_handling()

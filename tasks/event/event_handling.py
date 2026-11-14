@@ -1,8 +1,14 @@
 import time
 
+import cv2
+import numpy as np
+from PIL import Image
+
 from module.automation import auto
+from module.backends.base import BackendCancelled
 from module.config import cfg
 from module.logger import log
+from utils.image_utils import ImageUtils
 
 
 class EventHandling:
@@ -10,6 +16,8 @@ class EventHandling:
         "event/very_high.png",
         "event/high.png",
         "event/normal.png",
+    )
+    WARN_LEVEL_ASSETS = (
         "event/low.png",
         "event/very_low.png",
     )
@@ -33,14 +41,32 @@ class EventHandling:
 
         # 该方法只在“选择罪人进行判定”特征已命中后调用，因此可以使用稍低的
         # 专用阈值，兼容 MuMu 缩放后落在默认 0.8 临界线下方的彩色成功率文字。
-        for asset in self.SUCCESS_LEVEL_ASSETS:
+        if screenshot := auto.take_screenshot(gray=False):
+            frame = np.array(screenshot.convert("RGB"))
+            if (bbox_img := ImageUtils.load_image("event/all_sinner_bbox.png")) is not None:
+                bbox = ImageUtils.get_bbox(bbox_img)
+                native_band = ImageUtils.layout("event.sinner_grade_band", ())
+                if native_band:
+                    bbox = tuple(round(v * cfg.set_win_size / 1440) for v in native_band)
+                black_out_red(frame, bbox)
+            auto.screenshot = Image.fromarray(frame).convert("L")
+            if self._click_first_hit(self.SUCCESS_LEVEL_ASSETS, now):
+                return True
+
+        # Low grades must use a fresh, unmasked frame and the original order.
+        auto.take_screenshot()
+        if self._click_first_hit(self.WARN_LEVEL_ASSETS, now):
+            return True
+        return self.decision_event_handling_ocr(now=now)
+
+    def _click_first_hit(self, assets, now: float) -> bool:
+        for asset in assets:
             if best_option := auto.find_element(asset, threshold=self.SUCCESS_LEVEL_THRESHOLD):
                 auto.mouse_action_with_pos(best_option)
                 self.last_action_time = now
                 self.fallback_offset = 0
                 return True
-
-        return self.decision_event_handling_ocr(now=now)
+        return False
 
     def decision_event_handling_ocr(self, now: float | None = None) -> bool:
         now = time.monotonic() if now is None else now
@@ -71,6 +97,44 @@ class EventHandling:
         self.last_action_time = now
         self.fallback_offset = (self.fallback_offset + 1) % self.SINNER_COUNT
         return True
+
+    def click_option_avoiding_unknown(self) -> bool:
+        """Use the official alternative-option rule without falling back to ???."""
+        unknown = auto.find_element("event/unknown_event.png")
+        if not unknown:
+            return False
+        positions = auto.find_element(
+            "event/select_first_option_assets.png",
+            find_type="image_with_multiple_targets",
+            threshold=0.75,
+        )
+        if not positions:
+            raise BackendCancelled("单通事件未识别到可确认的安全选项，已停止任务")
+        unknowns = auto.find_element("event/unknown_event.png", find_type="image_with_multiple_targets") or [unknown]
+        blocked = set()
+        for marker in unknowns:
+            above = [p for p in positions if p[1] <= marker[1]]
+            owner = max(above, key=lambda p: p[1]) if above else min(positions, key=lambda p: abs(p[1] - marker[1]))
+            blocked.add(tuple(owner))
+        others = [p for p in positions if tuple(p) not in blocked]
+        if not others:
+            raise BackendCancelled("单通事件只有“？？？”或无法确认安全替代选项，已停止任务")
+        target = min(others, key=lambda p: abs(p[1] - unknown[1]))
+        log.info("单通模式：选择已确认的其他选项，避开“？？？”诅咒饰品")
+        auto.mouse_click(target[0], target[1])
+        return True
+
+
+def black_out_red(frame_rgb, bbox):
+    """Mask only saturated red badges; preserve amber grades and outside pixels."""
+    height, width = frame_rgb.shape[:2]
+    x1, y1, x2, y2 = bbox
+    roi = frame_rgb[max(0, y1):min(height, y2), max(0, x1):min(width, x2)]
+    if not roi.size:
+        return
+    hsv = cv2.cvtColor(roi, cv2.COLOR_RGB2HSV)
+    red = ((hsv[:, :, 0] <= 4) | (hsv[:, :, 0] >= 175)) & (hsv[:, :, 1] >= 90)
+    roi[red] = 0
 
 
 def is_edit_distance_one(s1, s2):

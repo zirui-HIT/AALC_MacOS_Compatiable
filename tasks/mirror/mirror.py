@@ -178,8 +178,8 @@ class Mirror:
                 infinity_bbox[2] + 100,
                 infinity_bbox[3],
             )  # 临时修复措施，调整裁切大小
-            if not auto.find_text_element(["off", "ff"], infinity_bbox):
-                auto.click_element("mirror/road_to_mir/infinity_mirror_enter_assets.png")
+            if not auto.find_text_element(["off", "ff", "of"], infinity_bbox):
+                auto.click_element("mirror/road_to_mir/infinity_mirror_enter_assets.png", take_screenshot=True)
             if auto.click_element("mirror/road_to_mir/enter_assets.png"):
                 sleep(0.5)
                 continue
@@ -426,7 +426,7 @@ class Mirror:
                 continue
 
             # 镜牢星光
-            if auto.find_element("mirror/road_to_mir/dreaming_star/coins_assets.png", threshold=0.9):
+            if auto.find_element("mirror/road_to_mir/dreaming_star/coins_assets.png", model="normal"):
                 preparing = True
                 self.current_floor_start_time = None
                 self.enter_mir_with_star()
@@ -789,7 +789,7 @@ class Mirror:
         return True
 
     def enter_mir_with_star(self):
-        coins = auto.find_element("mirror/road_to_mir/dreaming_star/coins_assets.png", threshold=0.9)
+        coins = auto.find_element("mirror/road_to_mir/dreaming_star/coins_assets.png", model="normal")
         scale = cfg.set_win_size / 1440
         first_starlight = [coins[0] - 1800 * scale, coins[1] + 300 * scale]
         starlights_X = [first_starlight[0] + (i % 5) * 400 * scale for i in range(10)]
@@ -864,6 +864,17 @@ class Mirror:
             if loop_count < 0:
                 raise cannotOperateGameError("无法进入镜牢，不能进行下一步,请手动操作重试")
 
+    def _click_init_gift_row(self, gift_id: int) -> bool:
+        """Use the official confirmation anchor; offsets also match the iOS fixtures."""
+        confirm_pos = auto.find_element("mirror/road_to_mir/select_init_ego_gifts_confirm_assets.png")
+        row_dy = {1: -490, 2: -330, 3: -170}
+        if not confirm_pos or gift_id not in row_dy:
+            return False
+        scale = cfg.set_win_size / 1080
+        auto.mouse_click(confirm_pos[0] - 340 * scale, confirm_pos[1] + row_dy[gift_id] * scale)
+        sleep(cfg.mouse_action_interval)
+        return True
+
     def select_init_ego_gift(self):
         scroll = False
         select_system = False
@@ -873,8 +884,23 @@ class Mirror:
         team_system = self.system
         if self.opening_items:
             team_system = all_systems[self.opening_items_system]
+        start_gift_order = start_gift[self.opening_items_select] if self.opening_items else [1, 2, 3]
         log.debug("开始选择初始EGO")
         while True:
+            loop_count -= 1
+            if loop_count < 0:
+                log.error("无法进入镜牢,尝试回到初始界面")
+                back_init_menu()
+                break
+            if loop_count < 10 and auto.model != "aggressive":
+                auto.model = "aggressive"
+                log.debug("识别模式切换到激进模式")
+            elif loop_count < 20 and auto.model == "clam":
+                auto.model = "normal"
+                auto.mouse_to_blank(move_back=False)
+                log.debug("识别模式切换到正常模式")
+            if loop_count % 5 == 0:
+                log.debug(f"选择藏品识别次数剩余{loop_count}次")
             # 自动截图
             if auto.take_screenshot() is None:
                 continue
@@ -893,6 +919,10 @@ class Mirror:
 
             if (team_system == "slash" or team_system == "pierce" or team_system == "blunt") and scroll == False:
                 while slash_button := auto.find_element("mirror/road_to_mir/slash_gift_1.png"):
+                    # The scroll fallback shares the same original retry budget.
+                    if loop_count <= 0:
+                        break
+                    loop_count -= 1
                     auto.mouse_drag(slash_button[0], slash_button[1], drag_time=0.2, dx=0, dy=-400)
                     sleep(0.5)
                     if auto.find_element(
@@ -901,26 +931,20 @@ class Mirror:
                     ):
                         scroll = True
                         break
+                if loop_count <= 0:
+                    continue
 
             if auto.click_element(f"mirror/road_to_mir/{team_system}_gift_assets.png") and select_system == False:
                 select_system = True
                 continue
 
-            if self.opening_items:
-                start_gift_order = start_gift[self.opening_items_select]
-                auto.click_element(
-                    f"mirror/road_to_mir/select_init_gift/{team_system}_ego_gift_{start_gift_order[0]}.png"
-                )
-                auto.click_element(
-                    f"mirror/road_to_mir/select_init_gift/{team_system}_ego_gift_{start_gift_order[1]}.png"
-                )
-                auto.click_element(
-                    f"mirror/road_to_mir/select_init_gift/{team_system}_ego_gift_{start_gift_order[2]}.png"
-                )
-            else:
-                auto.click_element(f"mirror/road_to_mir/select_init_gift/{team_system}_ego_gift_1.png")
-                auto.click_element(f"mirror/road_to_mir/select_init_gift/{team_system}_ego_gift_2.png")
-                auto.click_element(f"mirror/road_to_mir/select_init_gift/{team_system}_ego_gift_3.png")
+            for gift_id in start_gift_order:
+                target = f"mirror/road_to_mir/select_init_gift/{team_system}_ego_gift_{gift_id}.png"
+                if auto.click_element(target):
+                    continue
+                if auto.click_element(target, threshold=0.7):
+                    continue
+                self._click_init_gift_row(gift_id)
 
             # 如果选择观测饰品且选择了饰品，则开启观测饰品按钮
             if self.observe_ego_gift and self.observe_ego_gift_selected:
@@ -932,20 +956,6 @@ class Mirror:
 
             if retry() is False:
                 return False
-            loop_count -= 1
-            if loop_count % 5 == 0:
-                log.debug(f"选择藏品识别次数剩余{loop_count}次")
-            if loop_count < 20:
-                auto.model = "normal"
-                auto.mouse_to_blank(move_back=False)
-                log.debug("识别模式切换到正常模式")
-            if loop_count < 10:
-                auto.model = "aggressive"
-                log.debug("识别模式切换到激进模式")
-            if loop_count < 0:
-                log.error("无法进入镜牢,尝试回到初始界面")
-                back_init_menu()
-                break
 
     def select_observe_ego_gift(self):
         """
@@ -1248,6 +1258,11 @@ class Mirror:
             if auto.find_element("mirror/road_in_mir/legend_assets.png"):
                 break
 
+            # Check before generic retry fallbacks can click the first option.
+            if self.defense_for_solo and event_handling.click_option_avoiding_unknown():
+                event_chance -= 1
+                continue
+
             if event_chance == 0:
                 if key_word_position := auto.find_language_text("判定", "check"):
                     auto.mouse_action_with_pos(key_word_position, offset=False)
@@ -1291,7 +1306,11 @@ class Mirror:
                     retry()
 
             # 针对不同事件进行处理，优先选???与直接获取的，再选需要判定的，再选后续事件的，最后第一个事项
-            if auto.click_element("event/unknown_event.png"):
+            if unknown_pos := auto.find_element("event/unknown_event.png"):
+                if self.defense_for_solo:
+                    event_handling.click_option_avoiding_unknown()
+                else:
+                    auto.mouse_click(unknown_pos[0], unknown_pos[1])
                 event_chance -= 1
                 continue
             if positions_list := auto.find_element(
@@ -1467,8 +1486,13 @@ class Mirror:
                         min(select_bbox[2] + 100, cfg.set_win_size * 16 / 9),  # 确保右下角 x 坐标不大于 图片宽
                         min(select_bbox[3] + 100, cfg.set_win_size),  # 确保右下角 y 坐标不大于 图片高
                     )
-                if auto.find_text_element(["0/1", "01", "1/1", "11", "1/2", "12", "/1"], my_crop=select_bbox):
-                    for gift in my_list[:1]:
+                if auto.find_text_element(["0/2", "02", "2/2", "22", "/2"], my_crop=select_bbox):
+                    remaining = 2
+                    if auto.find_text_element("2/2", my_crop=select_bbox):
+                        remaining = 0
+                    elif auto.find_text_element("1/2", my_crop=select_bbox):
+                        remaining = 1
+                    for gift in my_list[:remaining]:
                         auto.mouse_click(gift[0], gift[1])
                         sleep(cfg.mouse_action_interval)
                     auto.click_element(
@@ -1479,8 +1503,8 @@ class Mirror:
                     if retry() is False:
                         return False
                     return
-                elif auto.find_text_element(["0/2", "02", "2/2", "22", "/2"], my_crop=select_bbox):
-                    for gift in my_list[:2]:
+                elif auto.find_text_element(["0/1", "01", "1/1", "11", "1/2", "12", "/1"], my_crop=select_bbox):
+                    for gift in my_list[:1]:
                         auto.mouse_click(gift[0], gift[1])
                         sleep(cfg.mouse_action_interval)
                     auto.click_element(

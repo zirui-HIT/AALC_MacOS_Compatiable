@@ -155,6 +155,8 @@ def test_event_grade_fallback_uses_actual_box_and_original_priority(recognition,
 
     auto, engines, _ = recognition
     auto.screenshot = Image.new("RGB", (1920, 1080))
+    frame = auto.screenshot
+    auto.take_screenshot = Mock(side_effect=lambda *args, **kwargs: setattr(auto, "screenshot", frame) or frame)
     auto.model = "clam"
     auto.find_image_element = Mock(return_value=None)
     auto.mouse_action_with_pos = Mock()
@@ -167,7 +169,7 @@ def test_event_grade_fallback_uses_actual_box_and_original_priority(recognition,
     assert handler.decision_event_handling()
     auto.mouse_action_with_pos.assert_called_once_with([433.0, 926.0])
     assert handler.fallback_offset == 0
-    engines.run_vision.assert_called_once()
+    assert engines.run_vision.call_count == (2 if grade in {"Low", "Very Low"} else 1)
 
 
 def test_event_grade_falls_back_to_rapid_when_vision_is_unavailable(recognition):
