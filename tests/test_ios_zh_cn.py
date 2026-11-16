@@ -110,6 +110,7 @@ def test_dark_theme_keeps_ios_geometry_and_language(chinese):
     ("号线", "1号綫"), ("束缚的", "束縛的色欲"), ("沉溺的", "沈溺的憂郁"),
     ("自以为", "自以為是的傲慢"), ("摇曳", "燃焼的揺曳"), ("沉沦泛", "沈淪泛濫"),
     ("循环呼", "循環呼吸"), ("终焉", "梦之終焉"), ("观望", "不思観望"),
+    ("落的忧", "堕落旳憂郁"), ("落的忧", "堕落憂郁"),
     ("极高", "極高"), ("极低", "極低"),
 ])
 def test_font_variants_keep_original_coordinates_and_raw_text(chinese, target, text):
@@ -129,6 +130,17 @@ def test_font_variants_preserve_dictionary_keys_weights_and_priority(chinese):
     assert targets == {"沉溺者": 17, "遗忘": -2, "未知": -5}
 
 
+def test_recorded_gloom_misread_preserves_canonical_name_and_custom_weight(chinese):
+    automation = object.__new__(import_module("module.automation.automation").Automation)
+    targets = {"落的忧": -8, "体检": -5, "未知": -5}
+    raw = {"堕落旳憂郁": [106.1182, 400.92688]}
+    result = automation._find_target_in_ocr_dict(targets, raw)
+    assert (result.text, result.value, result.position) == ("落的忧", -8, raw["堕落旳憂郁"])
+    for text in ("沉溺的憂郁", "堕落旳怠惰", "黎明后貫穿而来之楔", "LCB定期体檢"):
+        assert automation.find_str_in_text("落的忧", {text: [1, 2]}) is False
+    assert raw == {"堕落旳憂郁": [106.1182, 400.92688]}
+
+
 @pytest.mark.parametrize("profile", ["ios_en", "auto"])
 def test_chinese_variants_do_not_affect_other_profiles(chinese, monkeypatch, profile):
     cfg, _, _ = chinese
@@ -136,6 +148,7 @@ def test_chinese_variants_do_not_affect_other_profiles(chinese, monkeypatch, pro
     automation = object.__new__(import_module("module.automation.automation").Automation)
     assert automation.find_str_in_text("选择", {"選擇": [1, 2]}) is False
     assert automation.find_str_in_text("沉沦", {"沈淪": [1, 2]}) is False
+    assert automation.find_str_in_text("落的忧", {"堕落旳憂郁": [1, 2]}) is False
 
 
 def test_chinese_uses_profile_ocr_and_preserves_raw_output(chinese, monkeypatch):
@@ -413,6 +426,58 @@ def test_resumed_hard_page_selects_known_pack_with_normal_config(chinese, monkey
     assert 1000 * scale <= x <= 1370 * scale  # Either maximum-weight allowed pack.
     assert 320 * scale <= y <= 355 * scale
     assert cfg.hard_mirror is False
+
+
+@pytest.mark.parametrize("height", [810, 1080])
+@pytest.mark.parametrize("gloom_forbidden", [False, True])
+@pytest.mark.skipif(sys.platform != "darwin" or os.environ.get("AALC_NATIVE_VISION_TEST") != "1",
+                    reason="Opt-in actual page OCR requires macOS model access")
+def test_exhausted_fifth_floor_gloom_page_preserves_selection_and_bans(chinese, monkeypatch, height, gloom_forbidden):
+    """2026-11-16 stopped page: unknown event / allowed Gloom / forbidden Checkup."""
+    from ruamel.yaml import YAML
+
+    from module.automation import auto
+    from module.backends.base import BackendCancelled
+    from module.config import theme_list
+    from module.ocr import ocr
+
+    cfg, _, paths = chinese
+    monkeypatch.setattr(cfg, "config", cfg.config.model_copy(update={
+        "backend": "playcover", "set_win_size": height, "select_event_pack": False, "skip_event_pack": False,
+    }))
+    paths.set_theme("default")
+    weights = YAML(typ="safe").load((SOURCE_ROOT / "assets/config/theme_pack_list.speedrun.yaml").read_text())
+    if gloom_forbidden:
+        weights["forbidden_theme_packs"]["normal_5"].append("落的忧")
+    monkeypatch.setattr(theme_list, "config", weights)
+    task = import_module("tasks.mirror.select_theme_pack")
+    with Image.open(FIXTURES / "theme_pack_gloom_exhausted.png") as content:
+        frame = content.resize((round(height * 16 / 9), height), Image.Resampling.LANCZOS)
+    ocr.run(Image.new("L", (240, 80), 255))
+    assert ocr._vision_zh_cn.ready.wait(10), "Chinese Vision failed to warm up"
+
+    def capture(*args, **kwargs):
+        auto.screenshot = frame
+        return frame
+
+    monkeypatch.setattr(auto, "take_screenshot", capture)
+    monkeypatch.setattr(auto, "mouse_action_with_pos", Mock(side_effect=AssertionError("Refresh is exhausted")))
+    drag = Mock()
+    monkeypatch.setattr(auto, "mouse_drag_down", drag)
+    monkeypatch.setattr(auto, "mouse_to_blank", Mock())
+    monkeypatch.setattr(task, "sleep", lambda _: None)
+    auto.clear_img_cache()
+    if gloom_forbidden:
+        with pytest.raises(BackendCancelled, match="禁选或名称未确认"):
+            task.select_theme_pack(False, 5, 2, False)
+        drag.assert_not_called()
+    else:
+        task.select_theme_pack(False, 5, 2, False)
+        drag.assert_called_once()
+        x, y = drag.call_args.args
+        scale = height / 1080
+        assert 1000 * scale <= x <= 1070 * scale
+        assert 320 * scale <= y <= 360 * scale
 
 
 @pytest.mark.skipif(sys.platform != "darwin" or os.environ.get("AALC_NATIVE_VISION_TEST") != "1",
