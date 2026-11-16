@@ -326,7 +326,6 @@ def test_original_selector_uses_real_refresh_button_and_exhaustion(chinese, monk
     from ruamel.yaml import YAML
 
     from module.automation import TextMatchResult, auto
-    from module.backends.base import BackendCancelled
     from module.config import theme_list
 
     task = import_module("tasks.mirror.select_theme_pack")
@@ -359,13 +358,8 @@ def test_original_selector_uses_real_refresh_button_and_exhaustion(chinese, monk
     monkeypatch.setattr(auto, "mouse_drag_down", drag)
     monkeypatch.setattr(task, "sleep", lambda _: None)
     auto.clear_img_cache()
-    if outcome == "forbidden":
-        with pytest.raises(BackendCancelled, match="剩余卡包均为禁选"):
-            task.select_theme_pack(False, 2, None, False)
-        drag.assert_not_called()
-    else:
-        task.select_theme_pack(False, 2, None, False)
-        drag.assert_called_once()
+    task.select_theme_pack(False, 2, None, False)
+    drag.assert_called_once()
     assert len(refreshes) == (1 if outcome == "recommended" else 3)
     assert all(1510 <= x <= 1570 and 45 <= y <= 95 for x, y in refreshes)
 
@@ -437,7 +431,6 @@ def test_exhausted_fifth_floor_gloom_page_preserves_selection_and_bans(chinese, 
     from ruamel.yaml import YAML
 
     from module.automation import auto
-    from module.backends.base import BackendCancelled
     from module.config import theme_list
     from module.ocr import ocr
 
@@ -467,17 +460,15 @@ def test_exhausted_fifth_floor_gloom_page_preserves_selection_and_bans(chinese, 
     monkeypatch.setattr(auto, "mouse_to_blank", Mock())
     monkeypatch.setattr(task, "sleep", lambda _: None)
     auto.clear_img_cache()
+    task.select_theme_pack(False, 5, 2, False)
+    drag.assert_called_once()
+    x, y = drag.call_args.args
+    scale = height / 1080
     if gloom_forbidden:
-        with pytest.raises(BackendCancelled, match="禁选或名称未确认"):
-            task.select_theme_pack(False, 5, 2, False)
-        drag.assert_not_called()
+        assert any(abs(x / scale - center) < 20 for center in (729, 1035, 1351))
     else:
-        task.select_theme_pack(False, 5, 2, False)
-        drag.assert_called_once()
-        x, y = drag.call_args.args
-        scale = height / 1080
         assert 1000 * scale <= x <= 1070 * scale
-        assert 320 * scale <= y <= 360 * scale
+    assert 320 * scale <= y <= 360 * scale
 
 
 @pytest.mark.skipif(sys.platform != "darwin" or os.environ.get("AALC_NATIVE_VISION_TEST") != "1",

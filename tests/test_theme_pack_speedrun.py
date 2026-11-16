@@ -129,20 +129,54 @@ def test_english_hard_bans(monkeypatch, language, hard, floor, pack):
 
 
 @pytest.mark.parametrize("refreshes", [0, 1, 2, 3])
-def test_all_forbidden_after_exhaustion_stops_without_selecting_or_restarting(monkeypatch, refreshes):
-    from module.backends.base import BackendCancelled
-
+@pytest.mark.parametrize("index", [0, 1])
+def test_all_forbidden_after_exhaustion_randomly_selects_without_restarting(monkeypatch, refreshes, index):
     task, auto, home = selection(monkeypatch, [["自动工厂", "无法去爱"]], refreshes)
-    with pytest.raises(BackendCancelled, match="剩余卡包均为禁选"):
-        task.select_theme_pack(False, 1, 1, True)
-    assert auto.selected is None
+    choose = Mock(return_value=index)
+    monkeypatch.setattr(task, "randrange", choose)
+    task.select_theme_pack(False, 1, 1, True)
+    assert auto.selected == ["自动工厂", "无法去爱"][index]
+    choose.assert_called_once_with(2)
     assert auto.refresh_count == refreshes
+    home.assert_not_called()
+
+
+@pytest.mark.parametrize("language,packs,bans", [
+    ("zh_cn", ["未来新卡包", "自动工厂", "无法去爱"], True),
+    ("en", ["Future Unknown Pack", "Automated Factory", "The Unloving"], True),
+    ("zh_cn", ["未知", "未来新卡包", "N"], True),
+    ("zh_cn", ["未知", "未来新卡包", "N"], False),
+])
+@pytest.mark.parametrize("index", [0, 1, 2])
+def test_unknown_and_forbidden_last_resort_can_select_every_visible_candidate(monkeypatch, caplog, language, packs, bans, index):
+    task, auto, home = selection(monkeypatch, [packs], 0, language=language, banned_weight=99, bans=bans)
+    choose = Mock(return_value=index)
+    monkeypatch.setattr(task, "randrange", choose)
+    task.select_theme_pack(False, 1, 1, True)
+    assert auto.selected == packs[index]
+    choose.assert_called_once_with(3)
+    assert "随机兜底" in caplog.text
+    home.assert_not_called()
+
+
+@pytest.mark.parametrize("index", [0, 1, 2])
+def test_actual_hard_four_log_refreshes_then_randomly_selects_from_new_page(monkeypatch, index):
+    packs = ["暴食重临", "LCB定期体检", "开店抢购"]
+    task, auto, home = selection(monkeypatch, [["深夜清扫 復刻", "压抑的暴怒", "穿刺者们"], packs], 1)
+    choose = Mock(return_value=index)
+    monkeypatch.setattr(task, "randrange", choose)
+    task.select_theme_pack(True, 4, 1, True)
+    assert auto.refresh_count == 1
+    assert auto.selected == packs[index]
+    choose.assert_called_once_with(3)
     home.assert_not_called()
 
 
 @pytest.mark.parametrize("next_pack", ["被遗忘者们", "囊空如洗的赌徒"])
 def test_all_forbidden_refreshes_before_safe_selection(monkeypatch, next_pack):
     task, auto, home = selection(monkeypatch, [["自动工厂", "无法去爱"], [next_pack]], 1)
+    choose = Mock(side_effect=AssertionError("An available refresh must precede random fallback"))
+    monkeypatch.setattr(task, "randrange", choose)
     task.select_theme_pack(False, 1, 1, True)
     assert auto.selected == next_pack
     assert auto.refresh_count == 1
@@ -218,25 +252,22 @@ def test_default_empty_policy_preserves_unknown_and_event_selection(monkeypatch)
     home.assert_not_called()
 
 
-def test_mirror_worker_does_not_retry_when_all_packs_are_forbidden(monkeypatch):
+def test_mirror_worker_does_not_retry_cancelled_tasks(monkeypatch):
     from module.backends.base import BackendCancelled
     from module.config import cfg
 
-    selector, auto, home = selection(monkeypatch, [["自动工厂", "无法去爱"]], 0)
     task = import_module("tasks.base.script_task_scheme")
     monkeypatch.setattr(cfg, "config", cfg.config.model_copy(update={
         "auto_hard_mirror": False, "set_mirror_count": 1,
         "teams_be_select": [True], "teams_active_queue": [1],
     }))
     adventure = Mock()
-    adventure.run.side_effect = lambda: selector.select_theme_pack(False, 1, 1, True)
+    adventure.run.side_effect = BackendCancelled("Task stopped")
     constructor = Mock(return_value=adventure)
     monkeypatch.setattr(task, "Mirror", constructor)
     with pytest.raises(BackendCancelled):
         task.Mirror_task()
     constructor.assert_called_once()
-    assert auto.selected is None
-    home.assert_not_called()
 
 
 def test_global_bans_survive_team_override_and_yaml_sync(tmp_path):

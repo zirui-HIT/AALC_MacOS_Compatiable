@@ -1,7 +1,7 @@
-from backend_host.runtime import worker_sleep as sleep
+from random import randrange
 
+from backend_host.runtime import worker_sleep as sleep
 from module.automation import TextMatchResult, auto
-from module.backends.base import BackendCancelled
 from module.config import cfg, theme_list
 from module.decorator.decorator import begin_and_finish_time_log
 from module.logger import log
@@ -154,10 +154,18 @@ def select_theme_pack(hard_mode=False, floor=None, team_num=None, use_custom_the
         if refresh_times >= 0 and loop_count < 15:
             auto.mouse_to_blank(move_back=False)
 
-        if weight_list and max(weight_list) == float("-inf"):
-            msg = f"第{floor}层刷新已不可用，剩余卡包均为禁选或名称未确认；已停止任务，请手动处理选包"
-            log.error(msg)
-            raise BackendCancelled(msg)
+        if weight_list and (
+            max(weight_list) == float("-inf")
+            or all(name in {"unknown", "未知", "号线", "line"} for name in pack_name)
+        ):
+            # User-authorized last resort: reuse the existing selection below.
+            fallback_index = randrange(len(weight_list))
+            weight_list = [unknown_weight if index == fallback_index else float("-inf")
+                           for index in range(len(weight_list))]
+            log.warning(
+                f"第{floor}层刷新已不可用，剩余卡包均为禁选或名称未确认；"
+                f"随机兜底选择卡包：{pack_name[fallback_index]}"
+            )
 
         # 刷新用尽或入口不可用时，只要本轮已识别卡包，就按最高权重兜底。
         if refresh_times <= 0 or weight_list:
