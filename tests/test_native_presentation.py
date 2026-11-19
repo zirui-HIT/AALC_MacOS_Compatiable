@@ -323,7 +323,7 @@ def test_language_refresh_preserves_expanded_log_and_updates_dynamic_titles(monk
 
 def test_running_state_disables_nested_actions_and_completion_but_keeps_general_settings():
     app = navigation_app()
-    config = {**dict.fromkeys(TASK_KEYS, False), "language_in_program": "zh_cn", "set_EXP_count": 1, "set_thread_count": 2, "set_get_prize": 0, "set_lunacy_to_enkephalin": 1, "set_mirror_count": 2, "theme_mode": "AUTO", "teams_active_queue": [1], "floor_3_exit": False, "hard_mirror_chance": 2, "after_completion_actions": ["exit_game"], "keep_after_completion": False}
+    config = {**dict.fromkeys(TASK_KEYS, False), "language_in_program": "zh_cn", "set_EXP_count": 1, "set_thread_count": 2, "claim_mission_rewards": True, "claim_battle_pass_rewards": False, "claim_mail_rewards": True, "set_lunacy_to_enkephalin": 1, "set_mirror_count": 2, "theme_mode": "AUTO", "teams_active_queue": [1], "floor_3_exit": False, "hard_mirror_chance": 2, "after_completion_actions": ["exit_game"], "keep_after_completion": False}
     state = {"running": True, "stopping": False, "startup": False, "kind": "task", "paused": False, "queued": 0}
     app.data = {"config": config, "state": state, "version": "test"}
     app.page_index, app.mirror_section = 3, 3

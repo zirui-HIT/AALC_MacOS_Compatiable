@@ -652,9 +652,17 @@
       "label": "是否进行获取奖励",
       "type": "bool"
     },
-    "set_get_prize": {
-      "label": "奖励领取模式",
-      "type": "int"
+    "claim_mission_rewards": {
+      "label": "日常、周常及赛季任务奖励",
+      "type": "bool"
+    },
+    "claim_battle_pass_rewards": {
+      "label": "通行证奖励",
+      "type": "bool"
+    },
+    "claim_mail_rewards": {
+      "label": "邮件奖励",
+      "type": "bool"
     },
     "buy_enkephalin": {
       "label": "是否自动购买体力",
@@ -939,20 +947,6 @@
       ],
       [
         "1→2",
-        2
-      ]
-    ],
-    "set_get_prize_options": [
-      [
-        "邮件+日/周常",
-        0
-      ],
-      [
-        "日/周常",
-        1
-      ],
-      [
-        "邮件",
         2
       ]
     ],

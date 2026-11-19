@@ -27,7 +27,7 @@ def cocoa():
 def tool_app():
     app = Application.__new__(Application)
     app.data = {"config": {**dict.fromkeys(TASK_KEYS, False), "language_in_program": "zh_cn",
-        "set_EXP_count": 1, "set_thread_count": 1, "set_get_prize": 0, "set_lunacy_to_enkephalin": 1,
+        "set_EXP_count": 1, "set_thread_count": 1, "claim_mission_rewards": True, "claim_battle_pass_rewards": False, "claim_mail_rewards": True, "set_lunacy_to_enkephalin": 1,
         "set_mirror_count": 1, "theme_mode": "AUTO"},
         "state": {"running": False, "kind": None, "stopping": False, "startup": False, "paused": False, "queued": 0}, "version": "test"}
     app.editors, app.forms, app.task_buttons, app.task_summaries, app.team_order_controls = [], [], [], [], []

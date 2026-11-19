@@ -11,10 +11,10 @@ from utils.runtime_paths import SOURCE_ROOT
 def test_reward_scope_drives_task_order(monkeypatch, scope, expected):
     from module.config import cfg
     from tasks.base import script_task_scheme as script
-    monkeypatch.setattr(cfg, 'config', cfg.config.model_copy(update={'set_get_prize': scope}))
+    monkeypatch.setattr(cfg, 'config', cfg.config.model_copy(update={'claim_mission_rewards': scope in (0, 1), 'claim_battle_pass_rewards': False, 'claim_mail_rewards': scope != 1}))
     calls = []
     monkeypatch.setattr(script, 'back_init_menu', Mock())
-    monkeypatch.setattr(script, 'get_pass_prize', lambda: calls.append('pass'))
+    monkeypatch.setattr(script, 'get_pass_prize', lambda **kwargs: calls.append('pass') or True)
     monkeypatch.setattr(script, 'get_mail_prize', lambda: calls.append('mail'))
     script.to_get_reward()
     assert calls == expected

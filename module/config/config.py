@@ -9,7 +9,7 @@ from pathlib import Path
 from time import localtime, strftime, time
 from typing import Any, Optional
 
-from pydantic import BaseModel, ValidationError
+from pydantic import BaseModel, TypeAdapter, ValidationError
 from ruamel.yaml import YAML, YAMLError
 
 from module.after_completion_types import (
@@ -56,6 +56,15 @@ class Config(metaclass=SingletonMeta):
         log.debug(f"配置文件已加载，版本号：{self.version}, 配置版本: {self.get_value('config_version', '未知')}")
         # 进程退出前确保落盘
         atexit.register(self.flush)
+
+    @staticmethod
+    def _migrate_reward_settings(values):
+        if "set_get_prize" in values or values.get("config_version", 0) < 1794153600:
+            mode = TypeAdapter(int).validate_python(values.pop("set_get_prize", 0))
+            values.setdefault("claim_mission_rewards", mode in (0, 1))
+            values.setdefault("claim_mail_rewards", mode != 1)
+            values.setdefault("claim_battle_pass_rewards", False)
+        return values
 
     def _old_version_cfg_upgrade(self, saved_version: int, loaded_config: dict) -> None:
         """旧版本配置升级处理
@@ -249,6 +258,7 @@ class Config(metaclass=SingletonMeta):
                 raise TypeError("配置文件根节点必须是映射")
             if not isinstance(loaded_config.get("config_version", 0), int):
                 raise TypeError("配置文件版本号不是 int 类型")
+            loaded_config = self._migrate_reward_settings(loaded_config)
             if loaded_config.get("config_version", 0) < self.config.config_version:
                 saved_version = loaded_config.get("config_version", 0)
                 loaded_config["config_version"] = self.config.config_version
@@ -533,7 +543,7 @@ class Config(metaclass=SingletonMeta):
             with open(path, "r", encoding="utf-8") as file:
                 loaded_config = self.yaml.load(file)
             if loaded_config:
-                loaded_config = migrate_backend(loaded_config)
+                loaded_config = self._migrate_reward_settings(migrate_backend(loaded_config))
                 self.config = ConfigModel(**{**self._defaults, **loaded_config})
                 self.__dict__.pop("_runtime_restore_values", None)
                 queue_in_loaded_config = loaded_config.get("teams_active_queue")

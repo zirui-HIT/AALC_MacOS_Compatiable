@@ -7,7 +7,7 @@ from utils.runtime_paths import resource_path
 FIELDS = json.loads(resource_path("assets/config/native_fields.json").read_text())
 GROUPS = {
     "daily": ["set_EXP_count", "set_thread_count", "daily_teams", "use_continuous_combat", "use_continuous_combat_select", "targeted_teaming_EXP", "EXP_day_1_2", "EXP_day_3_4", "EXP_day_5_6", "EXP_day_7", "targeted_teaming_thread", *[f"thread_day_{i}" for i in range(1, 8)]],
-    "reward": ["set_get_prize"],
+    "reward": ["claim_mission_rewards", "claim_battle_pass_rewards", "claim_mail_rewards"],
     "energy": ["set_lunacy_to_enkephalin", "Dr_Grandet_mode", "skip_enkephalin"],
     "mirror": ["set_mirror_count", "hard_mirror", "no_weekly_bonuses", "floor_3_exit", "infinite_dungeons", "save_rewards", "hard_mirror_single_bonuses", "select_event_pack", "skip_event_pack", "re_claim_rewards", "fight_to_last_man"],
     "playcover": ["game_profile", "playcover_host", "playcover_port", "playcover_app_path", "playcover_bundle_id", "playcover_capture_method"],
@@ -34,7 +34,6 @@ OPTIONS = {
     "second_system_setting": FIELDS["options"]["second_systems"],
     "skill_replacement_select": FIELDS["options"]["skill_replacement_sinner"],
     "skill_replacement_mode": FIELDS["options"]["skill_replacement_mode"],
-    "set_get_prize": FIELDS["options"]["set_get_prize_options"],
     "set_lunacy_to_enkephalin": FIELDS["options"]["set_lunacy_to_enkephalin_options"],
     "game_profile": [["English", "ios_en"], ["中文（日文字库汉化）", "ios_zh_cn"]],
     "language_in_program": [["简体中文", "zh_cn"], ["English", "en"]],

@@ -479,7 +479,7 @@ def test_connection_invalid_numeric_input_never_sends_a_request():
 def state_app():
     app = Application.__new__(Application)
     app.editors = []
-    config = {**dict.fromkeys(TASK_KEYS, False), "language_in_program": "zh_cn", "set_EXP_count": 1, "set_thread_count": 1, "set_get_prize": 0, "set_lunacy_to_enkephalin": 1, "set_mirror_count": 1, "theme_mode": "AUTO"}
+    config = {**dict.fromkeys(TASK_KEYS, False), "language_in_program": "zh_cn", "set_EXP_count": 1, "set_thread_count": 1, "claim_mission_rewards": True, "claim_battle_pass_rewards": False, "claim_mail_rewards": True, "set_lunacy_to_enkephalin": 1, "set_mirror_count": 1, "theme_mode": "AUTO"}
     state = {"running": True, "stopping": False, "startup": False, "kind": "task", "paused": False, "queued": 0}
     app.data = {"config": config, "state": state, "version": "test"}
     app.page_index = 6

@@ -7,7 +7,7 @@ import pytest
 
 
 @pytest.mark.parametrize("mail", [None, (100, 100)])
-def test_pass_reward_failure_uses_at_most_one_fallback(monkeypatch, mail):
+def test_pass_reward_entry_timeout_stays_bounded(monkeypatch, mail):
     task = import_module("tasks.daily.get_prize")
     automation = Mock()
     captures = []
@@ -20,23 +20,26 @@ def test_pass_reward_failure_uses_at_most_one_fallback(monkeypatch, mail):
     automation.take_screenshot.side_effect = capture
     automation.find_element.side_effect = lambda path, **kwargs: mail if path == "home/mail_assets.png" else None
     automation.click_element.return_value = False
-    automation.find_text_element.return_value = False
+    automation.get_restore_time.return_value = None
+    automation.get_template_position.return_value = (50, 50)
     monkeypatch.setattr(task, "auto", automation)
-    monkeypatch.setattr(task.ImageUtils, "load_image", lambda _: True)
-    monkeypatch.setattr(task.ImageUtils, "get_bbox", lambda _: (0, 0, 20, 20))
-    task.get_pass_prize()
-    assert automation.mouse_click.call_count == (0 if mail is None else 1)
+    monkeypatch.setattr(task, "check_times", lambda _: len(captures) >= 20)
+    assert task.get_pass_prize() is False
+    assert len(captures) == 20
+    assert automation.mouse_click.call_count == (0 if mail is None else 20)
 
 
 def test_successful_pass_rewards_keep_daily_then_weekly_order(monkeypatch):
     task = import_module("tasks.daily.get_prize")
     automation = Mock()
-    automation.find_element.return_value = [(10, 20)]
+    automation.find_element.side_effect = lambda path, **kwargs: [(10, 20)] if path.endswith("pass_coin.png") else True
+    automation.get_restore_time.return_value = None
+    automation.find_regions_by_color.side_effect = [[(1, 1, 500)], [], [(1, 1, 500)], [], []]
     monkeypatch.setattr(task, "auto", automation)
     monkeypatch.setattr(task, "retry", lambda: True)
-    task.get_pass_prize()
+    assert task.get_pass_prize(claim_rewards=False) is True
     assert automation.mouse_click.call_count == 2
-    automation.click_element.assert_called_once_with("pass/weekly_assets.png")
+    assert [call.args[0] for call in automation.click_element.call_args_list] == ["pass/daily_assets.png", "pass/weekly_assets.png"]
 
 
 @pytest.mark.parametrize("kind", ["EXP", "thread"])

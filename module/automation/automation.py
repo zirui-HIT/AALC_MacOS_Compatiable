@@ -512,6 +512,19 @@ class Automation(metaclass=SingletonMeta):
                 init_game()
                 start_time = time.time()
 
+    def get_template_position(self, target: str, output="center"):
+        """Use the native resource resolver and existing configured image scale."""
+        if output not in {"center", "bbox"}:
+            raise ValueError(f"不支持的模板位置输出类型: {output}")
+        template = ImageUtils.load_image(target)
+        if template is None:
+            return None
+        bbox = ImageUtils.get_bbox(template)
+        if bbox is None:
+            return None
+        left, top, right, bottom = bbox
+        return tuple(bbox) if output == "bbox" else ((left + right) // 2, (top + bottom) // 2)
+
     def _reset_frame_cache(self) -> None:
         """仅缓存当前截图的派生数据，不延长截图的复用时间。"""
         self._screenshot_array_source = None
@@ -597,6 +610,11 @@ class Automation(metaclass=SingletonMeta):
                         my_crop=my_crop,
                         additional_stack=additional_stack,
                     )
+                    if (not center and cfg.backend == "playcover" and target == "home/back_assets.png"):
+                        center = self.find_image_element(
+                            "home/back2_assets.png", threshold, model=model,
+                            my_crop=my_crop, additional_stack=additional_stack,
+                        )
                     if (not center and my_crop is None and sys.platform == "darwin" and cfg.game_profile == "ios_en"
                             and path_manager.current_language == "en"):
                         center = self._find_event_grade(target)
