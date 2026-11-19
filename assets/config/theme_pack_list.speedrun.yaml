@@ -90,8 +90,8 @@ theme_pack_list_hard:
   four: -4 #四大家族
   opening: -2 # 血魔
   procession: -2 # 血魔
-  unchanging: -5 # 东朗
-  unch: -5 # 东朗；英文 OCR 短片段兜底
+  unchanging: -5 # 东朗、司田
+  unch: -5 # 东朗、司田；英文 OCR 短片段兜底
   evil: -5 # 亚哈
   heartb: -5 # 狼夫
   line 3&&termin: -5 # 3 号线终点站，区别于原版 3 号线
@@ -106,14 +106,14 @@ theme_pack_list_hard:
   unbound: -5 # 人皮（解放的暴怒）
   tangling: -5 # 卡塞蒂
   inert: -5 # 洋流、山茶花、时间杀人魔
-  excessive: -5 # 山茶花
+  excessive: -5 # 司田、棉花、玫瑰猎手
   sunk: -5 # 狼夫
   pride: -5 # 亚哈、金笠
   pitiful: -5 # 狼夫
   haze: -5 # 人皮
   season: 3  # 人皮
   corpses: 3  # 卡塞蒂、狼夫
-  might: 3  # 山茶花
+  might: 3  # 山茶花、东朗、司田、玫瑰猎手
   deluge: -5 # 洋流、山茶花
   poised: -5 # 亚哈、金笠、洋流
   ending: -5 # 桑丘
@@ -205,7 +205,7 @@ theme_pack_list_hard_cn:
   纷繁: -3 # 裁缝之王、油灰
   保存的: -3 # 黑派
   暴食: -3 # 红派
-  无改变: -5 # 东朗
+  无改变: -5 # 东朗、司田
   定义为: -5 # 亚哈
   心意相: -5 # 狼夫
   3号线&&终点: -5 # 3 号线终点站，区别于原版 3 号线
@@ -220,14 +220,14 @@ theme_pack_list_hard_cn:
   解放的: -5 # 人皮
   束缚的: -5 # 卡塞蒂
   停滞的: -5 # 洋流、山茶花、时间杀人魔
-  漫溢的: -5 # 山茶花
+  漫溢的: -5 # 司田、棉花、玫瑰猎手
   沉溺的: -5 # 狼夫
   自以为: -5 # 亚哈、金笠
   凄惨的: -5 # 狼夫
   摇曳: -5 # 人皮
   盛火: 3  # 人皮
   血海: 3  # 卡塞蒂、狼夫
-  破竹: 3  # 山茶花、东朗
+  破竹: 3  # 山茶花、东朗、司田、玫瑰猎手
   沉沦泛: -5 # 洋流、山茶花
   循环呼: -5 # 亚哈、金笠、洋流
   终焉: -5 # 桑丘
@@ -238,19 +238,19 @@ theme_pack_list_hard_cn:
 
 # 硬禁选独立于权重，按实际楼层及难度生效；填写上述中英文关键词。
 # 全局禁选始终生效，队伍文件只能追加；名单非空时未知/编号不明的包也不自动选。
-# 刷新耗尽且没有允许的卡包时停止任务，留在选包界面。
+# 刷新耗尽且没有允许的卡包时，按用户要求从当前候选随机兜底。
 # LCB定期体检及复刻共用 check / 体检，普通与困难的所有楼层均禁选。
 # 无割舍者是困难专属包；2026-10-28 第5层实测战败，困难各层均禁选。
-# 地狱鸡在 2026-11-14 的普通第2层出现战斗失败，普通与困难的所有楼层均禁选。
+# 2026-11-20：司田 Boss 池卡包在困难各层禁选；地狱鸡解除普通与困难各层禁选。
 # 新收录的四类卡包先保持不自动选择，待实测评估后再放行。
 forbidden_theme_packs:
-  normal_1: [automated, unloving, 自动, 无慈悲, 无法去爱, check, 体检, chick, 地狱鸡, campout, 开店]
-  normal_2: [automated, unloving, lake, 自动, 无慈悲, 无法去爱, 湖的, check, 体检, chick, 地狱鸡, campout, 开店]
-  normal_3: [unconf, dregs, 无作为, 未曾面对, 宅邸, check, 体检, chick, 地狱鸡, campout, 开店]
-  normal_4: [check, 体检, chick, 地狱鸡, campout, 开店]
-  normal_5: [check, 体检, chick, 地狱鸡, campout, 开店]
-  hard_1: [check, 体检, Unsever, 割舍, chick, 地狱鸡, campout, 开店, anarchy, creed, readvent, 纷繁, 保存的, 暴食]
-  hard_2: [check, 体检, Unsever, 割舍, chick, 地狱鸡, campout, 开店, anarchy, creed, readvent, 纷繁, 保存的, 暴食]
-  hard_3: [check, 体检, Unsever, 割舍, chick, 地狱鸡, campout, 开店, anarchy, creed, readvent, 纷繁, 保存的, 暴食]
-  hard_4: [violet, miracle, evil, 紫罗兰, 区的奇, 定义为, check, 体检, Unsever, 割舍, chick, 地狱鸡, campout, 开店, anarchy, creed, readvent, 纷繁, 保存的, 暴食]
-  hard_5: [line 4&&section&&#3, line 4&&section&&#4, line 5, evil, ending, 4号线&&3区段, 4号线&&4区段, 5号线, 定义为, 终焉, check, 体检, Unsever, 割舍, chick, 地狱鸡, campout, 开店, anarchy, creed, readvent, 纷繁, 保存的, 暴食]
+  normal_1: [automated, unloving, 自动, 无慈悲, 无法去爱, check, 体检, campout, 开店]
+  normal_2: [automated, unloving, lake, 自动, 无慈悲, 无法去爱, 湖的, check, 体检, campout, 开店]
+  normal_3: [unconf, dregs, 无作为, 未曾面对, 宅邸, check, 体检, campout, 开店]
+  normal_4: [check, 体检, campout, 开店]
+  normal_5: [check, 体检, campout, 开店]
+  hard_1: [check, 体检, Unsever, 割舍, campout, 开店, anarchy, creed, readvent, 纷繁, 保存的, 暴食, might, unchanging, unch, excessive, 破竹, 无改变, 漫溢的]
+  hard_2: [check, 体检, Unsever, 割舍, campout, 开店, anarchy, creed, readvent, 纷繁, 保存的, 暴食, might, unchanging, unch, excessive, 破竹, 无改变, 漫溢的]
+  hard_3: [check, 体检, Unsever, 割舍, campout, 开店, anarchy, creed, readvent, 纷繁, 保存的, 暴食, might, unchanging, unch, excessive, 破竹, 无改变, 漫溢的]
+  hard_4: [violet, miracle, evil, 紫罗兰, 区的奇, 定义为, check, 体检, Unsever, 割舍, campout, 开店, anarchy, creed, readvent, 纷繁, 保存的, 暴食, might, unchanging, unch, excessive, 破竹, 无改变, 漫溢的]
+  hard_5: [line 4&&section&&#3, line 4&&section&&#4, line 5, evil, ending, 4号线&&3区段, 4号线&&4区段, 5号线, 定义为, 终焉, check, 体检, Unsever, 割舍, campout, 开店, anarchy, creed, readvent, 纷繁, 保存的, 暴食, might, unchanging, unch, excessive, 破竹, 无改变, 漫溢的]
