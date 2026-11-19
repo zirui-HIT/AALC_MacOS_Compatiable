@@ -7,6 +7,12 @@
       "sha": "2fcb1b4620108c9bb0cf138f82790dd13f46356c",
       "local_commit": "20d490a0faa93bbf990faa91483482b6bdf8e6c4",
       "scope": "selected_macos_fixes"
+    },
+    {
+      "tag": "V1.6.2",
+      "sha": "ec8aa1750f823f2c5daf76d1807282b17b968a30",
+      "local_commit": "dc42e022c5d9bbd845a624ab94fbe3ff0c3d6156",
+      "scope": "selected_macos_fixes"
     }
   ]
 }
