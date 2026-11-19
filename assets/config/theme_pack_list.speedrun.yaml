@@ -112,10 +112,10 @@ theme_pack_list_hard:
   pitiful: -5 # 狼夫
   haze: -5 # 人皮
   season: 3  # 人皮
-  corpses: 3  # 卡塞蒂、狼夫
+  corpses: 3  # 螺旋、狼夫、卡塞蒂
   might: 3  # 山茶花、东朗、司田、玫瑰猎手
-  deluge: -5 # 洋流、山茶花
-  poised: -5 # 亚哈、金笠、洋流
+  deluge: -5 # 洋流、山茶花、肖像
+  poised: -5 # 亚哈三人组、金笠、洋流、耐莉
   ending: -5 # 桑丘
   witnessing: -5 # 夫子、贾母
   Text: -5 #卢西奥、火蛾
@@ -226,10 +226,10 @@ theme_pack_list_hard_cn:
   凄惨的: -5 # 狼夫
   摇曳: -5 # 人皮
   盛火: 3  # 人皮
-  血海: 3  # 卡塞蒂、狼夫
+  血海: 3  # 螺旋、狼夫、卡塞蒂
   破竹: 3  # 山茶花、东朗、司田、玫瑰猎手
-  沉沦泛: -5 # 洋流、山茶花
-  循环呼: -5 # 亚哈、金笠、洋流
+  沉沦泛: -5 # 洋流、山茶花、肖像
+  循环呼: -5 # 亚哈三人组、金笠、洋流、耐莉
   终焉: -5 # 桑丘
   观望: -5 # 夫子、贾母
   刀与作: -5 # 黑檀、莲、阿尔比娜
@@ -243,14 +243,15 @@ theme_pack_list_hard_cn:
 # 无割舍者是困难专属包；2026-10-28 第5层实测战败，困难各层均禁选。
 # 2026-11-20：司田 Boss 池卡包在困难各层禁选；地狱鸡解除普通与困难各层禁选。
 # 新收录的四类卡包先保持不自动选择，待实测评估后再放行。
+# 2026-11-20：补充开花、凝视、禁锢/抓取及亚哈 Boss 池的自动单通风险，应用于所有队伍。
 forbidden_theme_packs:
-  normal_1: [automated, unloving, 自动, 无慈悲, 无法去爱, check, 体检, campout, 开店]
-  normal_2: [automated, unloving, lake, 自动, 无慈悲, 无法去爱, 湖的, check, 体检, campout, 开店]
-  normal_3: [unconf, dregs, 无作为, 未曾面对, 宅邸, check, 体检, campout, 开店]
-  normal_4: [check, 体检, campout, 开店]
-  normal_5: [check, 体检, campout, 开店]
-  hard_1: [check, 体检, Unsever, 割舍, campout, 开店, anarchy, creed, readvent, 纷繁, 保存的, 暴食, might, unchanging, unch, excessive, 破竹, 无改变, 漫溢的]
-  hard_2: [check, 体检, Unsever, 割舍, campout, 开店, anarchy, creed, readvent, 纷繁, 保存的, 暴食, might, unchanging, unch, excessive, 破竹, 无改变, 漫溢的]
-  hard_3: [check, 体检, Unsever, 割舍, campout, 开店, anarchy, creed, readvent, 纷繁, 保存的, 暴食, might, unchanging, unch, excessive, 破竹, 无改变, 漫溢的]
-  hard_4: [violet, miracle, evil, 紫罗兰, 区的奇, 定义为, check, 体检, Unsever, 割舍, campout, 开店, anarchy, creed, readvent, 纷繁, 保存的, 暴食, might, unchanging, unch, excessive, 破竹, 无改变, 漫溢的]
-  hard_5: [line 4&&section&&#3, line 4&&section&&#4, line 5, evil, ending, 4号线&&3区段, 4号线&&4区段, 5号线, 定义为, 终焉, check, 体检, Unsever, 割舍, campout, 开店, anarchy, creed, readvent, 纷繁, 保存的, 暴食, might, unchanging, unch, excessive, 破竹, 无改变, 漫溢的]
+  normal_1: [automated, unloving, 自动, 无慈悲, 无法去爱, check, 体检, campout, 开店, unconf, 无作为, 未曾面对, flowers, 落花]
+  normal_2: [automated, unloving, lake, 自动, 无慈悲, 无法去爱, 湖的, check, 体检, campout, 开店, unconf, 无作为, 未曾面对, flowers, 落花]
+  normal_3: [unconf, dregs, 无作为, 未曾面对, 宅邸, check, 体检, campout, 开店, flowers, 落花]
+  normal_4: [check, 体检, campout, 开店, unconf, 无作为, 未曾面对, flowers, 落花]
+  normal_5: [check, 体检, campout, 开店, unconf, 无作为, 未曾面对, flowers, 落花]
+  hard_1: [check, 体检, Unsever, 割舍, campout, 开店, anarchy, creed, readvent, 纷繁, 保存的, 暴食, might, unchanging, unch, excessive, 破竹, 无改变, 漫溢的, unconf, 无作为, 未曾面对, flowers, 落花, inert, 停滞的, deluge, 沉沦泛, witnessing, 观望, corpses, 血海, line 3&&termin, 3号线&&终点, evil, 定义为, pride, 自以为, poised, 循环呼]
+  hard_2: [check, 体检, Unsever, 割舍, campout, 开店, anarchy, creed, readvent, 纷繁, 保存的, 暴食, might, unchanging, unch, excessive, 破竹, 无改变, 漫溢的, unconf, 无作为, 未曾面对, flowers, 落花, inert, 停滞的, deluge, 沉沦泛, witnessing, 观望, corpses, 血海, line 3&&termin, 3号线&&终点, evil, 定义为, pride, 自以为, poised, 循环呼]
+  hard_3: [check, 体检, Unsever, 割舍, campout, 开店, anarchy, creed, readvent, 纷繁, 保存的, 暴食, might, unchanging, unch, excessive, 破竹, 无改变, 漫溢的, unconf, 无作为, 未曾面对, flowers, 落花, inert, 停滞的, deluge, 沉沦泛, witnessing, 观望, corpses, 血海, line 3&&termin, 3号线&&终点, evil, 定义为, pride, 自以为, poised, 循环呼]
+  hard_4: [violet, miracle, evil, 紫罗兰, 区的奇, 定义为, check, 体检, Unsever, 割舍, campout, 开店, anarchy, creed, readvent, 纷繁, 保存的, 暴食, might, unchanging, unch, excessive, 破竹, 无改变, 漫溢的, unconf, 无作为, 未曾面对, flowers, 落花, inert, 停滞的, deluge, 沉沦泛, witnessing, 观望, corpses, 血海, line 3&&termin, 3号线&&终点, pride, 自以为, poised, 循环呼]
+  hard_5: [line 4&&section&&#3, line 4&&section&&#4, line 5, evil, ending, 4号线&&3区段, 4号线&&4区段, 5号线, 定义为, 终焉, check, 体检, Unsever, 割舍, campout, 开店, anarchy, creed, readvent, 纷繁, 保存的, 暴食, might, unchanging, unch, excessive, 破竹, 无改变, 漫溢的, unconf, 无作为, 未曾面对, flowers, 落花, inert, 停滞的, deluge, 沉沦泛, witnessing, 观望, corpses, 血海, line 3&&termin, 3号线&&终点, pride, 自以为, poised, 循环呼]

@@ -7,8 +7,8 @@
 | 楼层 | 推荐包及顺序 | 主要普通备选 |
 |---|---|---|
 | 1，普通 | 赌徒 8 | 被遗忘者们、钉与锤、信仰、工坊，各 3 |
-| 2，普通 | 赌徒 8 | S.E.A. 4、信仰/工坊/当贯者 3、当斩者 1 |
-| 3，普通 | 憎恶与绝望 7 | 落花 4、当贯者 3、当斩者 1 |
+| 2，普通 | 地狱鸡 9 → 赌徒 8 | S.E.A. 4、信仰/工坊/当贯者 3、当斩者 1 |
+| 3，普通 | 憎恶与绝望 7 | 当贯者 3、当斩者 1 |
 | 4，困难 | 20 区复刻 9 → 2 号线 8 → 憎恶与绝望 7 | 异常地震带 6、某个世界/时间杀人时间普通版 4、肉斩骨断普通版 3 |
 | 5，困难 | 3 号线 10 → 20 区复刻 9 → 2 号线 8 | 异常地震带 6、时间杀人时间普通版 4、1 号线 3 |
 
@@ -54,7 +54,9 @@
 | 层与难度 | 严禁选择 |
 |---|---|
 | 所有层，普通与困难 | LCB定期体检及其复刻（2026-10-29 追加） |
+| 所有层，普通与困难 | 未曾面对 / 无作为者、落花（2026-11-20 按自动单通机制风险补充） |
 | 所有层，困难 | 破竹之势、无改变者、漫溢的暴食（2026-11-20 按司田 Boss 池追加） |
+| 所有层，困难 | 停滞的怠惰、沉沦泛滥、不思观望、尸山血海、3 号线终点站、定义为恶、自以为是的傲慢、循环呼吸（2026-11-20 按自动单通机制风险补充） |
 | 所有层，困难 | 无割舍者 / The Unsevering（2026-11-06 根据战败记录追加） |
 | 1，普通 | 自动化工厂、二章主线包（无法去爱 / 无慈悲者） |
 | 2，普通 | 自动化工厂、二章主线包、湖中世界（汉化名「湖的世界」） |
@@ -63,7 +65,7 @@
 | 5，困难 | 4 号线第 3 区段、4 号线第 4 区段、5 号线、五章主线包、七章主线包（梦之终焉） |
 
 **20 区复刻版仍是推荐包**，第 4 层的禁选只匹配普通版。
-其他原本 -5 的包仍是软低优先级，不会一并扩大为硬禁选。
+未列入禁选的其他 -5 卡包仍是软低优先级，不会一并扩大为硬禁选。
 
 配置保存在全局和队伍 YAML 的 `forbidden_theme_packs` 中。
 键为 `normal_1`～`normal_5`、`hard_1`～`hard_5`；值是权重名单中精确的中英文关键词，
@@ -305,3 +307,34 @@ Windows 路径继续使用原参数。接续已有困难镜牢、切换未生效
 232 项主题包、目录与执行基线测试通过；另以原选包函数、真实关键词匹配和输入替身验证
 50 组中英文策略场景，确认司田包不能用权重 99 覆盖常规禁选，地狱鸡在普通/困难各层均可正常选择。
 未推进游戏。配置原件备份于 `.runtime/farmwatch-bans-20261120/config-backup/`。
+
+## 2026-11-20 自动单通机制风险补充
+
+用户确认本次补充应用到全局及两个现有编队，包括未启用单通的队伍 2。
+复用已有 `forbidden_theme_packs`，不新增选包或战斗分支。这里按现有自动战斗流程的风险禁选，
+并不宣称这些 Boss 在所有人格、饰品及手动操作条件下都无法单通。
+
+| 卡包 | 核对到的风险 / 对应关键词 |
+|---|---|
+| [未曾面对 / 无作为者](https://www.limbuscompany.tools/mirror-dungeon/theme-packs/the-unconfronting) | 克罗默的凝视在战斗开始施加，导致次回合强制混乱；`unconf`、`无作为`、`未曾面对`。原来仅普通第 3 层禁选，现在普通、困难各层统一排除。 |
+| [落花](https://www.limbuscompany.tools/mirror-dungeon/theme-packs/falling-flowers)、[停滞的怠惰](https://www.limbuscompany.tools/mirror-dungeon/theme-packs/inert-sloth)、[沉沦泛滥](https://www.limbuscompany.tools/mirror-dungeon/theme-packs/sinking-deluge) | Boss 池包含山茶花；开花叠满会使唯一角色无法行动。分别使用 `flowers` / `落花`、`inert` / `停滞的`、`deluge` / `沉沦泛`。落花普通/困难各层禁选，后两类困难各层禁选；司田名单中的破竹之势已同时覆盖山茶花。 |
+| [不思观望](https://www.limbuscompany.tools/mirror-dungeon/theme-packs/the-surrendered-witnessing) | 单通攻略指出贾母玉石禁锢会使单通失败，需要足够输出跳过机制或特定人格处理；现有自动流程不保证这些条件。困难各层追加 `witnessing` / `观望`。 |
+| [尸山血海](https://www.limbuscompany.tools/mirror-dungeon/theme-packs/mountain-of-corpses-sea-of-blood)、[3 号线终点站](https://www.limbuscompany.tools/mirror-dungeon/theme-packs/line-3-terminus) | Boss 池包含轻蔑螺旋；抓取命中后使角色无法行动，单人没有队友破坏抓握救援。困难各层追加 `corpses` / `血海`、`line 3&&termin` / `3号线&&终点`。普通 3 号线长战包的 Boss 池不同，保留其权重 10 和可选状态，不用通用 `line 3` 禁掉整个系列。 |
+| [定义为恶](https://www.limbuscompany.tools/mirror-dungeon/theme-packs/the-evil-defining)、[自以为是的傲慢](https://www.limbuscompany.tools/mirror-dungeon/theme-packs/tyrannical-pride)、[循环呼吸](https://www.limbuscompany.tools/mirror-dungeon/theme-packs/poised-breathing) | 补齐已有亚哈禁选所覆盖的 Boss 池：三人组的猎物标记、护卫改向与单方面协同攻击，以及神备亚哈多阶段战斗，使自动单人处理不稳定。`evil` / `定义为` 从困难第 4/5 层扩展为困难各层，并追加 `pride` / `自以为`、`poised` / `循环呼`。 |
+
+机制资料：[克罗默](https://limbuscompany.wiki.gg/wiki/Kromer/Enemy/Kromer)、
+[山茶花](https://limbuscompany.wiki.gg/wiki/Dongbaek_E.G.O%3A%3ASpicebush)、
+[轻蔑螺旋](https://limbuscompany.wiki.gg/wiki/Spiral_of_Contempt/Enemy)、
+[亚哈](https://limbuscompany.wiki.gg/wiki/Ahab/Enemy)、
+[单通风险攻略的贾母与山茶花说明](https://steamcommunity.com/sharedfiles/filedetails/?id=3564345378&l=english)。
+这些是资料核查与现有自动流程分析，未为验证名单推进游戏或实战挑战 Boss。
+
+全局与队伍 1 的自定义名单同步补充；队伍 2 保持使用全局名单，不新增自定义文件。
+保留 LCB 定期体检及复刻、无割舍者等已有禁选，地狱鸡继续解除禁选。
+所有原权重、阈值、两个编队开关、商店速购和领奖设置保留。
+全禁选/未知且无法刷新时，仍按此前用户要求随机选择当前候选，这个例外也可能选中上述卡包。
+
+232 项主题包、目录与执行基线回归通过。另以现有读取器、真实关键词匹配和原选包函数验证
+388 组场景，覆盖两个编队、普通/困难各层及中英文；仅在测试输入中把禁选权重抬至 99，
+确认其不能覆盖禁选，并确认地狱鸡、普通 3 号线和全禁选后的随机例外保留。
+原配置备份沿用上节目录，只有两份生效主题包配置的禁选字段发生变化。
